@@ -68,18 +68,18 @@ class ADBController:
                 data["temperature_c"] = int(value) / 10.0
         return data
 
-     @staticmethod
-     def set_battery_level(index: int, level: int) -> str:
-         """Establece el nivel de batería simulado (0-100)."""
-         return ADBController.shell(index, f"dumpsys battery set level {level}")
+    @staticmethod
+    def set_battery_level(index: int, level: int) -> str:
+        """Establece el nivel de batería simulado (0-100)."""
+        return ADBController.shell(index, f"dumpsys battery set level {level}")
 
-     @staticmethod
-     def reset_battery(index: int) -> str:
-         """Restaura la batería a su estado real."""
-         return ADBController.shell(index, "dumpsys battery reset")
+    @staticmethod
+    def reset_battery(index: int) -> str:
+        """Restaura la batería a su estado real."""
+        return ADBController.shell(index, "dumpsys battery reset")
 
-     @staticmethod
-     def set_bluetooth(index: int, enable: bool) -> str:
-         """Activa o desactiva el Bluetooth (requiere permisos)."""
-         state = "1" if enable else "0"
-         return ADBController.shell(index, f"service call bluetooth_manager {state}")
+    @staticmethod
+    def set_bluetooth(index: int, enable: bool) -> str:
+        """Activa o desactiva el Bluetooth (requiere permisos)."""
+        state = "1" if enable else "0"
+        return ADBController.shell(index, f"service call bluetooth_manager {state}")
