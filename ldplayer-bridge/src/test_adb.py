@@ -1,69 +1,59 @@
-# test_adb.py
-import asyncio
-import os
 import sys
-from config import settings
-from core.adb import ADBController
-from core.ldplayer import LDConsole
+import os
+import subprocess
 
-async def test_adb():
-    index = 0
+# Añadir el directorio src al path para importar config
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from config import settings
+
+def test_adb(index=0):
     print(f"=== Probando ADB en instancia {index} ===")
     
-    # Verificar que el binario de ADB existe
+    # Verificar que ADB_PATH existe
     adb_path = settings.ADB_PATH
     if not os.path.exists(adb_path):
         print(f"❌ ADB no encontrado en: {adb_path}")
         print("   Sugerencia: Configura ADB_PATH en tu .env con la ruta completa a adb.exe de LDPlayer.")
         print("   Ejemplo: ADB_PATH=C:\\LDPlayer\\LDPlayer9\\adb.exe")
-        return
+        return False
     
-    # Verificar estado de la instancia
-    instances = LDConsole.list_instances()
-    inst = next((i for i in instances if i["index"] == index), None)
-    if not inst:
-        print(f"❌ Instancia {index} no existe")
-        return
+    print(f"✅ ADB encontrado en: {adb_path}")
     
-    if not inst["android_started"]:
-        print(f"⚠️  Instancia {index} está apagada (android_started=False)")
-        print("   Debes encenderla primero (usando /launch o desde LDPlayer)")
-        # Opcional: preguntar si quieres encenderla
-        # respuesta = input("¿Quieres encenderla ahora? (s/n): ")
-        # if respuesta.lower() == 's':
-        #     LDConsole.launch(index=index)
-        #     await asyncio.sleep(5)  # esperar que arranque
-        return
+    port = settings.ADB_BASE_PORT + (index * 2)
+    print(f"Conectando a 127.0.0.1:{port}...")
     
-    # Intentar conexión ADB
-    port = ADBController.get_port(index)
-    print(f"Conectando a 127.0.0.1:{port} ...")
+    # Intentar conectar
+    connect_cmd = [adb_path, "connect", f"127.0.0.1:{port}"]
+    result = subprocess.run(connect_cmd, capture_output=True, text=True)
+    
+    if "connected" not in result.stdout and "already connected" not in result.stdout:
+        print(f"❌ No se pudo conectar: {result.stdout.strip()}")
+        print("   Asegúrate de que la instancia esté encendida y el puerto esté disponible.")
+        return False
+    
+    print("✅ Conectado")
+    
+    # Consultar modelo
+    model_cmd = [adb_path, "-s", f"127.0.0.1:{port}", "shell", "getprop", "ro.product.model"]
+    model_result = subprocess.run(model_cmd, capture_output=True, text=True)
+    model = model_result.stdout.strip()
+    print(f"Modelo: {model}")
+    
+    # Consultar batería usando el método get_battery_health de ADBController
     try:
-        ADBController.connect(index)
-        print("✅ Conexión ADB establecida")
-    except Exception as e:
-        print(f"❌ Error al conectar ADB: {e}")
-        return
-    
-    # Probar comando básico: devices
-    try:
-        output = ADBController.shell(index, "getprop ro.product.model")
-        print(f"✅ Comando ADB exitoso. Modelo: {output.strip()}")
-    except Exception as e:
-        print(f"❌ Error ejecutando comando ADB: {e}")
-        return
-    
-    # Probar dumpsys battery
-    try:
+        from core.adb import ADBController
         battery = ADBController.get_battery_health(index)
-        print("✅ Estado de batería:")
-        print(f"   Nivel: {battery.get('level', '?')}%")
-        print(f"   Salud: {battery.get('health', '?')}")
-        print(f"   Estado: {battery.get('status', '?')}")
-        if 'temperature_c' in battery:
-            print(f"   Temperatura: {battery['temperature_c']}°C")
+        print(f"Batería: {battery}")
     except Exception as e:
-        print(f"❌ Error obteniendo batería: {e}")
+        print(f"Error al obtener batería: {e}")
+        # Fallback: obtener manualmente
+        battery_cmd = [adb_path, "-s", f"127.0.0.1:{port}", "shell", "dumpsys", "battery"]
+        battery_result = subprocess.run(battery_cmd, capture_output=True, text=True)
+        print("Salida cruda de dumpsys battery:")
+        print(battery_result.stdout)
+    
+    return True
 
 if __name__ == "__main__":
-    asyncio.run(test_adb())
+    test_adb()
