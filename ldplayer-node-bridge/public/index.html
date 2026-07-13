@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LDPlayer Bridge — Panel de control</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #14171c;
+    --panel-2: #191d23;
+    --line: #262b33;
+    --text: #dfe3e8;
+    --muted: #7a828c;
+    --accent: #ffb454;
+    --accent-dim: #7a5a2c;
+    --cyan: #5ee6d0;
+    --ok: #4ade80;
+    --bad: #f87171;
+    --warn: #fbbf24;
+    --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--sans);
+    margin: 0;
+    background:
+      radial-gradient(circle at 15% -10%, #1c2129 0%, transparent 45%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 1.75rem clamp(1rem, 4vw, 3rem) 3rem;
+  }
+
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .brand { display: flex; align-items: center; gap: .65rem; }
+  .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+  }
+  .brand h1 {
+    font-size: 1rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin: 0;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .brand small { display: block; color: var(--muted); font-size: .72rem; letter-spacing: .04em; margin-top: 2px; }
+
+  .py-status { display: flex; align-items: center; gap: .6rem; font-family: var(--mono); font-size: .8rem; }
+  .led { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .led.running { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .led.stopped { background: var(--bad); box-shadow: 0 0 8px var(--bad); }
+  .py-status .btns { display: flex; gap: .35rem; margin-left: .5rem; }
+
+  button {
+    font-family: var(--sans);
+    cursor: pointer;
+    padding: .45rem .85rem;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: .8rem;
+    font-weight: 600;
+    transition: border-color .15s ease, background .15s ease, transform .05s ease;
+  }
+  button:hover:not(:disabled) { border-color: #3a4150; background: #1f242c; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  button.primary { background: linear-gradient(180deg, #ffbf6b, var(--accent)); color: #241505; border-color: var(--accent); }
+  button.primary:hover:not(:disabled) { filter: brightness(1.05); }
+  button.danger { border-color: #5a2a2a; color: #ffb3b3; }
+  button.danger:hover:not(:disabled) { background: #2a1616; }
+  button.ghost { background: transparent; }
+  button.small { padding: .3rem .55rem; font-size: .72rem; }
+
+  section.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1.1rem;
+  }
+  .panel-title {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    margin: 0 0 .8rem;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--cyan);
+    font-weight: 700;
+  }
+  .panel-title .hint { color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; font-size: .75rem; }
+
+  .row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .row + .row { margin-top: .7rem; }
+
+  .field { display: flex; flex-direction: column; gap: .25rem; }
+  .field label { font-size: .7rem; color: var(--muted); }
+  .field .unit { color: var(--muted); font-size: .7rem; }
+  input[type=number] {
+    width: 78px;
+    padding: .4rem .5rem;
+    background: #0e1013;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: .8rem;
+  }
+  input[type=number]:focus { outline: none; border-color: var(--cyan); }
+
+  .chain-flow {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--muted);
+    background: #0e1013;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: .55rem .7rem;
+    margin-top: .8rem;
+  }
+  .chain-flow .step { color: var(--text); }
+  .chain-flow .arrow { color: var(--accent-dim); }
+
+  .chain-status-pill {
+    font-family: var(--mono);
+    font-size: .72rem;
+    padding: .25rem .6rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .chain-status-pill.active { color: #241505; background: var(--accent); border-color: var(--accent); }
+
+  table { border-collapse: collapse; width: 100%; }
+  thead th {
+    text-align: left;
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    padding: .5rem .6rem;
+    border-bottom: 1px solid var(--line);
+  }
+  tbody td {
+    padding: .5rem .6rem;
+    border-bottom: 1px solid #1d222a;
+    font-size: .82rem;
+    vertical-align: middle;
+  }
+  tbody tr:hover { background: #171b21; }
+  .badge { display: inline-flex; align-items: center; gap: .3rem; font-family: var(--mono); font-size: .72rem; }
+  .badge.on { color: var(--ok); }
+  .badge.off { color: var(--bad); }
+  .actions { display: flex; gap: .3rem; flex-wrap: wrap; }
+
+  #log {
+    background: #07090b;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: #8fe38f;
+    font-family: var(--mono);
+    font-size: .74rem;
+    height: 230px;
+    overflow-y: auto;
+    padding: .7rem .8rem;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+
+  input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+</style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <div>
+        <h1>LDPlayer Bridge</h1>
+        <small>Panel de control de instancias</small>
+      </div>
+    </div>
+    <div class="py-status">
+      <span class="led" id="pyLed"></span>
+      Python: <b id="pyState">-</b>
+      <div class="btns">
+        <button class="small" onclick="serviceAction('start')">Start</button>
+        <button class="small" onclick="serviceAction('stop')">Stop</button>
+        <button class="small" onclick="serviceAction('restart')">Restart</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel">
+    <p class="panel-title">Selección <span class="hint">— aplica a todas las acciones en cadena de abajo</span></p>
+    <div class="row">
+      <button onclick="toggleSelectAll()">☑ Marcar / desmarcar todas</button>
+      <button class="danger" onclick="powerAllOff()">🔴 Apagar seleccionadas (en paralelo)</button>
+      <span class="hint" style="font-size:.75rem;">Si no marcás ninguna, las acciones en cadena corren sobre todas.</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <p class="panel-title">Encendido en cadena <span class="hint">— una por una, esperando el boot antes de pasar a la siguiente</span></p>
+    <div class="row">
+      <div class="field">
+        <label for="powerBootTimeoutSec">Timeout de boot</label>
+        <div class="row" style="gap:.3rem;"><input type="number" id="powerBootTimeoutSec" value="90" min="10" /><span class="unit">seg</span></div>
+      </div>
+      <div class="field">
+        <label for="powerGapSec">Espera antes de la siguiente</label>
+        <div class="row" style="gap:.3rem;"><input type="number" id="powerGapSec" value="5" min="0" /><span class="unit">seg</span></div>
+      </div>
+      <button id="powerChainBtn" class="primary" onclick="runPowerChain()">🟢 Encender todas (cadena)</button>
+      <button id="powerChainStopBtn" class="ghost" onclick="stopPowerChain()" disabled>■ Detener</button>
+      <span class="chain-status-pill" id="powerChainStatus">Inactivo</span>
+    </div>
+    <div class="chain-flow">
+      <span class="step">launch</span><span class="arrow">→</span>
+      <span class="step">esperar boot</span><span class="arrow">→</span>
+      <span class="step">esperar delay</span><span class="arrow">→</span>
+      <span class="step">siguiente instancia</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <p class="panel-title">Cadena de instalación <span class="hint">— secuencial, con install de soks.apk + earn.apk</span></p>
+    <div class="row">
+      <div class="field">
+        <label for="chainBootTimeoutSec">Timeout de boot</label>
+        <div class="row" style="gap:.3rem;"><input type="number" id="chainBootTimeoutSec" value="90" min="10" /><span class="unit">seg</span></div>
+      </div>
+      <div class="field">
+        <label for="chainInstallDelaySec">Espera tras cada instalación (y antes de cerrar)</label>
+        <div class="row" style="gap:.3rem;"><input type="number" id="chainInstallDelaySec" value="10" min="0" /><span class="unit">seg</span></div>
+      </div>
+      <div class="field">
+        <label for="chainDelaySec">Espera tras cerrar, antes de la siguiente</label>
+        <div class="row" style="gap:.3rem;"><input type="number" id="chainDelaySec" value="15" min="0" /><span class="unit">seg</span></div>
+      </div>
+      <button id="chainStartBtn" class="primary" onclick="runChain()">▶ Ejecutar cadena</button>
+      <button id="chainStopBtn" class="ghost" onclick="stopChain()" disabled>■ Detener</button>
+      <span class="chain-status-pill" id="chainStatus">Inactivo</span>
+    </div>
+    <div class="chain-flow">
+      <span class="step">launch</span><span class="arrow">→</span>
+      <span class="step">esperar boot</span><span class="arrow">→</span>
+      <span class="step">instalar soks.apk</span><span class="arrow">→</span>
+      <span class="step">esperar delay</span><span class="arrow">→</span>
+      <span class="step">instalar earn.apk</span><span class="arrow">→</span>
+      <span class="step">esperar delay</span><span class="arrow">→</span>
+      <span class="step">quit</span><span class="arrow">→</span>
+      <span class="step">esperar delay</span><span class="arrow">→</span>
+      <span class="step">siguiente instancia</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <p class="panel-title">Instancias</p>
+    <table>
+      <thead><tr><th></th><th>Index</th><th>Nombre</th><th>Android</th><th>Batería</th><th>Acciones</th></tr></thead>
+      <tbody id="instancesBody"></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <p class="panel-title">Log</p>
+    <div id="log"></div>
+  </section>
+
+  <script>
+    // ---- Config fija de APKs para la cadena de instalación (orden: socks primero, earn después) ----
+    const CHAIN_APKS = [
+      { label: 'socks', apk_path: 'C:\\apks\\soks.apk' },
+      { label: 'earn',  apk_path: 'C:\\apks\\earn.apk' },
+    ];
+
+    const logEl = document.getElementById('log');
+    function log(line, cls) {
+      const span = cls ? `<span class="${cls}">${line}</span>` : line;
+      logEl.innerHTML += span + '\n';
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+    function secInput(id, fallback) {
+      const el = document.getElementById(id);
+      const v = Number(el?.value);
+      return Number.isFinite(v) && v >= 0 ? v : fallback;
+    }
+
+    async function postJSON(url, body) {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      });
+      let payload = null;
+      try { payload = await r.json(); } catch {}
+      return { status: r.status, ok: r.ok, payload };
+    }
+    async function getJSON(url) {
+      const r = await fetch(url);
+      let payload = null;
+      try { payload = await r.json(); } catch {}
+      return { status: r.status, ok: r.ok, payload };
+    }
+
+    async function serviceAction(action) {
+      const r = await fetch(`/api/service/${action}`, { method: 'POST' });
+      log(`[service] ${action} -> ${r.status}`);
+    }
+
+    async function instanceAction(index, action) {
+      const r = await fetch(`/api/instances/${index}/${action}`, { method: 'POST' });
+      log(`[instances] ${action} #${index} -> ${r.status}`);
+      return r.status;
+    }
+
+    // --- Instalar APK manual ---
+    async function installApk(index) {
+      const apkPath = prompt('Ruta local del APK en la máquina donde corre Python (ej: C:\\apks\\app.apk):');
+      if (!apkPath) return;
+      const { status, payload } = await postJSON(`/api/instances/${index}/install`, { apk_path: apkPath });
+      log(`[instances] install #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
+    }
+
+    // --- Correr una app instalada ---
+    async function runApp(index) {
+      const packageName = prompt('Package name a correr (ej: net.typeblog.socks):');
+      if (!packageName) return;
+      const { status, payload } = await postJSON(`/api/instances/${index}/run`, { package_name: packageName });
+      log(`[instances] run #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
+    }
+
+    // --- Modificar CPU / memoria / resolución ---
+    async function modifyInstance(index) {
+      const cpu = prompt('CPU (1, 2, 3, 4) - dejar vacío para no cambiar:');
+      const memory = prompt('Memoria en MB (256, 512, 768, 1024, 1536, 2048, 4096, 8192) - vacío para no cambiar:');
+      const resolution = prompt('Resolución "ancho,alto,dpi" (ej: 1600,900,240) - vacío para no cambiar:');
+      const body = {};
+      if (cpu) body.cpu = Number(cpu);
+      if (memory) body.memory = Number(memory);
+      if (resolution) body.resolution = resolution;
+      if (Object.keys(body).length === 0) return;
+      const { status, payload } = await postJSON(`/api/instances/${index}/modify`, body);
+      log(`[instances] modify #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
+    }
+
+    // --- Clonar instancia ---
+    async function cloneInstance(index) {
+      const newName = prompt('Nombre para la instancia clonada (opcional):');
+      const { status, payload } = await postJSON(`/api/instances/${index}/clone`, { new_name: newName || null });
+      log(`[instances] clone #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
+    }
+
+    // ---- Apagado masivo (en paralelo, no requiere esperar boot) ----
+    let lastKnownIndices = [];
+
+    async function powerAllOff() {
+      const indices = getSelectedIndices();
+      if (indices.length === 0) { log('[bulk] no hay instancias conocidas todavía', 'warn'); return; }
+      log(`[bulk] apagando ${indices.length} instancia(s) en paralelo...`);
+      await Promise.all(indices.map((i) => instanceAction(i, 'quit')));
+    }
+
+    // ---- Selección ----
+    function getCheckbox(index) {
+      return document.getElementById(`chk-${index}`);
+    }
+    function toggleSelectAll() {
+      const boxes = lastKnownIndices.map(getCheckbox).filter(Boolean);
+      const allChecked = boxes.every((b) => b.checked);
+      boxes.forEach((b) => (b.checked = !allChecked));
+    }
+    function getSelectedIndices() {
+      const selected = lastKnownIndices.filter((i) => getCheckbox(i)?.checked);
+      return selected.length > 0 ? selected : [...lastKnownIndices];
+    }
+
+    async function waitForAndroidReady(index, timeoutMs, isCancelledFn, pollMs = 3000) {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        if (isCancelledFn()) throw new Error('cancelado');
+        const { ok, payload } = await getJSON(`/api/instances/${index}/health`);
+        if (ok && payload && payload.android_started === true) {
+          return true;
+        }
+        await sleep(pollMs);
+      }
+      throw new Error(`timeout esperando boot de #${index}`);
+    }
+
+    // ==================================================================
+    // CADENA 1: Encendido puro (launch -> esperar boot -> esperar delay -> siguiente)
+    // ==================================================================
+    let powerChainCancelled = false;
+    let powerChainRunning = false;
+
+    function stopPowerChain() {
+      powerChainCancelled = true;
+      log('[encendido] deteniendo tras la instancia actual...', 'warn');
+      document.getElementById('powerChainStopBtn').disabled = true;
+    }
+
+    async function runPowerChain() {
+      if (powerChainRunning) return;
+      const indices = getSelectedIndices();
+      if (indices.length === 0) {
+        log('[encendido] no hay instancias para procesar', 'warn');
+        return;
+      }
+      const bootTimeoutMs = secInput('powerBootTimeoutSec', 90) * 1000;
+      const gapMs = secInput('powerGapSec', 5) * 1000;
+
+      powerChainRunning = true;
+      powerChainCancelled = false;
+      document.getElementById('powerChainBtn').disabled = true;
+      document.getElementById('powerChainStopBtn').disabled = false;
+      document.getElementById('powerChainStatus').textContent = `Corriendo (${indices.length})`;
+      document.getElementById('powerChainStatus').classList.add('active');
+
+      log(`[encendido] iniciando cadena sobre: ${indices.join(', ')}`, 'warn');
+
+      try {
+        for (const index of indices) {
+          if (powerChainCancelled) { log('[encendido] detenida por el usuario', 'warn'); break; }
+
+          log(`[encendido] #${index} -> launch`, 'warn');
+          const { ok } = await postJSON(`/api/instances/${index}/launch`);
+          if (!ok) {
+            log(`[encendido] #${index} launch falló, salto a la siguiente`, 'bad');
+            continue;
+          }
+
+          log(`[encendido] #${index} -> esperando boot...`);
+          try {
+            await waitForAndroidReady(index, bootTimeoutMs, () => powerChainCancelled);
+            log(`[encendido] #${index} -> boot OK`, 'ok');
+          } catch (e) {
+            if (e.message === 'cancelado') { log('[encendido] detenida por el usuario', 'warn'); break; }
+            log(`[encendido] #${index} ${e.message}`, 'bad');
+            continue;
+          }
+
+          if (powerChainCancelled) { log('[encendido] detenida por el usuario', 'warn'); break; }
+          log(`[encendido] esperando ${gapMs / 1000}s antes de la siguiente`);
+          await sleep(gapMs);
+        }
+      } finally {
+        powerChainRunning = false;
+        document.getElementById('powerChainBtn').disabled = false;
+        document.getElementById('powerChainStopBtn').disabled = true;
+        document.getElementById('powerChainStatus').textContent = 'Inactivo';
+        document.getElementById('powerChainStatus').classList.remove('active');
+        log('[encendido] cadena finalizada', 'ok');
+      }
+    }
+
+    // ==================================================================
+    // CADENA 2: Instalación completa (launch -> boot -> install soks -> delay -> install earn -> quit -> delay -> siguiente)
+    // ==================================================================
+    let chainCancelled = false;
+    let chainRunning = false;
+
+    function stopChain() {
+      chainCancelled = true;
+      log('[cadena] deteniendo tras la instancia actual...', 'warn');
+      document.getElementById('chainStopBtn').disabled = true;
+    }
+
+    async function runChainForInstance(index, bootTimeoutMs, installDelayMs, postQuitDelayMs) {
+      log(`[cadena] #${index} -> launch`, 'warn');
+      const launchRes = await postJSON(`/api/instances/${index}/launch`);
+      if (!launchRes.ok) {
+        log(`[cadena] #${index} launch falló (${launchRes.status}), salto a la siguiente`, 'bad');
+        return;
+      }
+
+      log(`[cadena] #${index} -> esperando boot...`);
+      try {
+        await waitForAndroidReady(index, bootTimeoutMs, () => chainCancelled);
+      } catch (e) {
+        log(`[cadena] #${index} ${e.message}`, 'bad');
+        return; // no instalamos si no bootea
+      }
+      log(`[cadena] #${index} -> boot OK`, 'ok');
+
+      for (let i = 0; i < CHAIN_APKS.length; i++) {
+        if (chainCancelled) throw new Error('cancelado');
+        const { label, apk_path } = CHAIN_APKS[i];
+        log(`[cadena] #${index} -> instalando ${label} (${apk_path})`);
+        const { status, ok, payload } = await postJSON(`/api/instances/${index}/install`, { apk_path });
+        if (ok) {
+          log(`[cadena] #${index} -> ${label} instalado OK`, 'ok');
+        } else {
+          log(`[cadena] #${index} -> ${label} FALLÓ (${status}) ${payload?.error ?? ''}`, 'bad');
+        }
+        const isLast = i === CHAIN_APKS.length - 1;
+        log(`[cadena] #${index} -> esperando ${installDelayMs / 1000}s ${isLast ? 'antes de cerrar' : 'antes de instalar la siguiente APK'}`);
+        await sleep(installDelayMs);
+      }
+
+      log(`[cadena] #${index} -> quit`);
+      await postJSON(`/api/instances/${index}/quit`);
+
+      log(`[cadena] #${index} -> esperando ${postQuitDelayMs / 1000}s antes de la siguiente instancia`);
+      await sleep(postQuitDelayMs);
+    }
+
+    async function runChain() {
+      if (chainRunning) return;
+      const indices = getSelectedIndices();
+      if (indices.length === 0) {
+        log('[cadena] no hay instancias para procesar', 'warn');
+        return;
+      }
+      const bootTimeoutMs = secInput('chainBootTimeoutSec', 90) * 1000;
+      const installDelayMs = secInput('chainInstallDelaySec', 10) * 1000;
+      const postQuitDelayMs = secInput('chainDelaySec', 15) * 1000;
+
+      chainRunning = true;
+      chainCancelled = false;
+      document.getElementById('chainStartBtn').disabled = true;
+      document.getElementById('chainStopBtn').disabled = false;
+      document.getElementById('chainStatus').textContent = `Corriendo (${indices.length})`;
+      document.getElementById('chainStatus').classList.add('active');
+
+      log(`[cadena] iniciando sobre: ${indices.join(', ')}`, 'warn');
+
+      try {
+        for (const index of indices) {
+          if (chainCancelled) {
+            log('[cadena] detenida por el usuario', 'warn');
+            break;
+          }
+          try {
+            await runChainForInstance(index, bootTimeoutMs, installDelayMs, postQuitDelayMs);
+          } catch (e) {
+            if (e.message === 'cancelado') {
+              log('[cadena] detenida por el usuario', 'warn');
+              break;
+            }
+            log(`[cadena] #${index} error inesperado: ${e.message}`, 'bad');
+          }
+        }
+      } finally {
+        chainRunning = false;
+        document.getElementById('chainStartBtn').disabled = false;
+        document.getElementById('chainStopBtn').disabled = true;
+        document.getElementById('chainStatus').textContent = 'Inactivo';
+        document.getElementById('chainStatus').classList.remove('active');
+        log('[cadena] finalizada', 'ok');
+      }
+    }
+
+    // ---- Render ----
+    function renderInstances(instances) {
+      const body = document.getElementById('instancesBody');
+      const list = Array.isArray(instances) ? instances : Object.values(instances || {});
+      lastKnownIndices = list.map((inst) => inst.index);
+
+      // Preservar checks existentes al re-renderizar
+      const checkedSet = new Set(lastKnownIndices.filter((i) => getCheckbox(i)?.checked));
+
+      body.innerHTML = '';
+      for (const inst of list) {
+        const tr = document.createElement('tr');
+        const checked = checkedSet.has(inst.index) ? 'checked' : '';
+        const androidBadge = inst.android_started
+          ? '<span class="badge on">● activo</span>'
+          : '<span class="badge off">● apagado</span>';
+        tr.innerHTML = `
+          <td><input type="checkbox" id="chk-${inst.index}" ${checked} /></td>
+          <td>${inst.index}</td>
+          <td>${inst.name ?? ''}</td>
+          <td>${androidBadge}</td>
+          <td>${inst.battery ? `${inst.battery.level ?? '?'}% (${inst.battery.status ?? '?'})` : '-'}</td>
+          <td class="actions">
+            <button class="small" onclick="instanceAction(${inst.index}, 'launch')">Launch</button>
+            <button class="small" onclick="instanceAction(${inst.index}, 'reboot')">Reboot</button>
+            <button class="small" onclick="instanceAction(${inst.index}, 'quit')">Quit</button>
+            <button class="small" onclick="installApk(${inst.index})">Install APK</button>
+            <button class="small" onclick="runApp(${inst.index})">Abrir app</button>
+            <button class="small" onclick="modifyInstance(${inst.index})">Modify</button>
+            <button class="small" onclick="cloneInstance(${inst.index})">Clone</button>
+          </td>`;
+        body.appendChild(tr);
+      }
+    }
+
+    // Carga inicial
+    fetch('/api/status/all').then((r) => r.json()).then(renderInstances);
+
+    // Tiempo real vía SSE
+    const es = new EventSource('/events');
+    es.addEventListener('status:update', (e) => renderInstances(JSON.parse(e.data).instances));
+    es.addEventListener('python:state', (e) => {
+      const { state } = JSON.parse(e.data);
+      const el = document.getElementById('pyState');
+      const led = document.getElementById('pyLed');
+      el.textContent = state;
+      led.className = 'led ' + (state === 'running' ? 'running' : 'stopped');
+    });
+    es.addEventListener('python:log', (e) => {
+      const { stream, line } = JSON.parse(e.data);
+      log(`[py:${stream}] ${line}`);
+    });
+    es.addEventListener('instance:action', (e) => log(`[action] ${e.data}`));
+    es.addEventListener('status:error', (e) => log(`[status-error] ${e.data}`));
+  </script>
+</body>
+</html>
