@@ -1,85 +1,83 @@
-"""
-Wrapper de bajo nivel sobre adb. Bloqueante; despachar con asyncio.to_thread
-desde código async.
-"""
+# test_adb.py
+import os
+import sys
 import subprocess
-from typing import Dict
-
 from config import settings
+from core.adb import ADBController
 
-BATTERY_HEALTH_MAP = {
-    "1": "unknown",
-    "2": "good",
-    "3": "overheat",
-    "4": "dead",
-    "5": "over_voltage",
-    "6": "unspecified_failure",
-    "7": "cold",
-}
+def check_adb():
+    """Verifica que adb.exe existe y es ejecutable."""
+    adb_path = settings.ADB_PATH
+    if not os.path.exists(adb_path):
+        print(f"❌ ADB no encontrado en: {adb_path}")
+        print("   Revisa tu archivo .env o configura ADB_PATH correctamente.")
+        return False
+    return True
 
-BATTERY_STATUS_MAP = {
-    "1": "unknown",
-    "2": "charging",
-    "3": "discharging",
-    "4": "not_charging",
-    "5": "full",
-}
-
-
-class ADBController:
-    @staticmethod
-    def get_port(index: int) -> int:
-        return settings.ADB_BASE_PORT + (index * 2)
-
-    @staticmethod
-    def connect(index: int) -> None:
-        port = ADBController.get_port(index)
-        subprocess.run(
-            [settings.ADB_PATH, "connect", f"127.0.0.1:{port}"],
-            capture_output=True, text=True,
-        )
-
-    @staticmethod
-    def shell(index: int, command: str) -> str:
-        ADBController.connect(index)
-        port = ADBController.get_port(index)
+def check_instance_running(index):
+    """Usa ldconsole list2 para ver si la instancia está encendida."""
+    ld_path = settings.LDPLAYER_PATH
+    if not os.path.exists(ld_path):
+        print(f"❌ LDPlayer no encontrado en: {ld_path}")
+        return False
+    try:
         result = subprocess.run(
-            [settings.ADB_PATH, "-s", f"127.0.0.1:{port}", "shell", command],
-            capture_output=True, text=True,
+            [ld_path, "list2"],
+            capture_output=True, text=True, encoding='utf-8'
         )
-        return result.stdout
+        for line in result.stdout.splitlines():
+            parts = line.split(',')
+            if len(parts) >= 5 and int(parts[0]) == index:
+                android_started = parts[4] == "1"
+                if not android_started:
+                    print(f"⚠️ Instancia {index} está apagada. Enciéndela primero.")
+                return android_started
+        print(f"❌ Instancia {index} no encontrada en list2.")
+        return False
+    except Exception as e:
+        print(f"❌ Error al listar instancias: {e}")
+        return False
 
-    @staticmethod
-    def get_battery_health(index: int) -> Dict:
-        """Parsea `dumpsys battery` a un dict estable."""
-        output = ADBController.shell(index, "dumpsys battery")
-        data: Dict = {}
-        for line in output.splitlines():
-            if ":" not in line:
-                continue
-            key, value = (p.strip() for p in line.split(":", 1))
-            if key == "health":
-                data["health"] = BATTERY_HEALTH_MAP.get(value, "unknown")
-            elif key == "level" and value.isdigit():
-                data["level"] = int(value)
-            elif key == "status":
-                data["status"] = BATTERY_STATUS_MAP.get(value, "unknown")
-            elif key == "temperature" and value.lstrip("-").isdigit():
-                data["temperature_c"] = int(value) / 10.0
-        return data
+def test_adb(index=0):
+    print(f"Probando ADB en instancia {index}...")
 
-    @staticmethod
-    def set_battery_level(index: int, level: int) -> str:
-        """Establece el nivel de batería simulado (0-100)."""
-        return ADBController.shell(index, f"dumpsys battery set level {level}")
+    if not check_adb():
+        return
 
-    @staticmethod
-    def reset_battery(index: int) -> str:
-        """Restaura la batería a su estado real."""
-        return ADBController.shell(index, "dumpsys battery reset")
+    if not check_instance_running(index):
+        print("   No se puede probar ADB si la instancia no está encendida.")
+        return
 
-    @staticmethod
-    def set_bluetooth(index: int, enable: bool) -> str:
-        """Activa o desactiva el Bluetooth (requiere permisos)."""
-        state = "1" if enable else "0"
-        return ADBController.shell(index, f"service call bluetooth_manager {state}")
+    try:
+        # Conectar
+        ADBController.connect(index)
+        print("✅ Conexión ADB establecida.")
+
+        # Probar get_battery_health
+        health = ADBController.get_battery_health(index)
+        print(f"🔋 Batería: {health}")
+
+        # Probar set_battery_level (por ejemplo, 80%)
+        print("   Estableciendo batería al 80%...")
+        ADBController.set_battery_level(index, 80)
+        # Verificar cambio
+        health2 = ADBController.get_battery_health(index)
+        print(f"   Después de set: {health2}")
+
+        # Probar reset_battery
+        print("   Restaurando batería a estado real...")
+        ADBController.reset_battery(index)
+        health3 = ADBController.get_battery_health(index)
+        print(f"   Después de reset: {health3}")
+
+        # Probar set_bluetooth (activar)
+        print("   Activando Bluetooth (puede fallar si no hay permisos)...")
+        result = ADBController.set_bluetooth(index, True)
+        print(f"   Resultado: {result[:100]}...")  # recortar por si es largo
+
+        print("✅ Pruebas completadas con éxito.")
+    except Exception as e:
+        print(f"❌ Error durante las pruebas: {e}")
+
+if __name__ == "__main__":
+    test_adb()
