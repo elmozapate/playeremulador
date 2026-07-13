@@ -17,8 +17,20 @@ class SseHub {
 
   _wireEvents() {
     const forward = (event) => (payload) => this.broadcast(event, payload);
-    ['python:state', 'python:log', 'python:ready', 'python:exit',
-     'status:update', 'status:error', 'instance:action'].forEach((event) => {
+
+    [
+      'python:state',
+      'python:log',
+      'python:ready',
+      'python:exit',
+      'status:update',
+      'status:error',
+      'instance:action',
+
+      'agent:continue:index',
+      'agent:continue'
+
+    ].forEach((event) => {
       eventBus.on(event, forward(event));
     });
   }

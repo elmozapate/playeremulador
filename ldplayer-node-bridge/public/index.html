@@ -579,7 +579,7 @@
 
   <section class="panel">
     <p class="panel-title">Iniciar con monitor <span class="hint">— solo instala app-debug.apk (com.chataolutions.app),
-        la abre, espera y la cierra antes de continuar</span></p>
+        la abre y espera una señal del servidor antes de cerrar</span></p>
     <div class="row">
       <div class="field">
         <label for="monitorBootTimeoutSec">Timeout de boot</label>
@@ -591,8 +591,9 @@
         <div class="row" style="gap:.3rem;"><input type="number" id="monitorPreInstallDelaySec" value="10"
             min="0" /><span class="unit">seg</span></div>
       </div>
+      <!-- El campo runWaitSec ya no se usa, pero lo dejamos visible para referencia -->
       <div class="field">
-        <label for="monitorRunWaitSec">Espera con el monitor abierto</label>
+        <label for="monitorRunWaitSec">(obsoleto) Espera fija</label>
         <div class="row" style="gap:.3rem;"><input type="number" id="monitorRunWaitSec" value="10" min="0" /><span
             class="unit">seg</span></div>
       </div>
@@ -612,8 +613,8 @@
       <span class="step accent">esperar delay</span><span class="arrow">→</span>
       <span class="step accent">instalar app-debug.apk (monitor)</span><span class="arrow">→</span>
       <span class="step accent">abrir com.chataolutions.app</span><span class="arrow">→</span>
-      <span class="step accent">esperar</span><span class="arrow">→</span>
-      <span class="step accent">cerrar monitor</span><span class="arrow">→</span>
+      <span class="step accent">⏳ esperar señal del servidor</span><span class="arrow">→</span>
+      <span class="step accent">cerrar monitor (si continue)</span><span class="arrow">→</span>
       <span class="step">esperar delay</span><span class="arrow">→</span>
       <span class="step">quit</span><span class="arrow">→</span>
       <span class="step">esperar delay</span><span class="arrow">→</span>
@@ -654,9 +655,9 @@
       { label: 'socks', apk_path: 'C:\\playeremulador\\apks\\soks.apk' },
       { label: 'earn', apk_path: 'C:\\playeremulador\\apks\\earn.apk' },
     ];
-
+    const API_BASE_URL = 'https://fe72-191-156-41-221.ngrok-free.app';
     // ---- Config fija para la cadena "Iniciar con monitor" ----
-    // La tercera app (monitor) no solo se instala: se abre, se espera y se cierra.
+    // La tercera app (monitor) no solo se instala: se abre, se espera señal del servidor y se cierra.
     const MONITOR_CHAIN_APKS = [
       {
         label: 'monitor',
@@ -678,7 +679,31 @@
       const v = Number(el?.value);
       return Number.isFinite(v) && v >= 0 ? v : fallback;
     }
+    async function postHeartbeatJSON(url, body) {
+      const fullUrl = url.startsWith('http')
+        ? url
+        : `${API_BASE_URL}${url}`;
 
+      const r = await fetch(fullUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body || {}),
+      });
+
+      let payload = null;
+
+      try {
+        payload = await r.json();
+      } catch { }
+
+      return {
+        status: r.status,
+        ok: r.ok,
+        payload,
+      };
+    }
     async function postJSON(url, body) {
       const r = await fetch(url, {
         method: 'POST',
@@ -1166,10 +1191,7 @@
     }
 
     // ==================================================================
-    // CADENA 3: Iniciar con monitor
-    // launch -> boot -> install soks -> delay -> install earn -> delay ->
-    // install monitor -> abrir com.chataolutions.app -> esperar -> cerrarlo ->
-    // delay -> quit -> delay -> siguiente instancia
+    // CADENA 3: Iniciar con monitor (AHORA CON ESPERA POR SEÑAL DEL SERVIDOR)
     // ==================================================================
     let monitorChainCancelled = false;
     let monitorChainRunning = false;
@@ -1180,82 +1202,138 @@
       document.getElementById('monitorChainStopBtn').disabled = true;
     }
 
-    async function runMonitorChainForInstance(index, bootTimeoutMs, installDelayMs, runWaitMs, postQuitDelayMs) {
-      log(`[monitor] #${index} -> launch`, 'warn');
-      const launchRes = await postJSON(`/api/instances/${index}/launch`);
-      if (!launchRes.ok) {
-        log(`[monitor] #${index} launch falló (${launchRes.status}), salto a la siguiente`, 'bad');
-        return;
-      }
+    // --- Simula la consulta al backend. En producción, reemplazar por fetch real a /api/monitor/continue ---
+    async function askBackendToContinue(index) {
+      // En producción, este endpoint debe existir en el backend y decidir si continuar o reiniciar.
+      // Ejemplo de llamada real:
+      const res = await postHeartbeatJSON('/api/agent/heartbeat/continue', {
+        instance_index: index
+      });
+      return res.payload?.action || 'continue';
 
-      log(`[monitor] #${index} -> esperando boot...`);
-      try {
-        await waitForAndroidReady(index, bootTimeoutMs, () => monitorChainCancelled);
-      } catch (e) {
-        log(`[monitor] #${index} ${e.message}`, 'bad');
-        return;
-      }
-      log(`[monitor] #${index} -> boot OK`, 'ok');
+      // MODO SIMULADO: devuelve 'continue' siempre.
+      // Para probar el reinicio, puedes cambiar manualmente a 'reboot' o usar un contador.
+      log(`[monitor] consultando al backend por la instancia #${index}...`, 'warn');
+      await sleep(500); // simula latencia
+      // return 'continue';   // descomentar para siempre continuar
+      return 'continue';     // Cambiar a 'reboot' para probar reinicio
+    }
 
-      for (let i = 0; i < MONITOR_CHAIN_APKS.length; i++) {
+    async function runMonitorChainForInstance(index, bootTimeoutMs, installDelayMs, postQuitDelayMs) {
+      const packageName = 'com.chataolutions.app';
+      let retryCount = 0;
+      const maxRetries = 5; // evitar bucles infinitos
+
+      while (retryCount < maxRetries) {
         if (monitorChainCancelled) throw new Error('cancelado');
-        const { label, apk_path, runAfterInstall, packageName } = MONITOR_CHAIN_APKS[i];
 
-        log(`[monitor] #${index} -> instalando ${label} (${apk_path})`);
-        const { status, ok, payload } = await postJSON(`/api/instances/${index}/install`, { apk_path });
-        if (ok) {
-          log(`[monitor] #${index} -> ${label} instalado OK`, 'ok');
-        } else {
-          log(`[monitor] #${index} -> ${label} FALLÓ (${status}) ${payload?.error ?? ''}`, 'bad');
+        log(`[monitor] #${index} -> launch (intento ${retryCount + 1})`, 'warn');
+        const launchRes = await postJSON(`/api/instances/${index}/launch`);
+        if (!launchRes.ok) {
+          log(`[monitor] #${index} launch falló (${launchRes.status}), salto a la siguiente`, 'bad');
+          return;
         }
 
-        if (runAfterInstall && ok) {
+        log(`[monitor] #${index} -> esperando boot...`);
+        try {
+          await waitForAndroidReady(index, bootTimeoutMs, () => monitorChainCancelled);
+        } catch (e) {
+          log(`[monitor] #${index} ${e.message}`, 'bad');
+          return;
+        }
+        log(`[monitor] #${index} -> boot OK`, 'ok');
+
+        // Instalar la APK del monitor
+        for (let i = 0; i < MONITOR_CHAIN_APKS.length; i++) {
           if (monitorChainCancelled) throw new Error('cancelado');
-
-          log(`[monitor] #${index} -> esperando 10s antes de abrir ${packageName}`);
-          await sleep(10_000);
-
-          if (monitorChainCancelled) throw new Error('cancelado');
-
-          log(`[monitor] #${index} -> abriendo ${packageName}`, 'warn');
-
-          const runRes = await postJSON(
-            `/api/instances/${index}/run`,
-            { package_name: packageName }
-          );
-
-          if (runRes.ok) {
-            log(`[monitor] #${index} -> ${label} abierto OK`, 'ok');
+          const { label, apk_path, runAfterInstall } = MONITOR_CHAIN_APKS[i];
+          log(`[monitor] #${index} -> instalando ${label} (${apk_path})`);
+          const { status, ok, payload } = await postJSON(`/api/instances/${index}/install`, { apk_path });
+          if (ok) {
+            log(`[monitor] #${index} -> ${label} instalado OK`, 'ok');
           } else {
-            log(
-              `[monitor] #${index} -> no se pudo abrir ${label} (${runRes.status}) ${runRes.payload?.error ?? ''}`,
-              'bad'
-            );
+            log(`[monitor] #${index} -> ${label} FALLÓ (${status}) ${payload?.error ?? ''}`, 'bad');
           }
+          // Solo hay una APK en esta cadena, pero si hubiera más, podríamos instalar varias.
+          // Como solo es una, esperamos el delay después de instalar.
+          log(`[monitor] #${index} -> esperando ${installDelayMs / 1000}s antes de abrir`);
+          await sleep(installDelayMs);
+        }
 
-          log(`[monitor] #${index} -> esperando ${runWaitMs / 1000}s con el monitor abierto`);
-          await sleep(runWaitMs);
+        if (monitorChainCancelled) throw new Error('cancelado');
+        log(`[monitor] #${index} -> registrando index de continue`, 'warn');
 
-          if (monitorChainCancelled) throw new Error('cancelado');
+        const continueIndexRes = await postHeartbeatJSON(
+          '/api/agent/heartbeat/continue/index',
+          {
+            instance_index: index
+          }
+        );
 
-          log(`[monitor] #${index} -> cerrando ${packageName}`);
-
-          const killRes = await postJSON(
-            `/api/instances/${index}/kill`,
-            { package_name: packageName }
-          );
-
+        if (continueIndexRes.ok) {
           log(
-            `[monitor] #${index} -> ${label} cerrado -> ${killRes.status}`,
-            killRes.ok ? 'ok' : 'bad'
+            `[monitor] #${index} -> index de continue registrado OK`,
+            'ok'
+          );
+        } else {
+          log(
+            `[monitor] #${index} -> error registrando index de continue (${continueIndexRes.status})`,
+            'bad'
           );
         }
 
-        const isLast = i === MONITOR_CHAIN_APKS.length - 1;
-        log(`[monitor] #${index} -> esperando ${installDelayMs / 1000}s ${isLast ? 'antes de cerrar' : 'antes del siguiente paso'}`);
-        await sleep(installDelayMs);
+        // Abrir la app (monitor)
+        log(`[monitor] #${index} -> abriendo ${packageName}`, 'warn');
+        const runRes = await postJSON(`/api/instances/${index}/run`, { package_name: packageName });
+        if (runRes.ok) {
+          log(`[monitor] #${index} -> monitor abierto OK`, 'ok');
+        } else {
+          log(`[monitor] #${index} -> no se pudo abrir monitor (${runRes.status}) ${runRes.payload?.error ?? ''}`, 'bad');
+        }
+
+        // --- ESPERA POR SEÑAL DEL USUARIO Y DECISIÓN DEL SERVIDOR ---
+        // Mostrar modal con botón "Siguiente"
+        /*   await confirmModal(
+            'Monitor abierto',
+            `Instancia #${index} — Presiona "Siguiente" para consultar al servidor y continuar.`,
+            'Siguiente'
+          ); */
+
+        if (monitorChainCancelled) throw new Error('cancelado');
+
+        // Preguntar al backend qué hacer
+        const action = await askBackendToContinue(index);
+
+        if (action === 'continue') {
+          // Cerrar la app y salir del bucle
+          log(`[monitor] #${index} -> cerrando ${packageName} (por decisión del servidor)`);
+          await postJSON(`/api/instances/${index}/kill`, { package_name: packageName });
+          break; // sale del while, continúa con el resto de la cadena (quit, delay, siguiente)
+        } else if (action === 'reboot') {
+          log(`[monitor] #${index} -> servidor ordena reiniciar el emulador`, 'warn');
+          // Reiniciar la instancia
+          await postJSON(`/api/instances/${index}/reboot`);
+          // Esperar a que bootee de nuevo
+          try {
+            await waitForAndroidReady(index, bootTimeoutMs, () => monitorChainCancelled);
+          } catch (e) {
+            log(`[monitor] #${index} error tras reboot: ${e.message}`, 'bad');
+            return; // si no bootea, mejor salir
+          }
+          retryCount++;
+          continue; // repite el bucle (launch, install, open...)
+        } else {
+          log(`[monitor] #${index} -> acción desconocida "${action}", se asume continue`, 'warn');
+          await postJSON(`/api/instances/${index}/kill`, { package_name: packageName });
+          break;
+        }
       }
 
+      if (retryCount >= maxRetries) {
+        log(`[monitor] #${index} -> se alcanzó el máximo de reintentos (${maxRetries}), se continúa`, 'warn');
+      }
+
+      // Después del bucle (si no se reinició o se salió) hacemos quit y espera final
       log(`[monitor] #${index} -> quit`);
       await postJSON(`/api/instances/${index}/quit`);
 
@@ -1271,8 +1349,8 @@
         return;
       }
       const bootTimeoutMs = secInput('monitorBootTimeoutSec', 90) * 1000;
-      const installDelayMs = secInput('monitorInstallDelaySec', 10) * 1000;
-      const runWaitMs = secInput('monitorRunWaitSec', 5) * 1000;
+      const installDelayMs = secInput('monitorPreInstallDelaySec', 10) * 1000;
+      // monitorRunWaitSec ya no se usa, lo ignoramos
       const postQuitDelayMs = secInput('monitorDelaySec', 15) * 1000;
 
       monitorChainRunning = true;
@@ -1283,7 +1361,7 @@
       statusEl.textContent = `Corriendo (${indices.length})`;
       statusEl.classList.add('active', 'violet-pill');
 
-      log(`[monitor] iniciando cadena con monitor sobre: ${indices.join(', ')}`, 'warn');
+      log(`[monitor] iniciando cadena con monitor (espera por señal) sobre: ${indices.join(', ')}`, 'warn');
 
       try {
         for (const index of indices) {
@@ -1292,7 +1370,7 @@
             break;
           }
           try {
-            await runMonitorChainForInstance(index, bootTimeoutMs, installDelayMs, runWaitMs, postQuitDelayMs);
+            await runMonitorChainForInstance(index, bootTimeoutMs, installDelayMs, postQuitDelayMs);
           } catch (e) {
             if (e.message === 'cancelado') {
               log('[monitor] detenida por el usuario', 'warn');
@@ -1367,7 +1445,6 @@
     es.addEventListener('agent:heartbeat', (e) => {
       const a = JSON.parse(e.data);
       log(`[agent] #${a.instanceIndex ?? '?'} (${a.deviceId.slice(0, 8)}) ${a.status} (${a.event ?? ''})`);
-      // acá podrías cruzar a.instanceIndex con lastKnownIndices y pintar un badge extra en la fila
     });
     es.addEventListener('instance:action', (e) => log(`[action] ${e.data}`));
     es.addEventListener('status:error', (e) => log(`[status-error] ${e.data}`));
