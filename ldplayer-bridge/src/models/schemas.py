@@ -26,6 +26,10 @@ class ModifyRequest(BaseModel):
     resolution: Optional[str] = None  # formato "width,height,dpi"
 
 
+class KillAppRequest(BaseModel):
+    package_name: str
+    
+
 class InstallAppRequest(BaseModel):
     apk_path: str
 

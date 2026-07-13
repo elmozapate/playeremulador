@@ -108,10 +108,24 @@ class LDConsole:
     @staticmethod
     def clone(source_index: Optional[int] = None, source_name: Optional[str] = None,
               new_name: Optional[str] = None) -> None:
-        from_value = str(source_index) if source_index is not None else source_name
-        if from_value is None:
-            raise ValueError("Se requiere source_index o source_name para clonar")
-        args = ["copy", "--from", from_value]
-        if new_name:
-            args += ["--name", new_name]
-        LDConsole._run(args)
+        """
+        Clona una instancia existente a un nuevo nombre.
+        Usa el comando 'clone' de LDPlayer (versión 9+).
+        """
+        if not new_name:
+            raise ValueError("Se requiere 'new_name' para clonar")
+
+        if source_index is not None:
+            from_arg = str(source_index)
+        elif source_name:
+            from_arg = source_name
+        else:
+            raise ValueError("Se requiere 'source_index' o 'source_name' para clonar")
+
+        # Comando: clone --from <origen> --name <nuevo_nombre>
+        LDConsole._run(["clone", "--from", from_arg, "--name", new_name])
+
+    @staticmethod
+    def kill_app(index: int, package_name: str) -> None:
+        """Cierra una app usando el comando killapp de ldconsole."""
+        LDConsole._run(["killapp", "--index", str(index), "--packagename", package_name])

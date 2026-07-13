@@ -6,6 +6,8 @@ from .schemas import (
     ModifyRequest,
     InstallAppRequest,
     RunAppRequest,
+    KillAppRequest,
+    CloneRequest,
 )
 
 __all__ = [
@@ -14,4 +16,6 @@ __all__ = [
     "ModifyRequest",
     "InstallAppRequest",
     "RunAppRequest",
+    "KillAppRequest",
+    "CloneRequest",
 ]

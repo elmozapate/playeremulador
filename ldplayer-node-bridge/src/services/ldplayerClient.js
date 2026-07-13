@@ -160,6 +160,12 @@ class LDPlayerClient {
   getInstanceStatus(index) {
     return this._request('GET', `/status/${index}`);
   }
+
+  killApp(index, packageName) {
+    return this._request('POST', `/instances/${index}/kill`, {
+      body: { package_name: packageName }
+    });
+  }
 }
 
 module.exports = { LDPlayerClient, LDPlayerApiError };

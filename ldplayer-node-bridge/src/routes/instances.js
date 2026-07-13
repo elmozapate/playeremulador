@@ -98,6 +98,18 @@ function buildInstancesRouter(client, poller) {
     return result;
   }));
 
+  router.post('/:index/kill', handle(async (req) => {
+    const { package_name: packageName } = req.body || {};
+    if (!packageName) {
+      const e = new Error('Falta package_name en el body');
+      e.status = 400;
+      throw e;
+    }
+    const result = await client.killApp(Number(req.params.index), packageName);
+    emitAction('kill', Number(req.params.index), result);
+    return result;
+  }));
+
   return router;
 }
 

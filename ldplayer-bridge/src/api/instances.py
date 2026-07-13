@@ -1,19 +1,23 @@
+import asyncio
 from typing import Dict, List
 
 from fastapi import APIRouter, HTTPException
 
-from core.ldplayer import LDConsoleError
+from core.ldplayer import LDConsole, LDConsoleError
 from models.schemas import (
     ActionResponse,
     InstallAppRequest,
     ModifyRequest,
     RunAppRequest,
+    KillAppRequest,
+    CloneRequest,
 )
 from services.instance_service import InstanceNotFoundError, instance_service
 from services.monitor import monitor
 from services.task_queue import task_queue
-from models.schemas import CloneRequest  # agregar al import existente
+
 router = APIRouter()
+
 
 def _raise_for(e: Exception):
     if isinstance(e, InstanceNotFoundError):
@@ -63,11 +67,16 @@ async def quit_instance(index: int):
     except Exception as e:
         _raise_for(e)
 
+
 @router.post("/quitall", response_model=dict)
 async def quit_all_instances():
-    await asyncio.to_thread(LDConsole.quitall)
-    monitor.invalidate_all()
-    return {"status": "ok", "message": "Todas las instancias cerradas"} 
+    try:
+        await asyncio.to_thread(LDConsole.quitall)
+        monitor.invalidate_all()
+        return {"status": "ok", "message": "Todas las instancias cerradas"}
+    except Exception as e:
+        _raise_for(e)
+
 
 @router.get("/{index}/health")
 async def get_health(index: int):
@@ -112,5 +121,15 @@ async def clone_instance(index: int, body: CloneRequest):
     try:
         await task_queue.enqueue(index, instance_service.clone, index, body.new_name)
         return ActionResponse(success=True, message="Instancia clonada", index=index)
+    except Exception as e:
+        _raise_for(e)
+
+
+@router.post("/{index}/kill", response_model=ActionResponse)
+async def kill_app(index: int, body: KillAppRequest):
+    """Cierra una aplicación abierta en la instancia."""
+    try:
+        await task_queue.enqueue(index, instance_service.kill_app, index, body.package_name)
+        return ActionResponse(success=True, message=f"App {body.package_name} cerrada", index=index)
     except Exception as e:
         _raise_for(e)
