@@ -89,11 +89,11 @@ function buildAgentRouter() {
 
     console.log(
       `[continue:index] 💾 index autorizado=${heartbeatInstanceIndex}`
-    );
+    );/* 
     sseHub.broadcast(
       'agent:continue:index',
       payload
-    );
+    ); */
     return res.status(200).json({
       ok: true,
       instance_index: heartbeatInstanceIndex
@@ -137,8 +137,8 @@ function buildAgentRouter() {
       payload
     );
     return res.status(200).json({
-      ok: true,
-      action: 'continue'
+       ok: true,
+ action: 'continue'
     });
   });
 
