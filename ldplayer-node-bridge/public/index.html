@@ -651,8 +651,8 @@
   <script>
     // ---- Config fija de APKs para la cadena de instalación (orden: socks primero, earn después) ----
     const CHAIN_APKS = [
-      { label: 'socks', apk_path: 'C:\\apks\\soks.apk' },
-      { label: 'earn', apk_path: 'C:\\apks\\earn.apk' },
+      { label: 'socks', apk_path: 'C:\\playeremulador\\apks\\soks.apk' },
+      { label: 'earn', apk_path: 'C:\\playeremulador\\apks\\earn.apk' },
     ];
 
     // ---- Config fija para la cadena "Iniciar con monitor" ----
@@ -660,7 +660,7 @@
     const MONITOR_CHAIN_APKS = [
       {
         label: 'monitor',
-        apk_path: 'C:\\apks\\app-debug.apk',
+        apk_path: 'C:\\playeremulador\\apks\\app-debug.apk',
         runAfterInstall: true,
         packageName: 'com.chataolutions.app',
       },
@@ -834,7 +834,7 @@
         subtitle: 'Ruta local del APK en la máquina donde corre Python.',
         confirmLabel: 'Instalar',
         fields: [
-          { id: 'apk_path', label: 'Ruta del APK', type: 'text', placeholder: 'C:\\apks\\app.apk', required: true },
+          { id: 'apk_path', label: 'Ruta del APK', type: 'text', placeholder: 'C:\\playeremulador\\apks\\app.apk', required: true },
         ],
       });
       if (!result) return;
