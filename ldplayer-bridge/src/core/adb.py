@@ -580,14 +580,24 @@ class ADBController:
         """Restaura la batería a su estado real (deshace los `set`)."""
         return ADBController.shell(index, "dumpsys battery reset")
 
-    # ------------------------------------------------------------------
+# ==================================================================
     # Radios: bluetooth / wifi / datos móviles / modo avión
-    # ------------------------------------------------------------------
+    #
+    # NOTA IMPORTANTE (no tocar sin razón): bluetooth y wifi usan
+    # `settings put global` en vez de `svc bluetooth/wifi enable|disable`.
+    # `svc` invoca al manager service real vía Binder, y en LDPlayer
+    # (sin HAL de radio real detrás) ese service crashea al inicializar
+    # y se mata el proceso — es el "call killProcess callstack" que
+    # aparece en logs. Escribir el setting directo lo evita y coincide
+    # con lo que lee get_*_status().
+    #
+    # Datos móviles SÍ funciona con `svc data`, así que ese se deja como
+    # estaba (no lo cambies a settings put, ahí no anda).
+    # ==================================================================
     @staticmethod
     def set_bluetooth(index: int, enable: bool) -> str:
-        """Activa o desactiva Bluetooth vía svc (no requiere root)."""
-        state = "enable" if enable else "disable"
-        return ADBController.shell(index, f"svc bluetooth {state}")
+        value = "1" if enable else "0"
+        return ADBController.shell(index, f"settings put global bluetooth_on {value}")
 
     @staticmethod
     def get_bluetooth_status(index: int) -> bool:
@@ -596,8 +606,8 @@ class ADBController:
 
     @staticmethod
     def set_wifi(index: int, enable: bool) -> str:
-        state = "enable" if enable else "disable"
-        return ADBController.shell(index, f"svc wifi {state}")
+        value = "1" if enable else "0"
+        return ADBController.shell(index, f"settings put global wifi_on {value}")
 
     @staticmethod
     def get_wifi_status(index: int) -> bool:
@@ -606,6 +616,8 @@ class ADBController:
 
     @staticmethod
     def toggle_mobile_data(index: int, enable: bool) -> str:
+        """Datos móviles: acá sí funciona `svc data` (a diferencia de
+        bluetooth/wifi). No migrar a settings put sin probar antes."""
         state = "enable" if enable else "disable"
         return ADBController.shell(index, f"svc data {state}")
 
@@ -617,7 +629,7 @@ class ADBController:
             index,
             f"am broadcast -a android.intent.action.AIRPLANE_MODE --ez state {str(enable).lower()}",
         )
-
+        
     # ------------------------------------------------------------------
     # Ubicación / sensores
     # ------------------------------------------------------------------
