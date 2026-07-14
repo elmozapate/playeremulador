@@ -580,26 +580,14 @@ class ADBController:
         """Restaura la batería a su estado real (deshace los `set`)."""
         return ADBController.shell(index, "dumpsys battery reset")
 
-    # ==================================================================
+    # ------------------------------------------------------------------
     # Radios: bluetooth / wifi / datos móviles / modo avión
-    # ==================================================================
+    # ------------------------------------------------------------------
     @staticmethod
     def set_bluetooth(index: int, enable: bool) -> str:
-        """
-        Activa/desactiva Bluetooth escribiendo el setting global directo,
-        igual que hace la app de Ajustes al tocar el switch en la UI.
-
-        NOTA: `svc bluetooth enable/disable` invoca al BluetoothManagerService
-        real vía Binder. En LDPlayer (como en la mayoría de emuladores x86)
-        no hay HAL de Bluetooth real detrás, así que el servicio crashea al
-        inicializar y el proceso se mata a sí mismo — eso es exactamente el
-        "call killProcess callstack" que ves en los logs, y en este caso
-        SÍ es un fallo real, no ruido: el bluetooth se queda apagado.
-        Escribir el setting directo evita ese camino roto y es consistente
-        con lo que lee get_bluetooth_status().
-        """
-        value = "1" if enable else "0"
-        return ADBController.shell(index, f"settings put global bluetooth_on {value}")
+        """Activa o desactiva Bluetooth vía svc (no requiere root)."""
+        state = "enable" if enable else "disable"
+        return ADBController.shell(index, f"svc bluetooth {state}")
 
     @staticmethod
     def get_bluetooth_status(index: int) -> bool:
@@ -608,21 +596,19 @@ class ADBController:
 
     @staticmethod
     def set_wifi(index: int, enable: bool) -> str:
-        """
-        Mismo motivo que set_bluetooth: `svc wifi enable/disable` puede
-        fallar en emuladores sin radio real. Se prueba primero el setting
-        directo (mismo patrón que bluetooth); si tu build de LDPlayer sí
-        tiene stack de wifi funcional via svc, podés revertir este método
-        a la versión anterior sin problema.
-        """
-        value = "1" if enable else "0"
-        return ADBController.shell(index, f"settings put global wifi_on {value}")
+        state = "enable" if enable else "disable"
+        return ADBController.shell(index, f"svc wifi {state}")
 
     @staticmethod
     def get_wifi_status(index: int) -> bool:
         output = ADBController.shell(index, "settings get global wifi_on")
         return output.strip() == "1"
-        
+
+    @staticmethod
+    def toggle_mobile_data(index: int, enable: bool) -> str:
+        state = "enable" if enable else "disable"
+        return ADBController.shell(index, f"svc data {state}")
+
     @staticmethod
     def set_airplane_mode(index: int, enable: bool) -> str:
         value = "1" if enable else "0"
