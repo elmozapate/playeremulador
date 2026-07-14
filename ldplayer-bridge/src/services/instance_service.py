@@ -24,6 +24,7 @@ class InstanceService:
         print(f"[CONFIG] INDEX 1 SERIAL=127.0.0.1:{settings.ADB_BASE_PORT + 2}")
         print(f"[CONFIG] INDEX 2 SERIAL=127.0.0.1:{settings.ADB_BASE_PORT + 4}")
         print("=" * 70)
+
     # ==================================================================
     # Lifecycle (ldconsole)
     # ==================================================================
@@ -39,16 +40,22 @@ class InstanceService:
 
     async def launch(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.launch, index)
+        # El puerto ADB real puede reasignarse en cada arranque; forzamos
+        # que la próxima llamada a resolve_serial() vuelva a descubrirlo
+        # por proceso en vez de reusar un serial potencialmente obsoleto.
+        ADBController.invalidate_serial(index)
 
     async def reboot(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.reboot, index)
         self._health_cache.pop(index, None)
         self._health_ts.pop(index, None)
+        ADBController.invalidate_serial(index)
 
     async def quit(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.quit, index)
         self._health_cache.pop(index, None)
         self._health_ts.pop(index, None)
+        ADBController.invalidate_serial(index)
 
     async def install_app(self, index: int, apk_path: str) -> None:
         await asyncio.to_thread(LDConsole.install_app, index, apk_path)
