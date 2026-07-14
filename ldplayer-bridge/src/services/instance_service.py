@@ -15,6 +15,15 @@ class InstanceService:
         self._health_cache: Dict[int, Dict] = {}
         self._health_ts: Dict[int, float] = {}
 
+        print("=" * 70)
+        print("[INSTANCE SERVICE] CONFIG")
+        print(f"[CONFIG] LDPLAYER_PATH={settings.LDPLAYER_PATH}")
+        print(f"[CONFIG] ADB_PATH={settings.ADB_PATH}")
+        print(f"[CONFIG] ADB_BASE_PORT={settings.ADB_BASE_PORT}")
+        print(f"[CONFIG] INDEX 0 SERIAL=127.0.0.1:{settings.ADB_BASE_PORT}")
+        print(f"[CONFIG] INDEX 1 SERIAL=127.0.0.1:{settings.ADB_BASE_PORT + 2}")
+        print(f"[CONFIG] INDEX 2 SERIAL=127.0.0.1:{settings.ADB_BASE_PORT + 4}")
+        print("=" * 70)
     # ==================================================================
     # Lifecycle (ldconsole)
     # ==================================================================
