@@ -1,6 +1,6 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ActionResponse(BaseModel):
@@ -28,7 +28,7 @@ class ModifyRequest(BaseModel):
 
 class KillAppRequest(BaseModel):
     package_name: str
-    
+
 
 class InstallAppRequest(BaseModel):
     apk_path: str
@@ -40,3 +40,86 @@ class RunAppRequest(BaseModel):
 
 class CloneRequest(BaseModel):
     new_name: Optional[str] = None
+
+
+# ======================================================================
+# Sistema: batería, radios, ubicación, interfaz, input, apps extra
+# ======================================================================
+class ToggleRequest(BaseModel):
+    enable: bool
+
+
+class BrightnessRequest(BaseModel):
+    level: int = Field(..., ge=0, le=255)
+
+
+class VolumeRequest(BaseModel):
+    stream: str = "music"
+    level: int = Field(..., ge=0, le=15)
+
+
+class ScreenTimeoutRequest(BaseModel):
+    ms: int = Field(..., ge=1000)
+
+
+class BatteryLevelRequest(BaseModel):
+    level: int = Field(..., ge=0, le=100)
+
+
+class BatteryStatusRequest(BaseModel):
+    status: str  # charging|discharging|not_charging|full|unknown
+
+
+class GeoRequest(BaseModel):
+    lat: float
+    lon: float
+
+
+class RotationLockRequest(BaseModel):
+    locked: bool
+
+
+class KeyRequest(BaseModel):
+    keycode: Union[str, int]
+
+
+class TextRequest(BaseModel):
+    text: str
+
+
+class TapRequest(BaseModel):
+    x: int
+    y: int
+
+
+class SwipeRequest(BaseModel):
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+    duration_ms: int = 300
+
+
+class LongPressRequest(BaseModel):
+    x: int
+    y: int
+    duration_ms: int = 800
+
+
+class PackageRequest(BaseModel):
+    package_name: str
+
+
+class PermissionRequest(BaseModel):
+    package_name: str
+    permission: str
+
+
+class PlayProtectRequest(BaseModel):
+    disable: bool
+
+
+class RunAppReliableRequest(BaseModel):
+    package_name: str
+    activity: Optional[str] = None
+    timeout_s: float = 6.0

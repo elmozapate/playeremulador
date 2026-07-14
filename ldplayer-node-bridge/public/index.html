@@ -160,6 +160,16 @@
       filter: brightness(1.05);
     }
 
+    button.teal {
+      background: linear-gradient(180deg, #9df0e2, var(--cyan));
+      color: #08312b;
+      border-color: var(--cyan);
+    }
+
+    button.teal:hover:not(:disabled) {
+      filter: brightness(1.05);
+    }
+
     button.danger {
       border-color: #5a2a2a;
       color: #ffb3b3;
@@ -409,7 +419,9 @@
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 12px;
-      width: min(420px, 100%);
+      width: min(460px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
       padding: 1.25rem;
       box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
       transform: translateY(6px);
@@ -479,6 +491,35 @@
       min-height: 1em;
       margin-top: -.4rem;
       margin-bottom: .6rem;
+    }
+
+    .modal-result {
+      background: #07090b;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: #8fe38f;
+      font-family: var(--mono);
+      font-size: .72rem;
+      padding: .55rem .65rem;
+      margin-top: .3rem;
+      max-height: 160px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      display: none;
+    }
+
+    .modal-result.show {
+      display: block;
+    }
+
+    .modal-warning {
+      background: #2a2210;
+      border: 1px solid #5a4a1a;
+      color: var(--warn);
+      border-radius: 8px;
+      padding: .6rem .7rem;
+      font-size: .78rem;
+      margin-bottom: .9rem;
     }
   </style>
 </head>
@@ -622,7 +663,8 @@
   </section>
 
   <section class="panel">
-    <p class="panel-title">Instancias</p>
+    <p class="panel-title">Instancias <span class="hint">— "🛠️ Tools" agrupa batería / radios / ubicación / pantalla /
+        input / apps (todo lo que usa ADB). Se deshabilita si el Android de esa instancia no está arriba.</span></p>
     <table>
       <thead>
         <tr>
@@ -702,9 +744,16 @@
     const modalOverlay = document.getElementById('modalOverlay');
     const modalBox = document.getElementById('modalBox');
 
-    function closeModal(overlay) {
-      overlay.classList.remove('show');
-      overlay.innerHTML = '';
+    // FIX: antes esta función hacía `overlay.innerHTML = ''`. Como modalBox
+    // vive DENTRO del overlay, eso borraba el nodo #modalBox del DOM para
+    // siempre. La primera vez que abrías un modal funcionaba porque el nodo
+    // todavía existía; la segunda vez, showModal() seguía escribiendo sobre
+    // la referencia vieja de `modalBox`, que ya no estaba enganchada a nada
+    // visible -> el modal "no abría" (parecía cerrarse solo). Ahora sólo
+    // limpiamos el contenido de modalBox, nunca el overlay completo.
+    function closeModal() {
+      modalOverlay.classList.remove('show');
+      modalBox.innerHTML = '';
     }
 
     // config = { title, subtitle, fields: [{id,label,type,value,placeholder,options,unit,min,step}], confirmLabel, danger }
@@ -770,7 +819,7 @@
         cancelBtn.className = 'ghost';
         cancelBtn.textContent = 'Cancelar';
         cancelBtn.onclick = () => {
-          closeModal(modalOverlay);
+          closeModal();
           resolve(null);
         };
 
@@ -789,7 +838,7 @@
             }
             result[id] = val;
           }
-          closeModal(modalOverlay);
+          closeModal();
           resolve(result);
         };
 
@@ -809,7 +858,7 @@
 
     modalOverlay.addEventListener('click', (e) => {
       if (e.target === modalOverlay) {
-        closeModal(modalOverlay);
+        closeModal();
       }
     });
 
@@ -937,6 +986,212 @@
       if (!result) return;
       const { status, payload } = await postJSON(`/api/instances/${index}/kill`, { package_name: result.package_name });
       log(`[instances] kill #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
+    }
+
+    // ==================================================================
+    // TOOLS — todo lo que pega contra ADB (batería, radios, ubicación,
+    // pantalla, input, apps). Requiere que la instancia esté con Android
+    // arriba (android_started === true); si no, ni se abre el modal.
+    // ==================================================================
+    const TOOL_ACTIONS = [
+      // Batería
+      { id: 'battery_get', group: 'Batería', label: '🔋 Consultar estado', method: 'get', path: i => `/api/instances/${i}/battery`, fields: [] },
+      { id: 'battery_level', group: 'Batería', label: '🔋 Fijar nivel', method: 'post', path: i => `/api/instances/${i}/battery/level`, fields: [{ id: 'level', label: 'Nivel (0-100)', type: 'number', min: 0, max: 100, value: 80, required: true }], body: v => ({ level: Number(v.level) }) },
+      { id: 'battery_status', group: 'Batería', label: '🔋 Fijar estado', method: 'post', path: i => `/api/instances/${i}/battery/status`, fields: [{ id: 'status', label: 'Estado', type: 'select', value: 'charging', options: [{ value: 'charging' }, { value: 'discharging' }, { value: 'not_charging' }, { value: 'full' }, { value: 'unknown' }] }], body: v => ({ status: v.status }) },
+      { id: 'battery_reset', group: 'Batería', label: '🔋 Restaurar (deshacer sets)', method: 'post', path: i => `/api/instances/${i}/battery/reset`, fields: [] },
+      // Radios
+      { id: 'bluetooth_get', group: 'Radios', label: '📶 Bluetooth — consultar', method: 'get', path: i => `/api/instances/${i}/bluetooth`, fields: [] },
+      { id: 'bluetooth_set', group: 'Radios', label: '📶 Bluetooth — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/bluetooth`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
+      { id: 'wifi_get', group: 'Radios', label: '📡 WiFi — consultar', method: 'get', path: i => `/api/instances/${i}/wifi`, fields: [] },
+      { id: 'wifi_set', group: 'Radios', label: '📡 WiFi — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/wifi`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
+      { id: 'mobile_data', group: 'Radios', label: '📱 Datos móviles — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/mobile-data`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
+      { id: 'airplane_mode', group: 'Radios', label: '✈️ Modo avión — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/airplane-mode`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
+      // Ubicación / sensores
+      { id: 'gps_set', group: 'Ubicación', label: '📍 GPS — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/gps`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
+      { id: 'geo_set', group: 'Ubicación', label: '📍 Simular ubicación', method: 'post', path: i => `/api/instances/${i}/geo`, fields: [{ id: 'lat', label: 'Latitud', type: 'number', step: '0.000001', required: true }, { id: 'lon', label: 'Longitud', type: 'number', step: '0.000001', required: true }], body: v => ({ lat: Number(v.lat), lon: Number(v.lon) }) },
+      { id: 'rotation_lock', group: 'Ubicación', label: '🔒 Rotación — bloquear/liberar', method: 'post', path: i => `/api/instances/${i}/rotation-lock`, fields: [{ id: 'locked', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Bloquear' }, { value: 'false', label: 'Libre' }] }], body: v => ({ locked: v.locked === 'true' }) },
+      // Interfaz
+      { id: 'brightness', group: 'Interfaz', label: '🔆 Brillo (0-255)', method: 'post', path: i => `/api/instances/${i}/brightness`, fields: [{ id: 'level', label: 'Nivel', type: 'number', min: 0, max: 255, value: 150, required: true }], body: v => ({ level: Number(v.level) }) },
+      { id: 'screen_timeout', group: 'Interfaz', label: '⏱️ Timeout de pantalla (ms)', method: 'post', path: i => `/api/instances/${i}/screen-timeout`, fields: [{ id: 'ms', label: 'Milisegundos', type: 'number', min: 1000, value: 30000, required: true }], body: v => ({ ms: Number(v.ms) }) },
+      { id: 'volume', group: 'Interfaz', label: '🔊 Volumen', method: 'post', path: i => `/api/instances/${i}/volume`, fields: [{ id: 'stream', label: 'Stream', type: 'select', value: 'music', options: [{ value: 'music' }, { value: 'ring' }, { value: 'alarm' }, { value: 'notification' }, { value: 'system' }, { value: 'voice_call' }] }, { id: 'level', label: 'Nivel (0-15)', type: 'number', min: 0, max: 15, value: 8, required: true }], body: v => ({ stream: v.stream, level: Number(v.level) }) },
+      { id: 'dnd', group: 'Interfaz', label: '🌙 No molestar — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/dnd`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
+      { id: 'screen_on', group: 'Interfaz', label: '🖥️ Pantalla — encender', method: 'post', path: i => `/api/instances/${i}/screen/on`, fields: [] },
+      { id: 'screen_off', group: 'Interfaz', label: '🖥️ Pantalla — apagar', method: 'post', path: i => `/api/instances/${i}/screen/off`, fields: [] },
+      { id: 'screen_get', group: 'Interfaz', label: '🖥️ Pantalla — consultar', method: 'get', path: i => `/api/instances/${i}/screen`, fields: [] },
+      // Input
+      { id: 'input_key', group: 'Input', label: '⌨️ Tecla (nombre o keycode)', method: 'post', path: i => `/api/instances/${i}/input/key`, fields: [{ id: 'keycode', label: 'Keycode', type: 'text', placeholder: 'back / home / 4', required: true }], body: v => ({ keycode: isNaN(Number(v.keycode)) ? v.keycode : Number(v.keycode) }) },
+      { id: 'input_text', group: 'Input', label: '⌨️ Insertar texto', method: 'post', path: i => `/api/instances/${i}/input/text`, fields: [{ id: 'text', label: 'Texto', type: 'text', required: true }], body: v => ({ text: v.text }) },
+      { id: 'input_tap', group: 'Input', label: '👆 Tap', method: 'post', path: i => `/api/instances/${i}/input/tap`, fields: [{ id: 'x', label: 'X', type: 'number', required: true }, { id: 'y', label: 'Y', type: 'number', required: true }], body: v => ({ x: Number(v.x), y: Number(v.y) }) },
+      { id: 'input_swipe', group: 'Input', label: '👆 Swipe', method: 'post', path: i => `/api/instances/${i}/input/swipe`, fields: [{ id: 'x1', label: 'X1', type: 'number', required: true }, { id: 'y1', label: 'Y1', type: 'number', required: true }, { id: 'x2', label: 'X2', type: 'number', required: true }, { id: 'y2', label: 'Y2', type: 'number', required: true }, { id: 'duration_ms', label: 'Duración (ms)', type: 'number', value: 300 }], body: v => ({ x1: Number(v.x1), y1: Number(v.y1), x2: Number(v.x2), y2: Number(v.y2), duration_ms: Number(v.duration_ms) || 300 }) },
+      { id: 'input_long_press', group: 'Input', label: '👆 Long press', method: 'post', path: i => `/api/instances/${i}/input/long-press`, fields: [{ id: 'x', label: 'X', type: 'number', required: true }, { id: 'y', label: 'Y', type: 'number', required: true }, { id: 'duration_ms', label: 'Duración (ms)', type: 'number', value: 800 }], body: v => ({ x: Number(v.x), y: Number(v.y), duration_ms: Number(v.duration_ms) || 800 }) },
+      // Apps
+      { id: 'apps_list', group: 'Apps', label: '📦 Listar apps instaladas', method: 'get', path: i => `/api/instances/${i}/apps`, fields: [{ id: 'only_third_party', label: 'Solo de terceros', type: 'select', value: 'true', options: [{ value: 'true', label: 'Sí' }, { value: 'false', label: 'No (incluir sistema)' }] }], query: v => `?only_third_party=${v.only_third_party}` },
+      { id: 'apps_current', group: 'Apps', label: '📦 App en primer plano', method: 'get', path: i => `/api/instances/${i}/apps/current`, fields: [] },
+      { id: 'apps_uninstall', group: 'Apps', label: '📦 Desinstalar', method: 'post', path: i => `/api/instances/${i}/apps/uninstall`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }], body: v => ({ package_name: v.package_name }) },
+      { id: 'apps_force_stop', group: 'Apps', label: '📦 Forzar cierre', method: 'post', path: i => `/api/instances/${i}/apps/force-stop`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }], body: v => ({ package_name: v.package_name }) },
+      { id: 'apps_clear_data', group: 'Apps', label: '📦 Borrar datos', method: 'post', path: i => `/api/instances/${i}/apps/clear-data`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }], body: v => ({ package_name: v.package_name }) },
+      { id: 'apps_grant', group: 'Apps', label: '🔑 Otorgar permiso', method: 'post', path: i => `/api/instances/${i}/apps/permissions/grant`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }, { id: 'permission', label: 'Permiso', type: 'text', placeholder: 'android.permission.CAMERA', required: true }], body: v => ({ package_name: v.package_name, permission: v.permission }) },
+      { id: 'apps_revoke', group: 'Apps', label: '🔑 Revocar permiso', method: 'post', path: i => `/api/instances/${i}/apps/permissions/revoke`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }, { id: 'permission', label: 'Permiso', type: 'text', required: true }], body: v => ({ package_name: v.package_name, permission: v.permission }) },
+      { id: 'play_protect', group: 'Apps', label: '🛡️ Play Protect — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/apps/play-protect`, fields: [{ id: 'disable', label: 'Acción', type: 'select', value: 'true', options: [{ value: 'true', label: 'Desactivar' }, { value: 'false', label: 'Activar' }] }], body: v => ({ disable: v.disable === 'true' }) },
+      { id: 'run_reliable', group: 'Apps', label: '🚀 Abrir (modo confiable, con fallback ADB)', method: 'post', path: i => `/api/instances/${i}/apps/run-reliable`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }, { id: 'activity', label: 'Activity (opcional)', type: 'text' }, { id: 'timeout_s', label: 'Timeout (s)', type: 'number', value: 6 }], body: v => ({ package_name: v.package_name, activity: v.activity || null, timeout_s: Number(v.timeout_s) || 6 }) },
+    ];
+
+    // index -> última instancia conocida (para chequear android_started)
+    let instancesByIndex = {};
+
+    function openTools(index) {
+      const inst = instancesByIndex[index];
+      if (!inst || inst.android_started !== true) {
+        log(`[tools] #${index} -> la instancia no tiene Android arriba todavía; encendela primero (Launch) antes de usar herramientas ADB`, 'warn');
+        return;
+      }
+      renderToolsModal(index);
+    }
+
+    function renderToolsModal(index, selectedId) {
+      modalBox.innerHTML = '';
+
+      const title = document.createElement('p');
+      title.className = 'modal-title';
+      title.textContent = `🛠️ Tools — instancia #${index}`;
+      modalBox.appendChild(title);
+
+      const sub = document.createElement('p');
+      sub.className = 'modal-sub';
+      sub.textContent = 'Todo esto corre sobre ADB; la instancia ya está confirmada como encendida.';
+      modalBox.appendChild(sub);
+
+      // Selector de acción, agrupado por categoría
+      const selWrap = document.createElement('div');
+      selWrap.className = 'modal-field';
+      const selLabel = document.createElement('label');
+      selLabel.textContent = 'Acción';
+      selWrap.appendChild(selLabel);
+      const select = document.createElement('select');
+      select.id = 'toolsActionSelect';
+
+      const groups = {};
+      for (const action of TOOL_ACTIONS) {
+        (groups[action.group] ??= []).push(action);
+      }
+      for (const [groupName, actions] of Object.entries(groups)) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = groupName;
+        for (const action of actions) {
+          const opt = document.createElement('option');
+          opt.value = action.id;
+          opt.textContent = action.label;
+          if (action.id === selectedId) opt.selected = true;
+          optgroup.appendChild(opt);
+        }
+        select.appendChild(optgroup);
+      }
+      selWrap.appendChild(select);
+      modalBox.appendChild(selWrap);
+
+      const fieldsContainer = document.createElement('div');
+      modalBox.appendChild(fieldsContainer);
+
+      const errorEl = document.createElement('div');
+      errorEl.className = 'modal-error';
+      modalBox.appendChild(errorEl);
+
+      const resultEl = document.createElement('div');
+      resultEl.className = 'modal-result';
+      modalBox.appendChild(resultEl);
+
+      const btns = document.createElement('div');
+      btns.className = 'modal-btns';
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'ghost';
+      closeBtn.textContent = 'Cerrar';
+      closeBtn.onclick = () => closeModal();
+      const runBtn = document.createElement('button');
+      runBtn.className = 'teal';
+      runBtn.textContent = 'Ejecutar';
+      btns.appendChild(closeBtn);
+      btns.appendChild(runBtn);
+      modalBox.appendChild(btns);
+
+      let fieldEls = {};
+      function renderFields(actionId) {
+        fieldsContainer.innerHTML = '';
+        fieldEls = {};
+        errorEl.textContent = '';
+        resultEl.classList.remove('show');
+        resultEl.textContent = '';
+        const action = TOOL_ACTIONS.find((a) => a.id === actionId);
+        for (const f of action.fields) {
+          const wrap = document.createElement('div');
+          wrap.className = 'modal-field';
+          const label = document.createElement('label');
+          label.textContent = f.label;
+          wrap.appendChild(label);
+          let input;
+          if (f.type === 'select') {
+            input = document.createElement('select');
+            for (const opt of f.options || []) {
+              const o = document.createElement('option');
+              o.value = opt.value;
+              o.textContent = opt.label ?? opt.value;
+              if (String(opt.value) === String(f.value)) o.selected = true;
+              input.appendChild(o);
+            }
+          } else {
+            input = document.createElement('input');
+            input.type = f.type === 'number' ? 'number' : 'text';
+            if (f.placeholder) input.placeholder = f.placeholder;
+            if (f.value !== undefined && f.value !== null) input.value = f.value;
+            if (f.min !== undefined) input.min = f.min;
+            if (f.max !== undefined) input.max = f.max;
+            if (f.step !== undefined) input.step = f.step;
+          }
+          wrap.appendChild(input);
+          fieldEls[f.id] = { input, def: f };
+          fieldsContainer.appendChild(wrap);
+        }
+      }
+
+      select.addEventListener('change', () => renderFields(select.value));
+      renderFields(select.value);
+
+      runBtn.onclick = async () => {
+        const action = TOOL_ACTIONS.find((a) => a.id === select.value);
+        const values = {};
+        for (const [id, { input, def }] of Object.entries(fieldEls)) {
+          let val = input.value;
+          if (def.required && (val === '' || val === null || val === undefined)) {
+            errorEl.textContent = `"${def.label}" es obligatorio.`;
+            input.focus();
+            return;
+          }
+          values[id] = val;
+        }
+        errorEl.textContent = '';
+        runBtn.disabled = true;
+        runBtn.textContent = 'Ejecutando...';
+        try {
+          let res;
+          if (action.method === 'get') {
+            const qs = action.query ? action.query(values) : '';
+            res = await getJSON(`${action.path(index)}${qs}`);
+          } else {
+            res = await postJSON(action.path(index), action.body ? action.body(values) : {});
+          }
+          resultEl.textContent = `${res.status} ${JSON.stringify(res.payload, null, 2)}`;
+          resultEl.classList.add('show');
+          log(`[tools] #${index} ${action.label} -> ${res.status}`, res.ok ? 'ok' : 'bad');
+        } catch (e) {
+          resultEl.textContent = `Error: ${e.message}`;
+          resultEl.classList.add('show');
+          log(`[tools] #${index} ${action.label} -> error: ${e.message}`, 'bad');
+        } finally {
+          runBtn.disabled = false;
+          runBtn.textContent = 'Ejecutar';
+        }
+      };
+
+      modalOverlay.classList.add('show');
     }
 
     // ---- Selección ----
@@ -1167,9 +1422,8 @@
 
     // ==================================================================
     // CADENA 3: Iniciar con monitor
-    // launch -> boot -> install soks -> delay -> install earn -> delay ->
-    // install monitor -> abrir com.chataolutions.app -> esperar -> cerrarlo ->
-    // delay -> quit -> delay -> siguiente instancia
+    // launch -> boot -> install monitor -> abrir com.chataolutions.app ->
+    // esperar -> cerrarlo -> delay -> quit -> delay -> siguiente instancia
     // ==================================================================
     let monitorChainCancelled = false;
     let monitorChainRunning = false;
@@ -1316,6 +1570,7 @@
       const body = document.getElementById('instancesBody');
       const list = Array.isArray(instances) ? instances : Object.values(instances || {});
       lastKnownIndices = list.map((inst) => inst.index);
+      instancesByIndex = Object.fromEntries(list.map((inst) => [inst.index, inst]));
 
       // Preservar checks existentes al re-renderizar
       const checkedSet = new Set(lastKnownIndices.filter((i) => getCheckbox(i)?.checked));
@@ -1324,9 +1579,11 @@
       for (const inst of list) {
         const tr = document.createElement('tr');
         const checked = checkedSet.has(inst.index) ? 'checked' : '';
-        const androidBadge = inst.android_started
+        const isUp = inst.android_started === true;
+        const androidBadge = isUp
           ? '<span class="badge on">● activo</span>'
           : '<span class="badge off">● apagado</span>';
+        const toolsTitle = isUp ? 'Batería / radios / ubicación / pantalla / input / apps (ADB)' : 'Encendé la instancia (Launch) para poder usar herramientas ADB';
         tr.innerHTML = `
           <td><input type="checkbox" id="chk-${inst.index}" ${checked} /></td>
           <td>${inst.index}</td>
@@ -1342,6 +1599,7 @@
             <button class="small" onclick="modifyInstance(${inst.index})">Modify</button>
             <button class="small" onclick="cloneInstance(${inst.index})">Clone</button>
             <button class="small" onclick="killApp(${inst.index})">Kill app</button>
+            <button class="small teal" onclick="openTools(${inst.index})" ${isUp ? '' : 'disabled'} title="${toolsTitle}">🛠️ Tools</button>
           </td>`;
         body.appendChild(tr);
       }
