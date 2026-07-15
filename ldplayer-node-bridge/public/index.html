@@ -194,6 +194,11 @@
       border-radius: 10px;
       padding: 1.1rem 1.25rem;
       margin-bottom: 1.1rem;
+      transition: border-color .15s ease;
+    }
+
+    section.panel:hover {
+      border-color: #2e3540;
     }
 
     .panel-title {
@@ -213,6 +218,11 @@
       text-transform: none;
       letter-spacing: 0;
       font-weight: 400;
+      font-size: .75rem;
+    }
+
+    .hint {
+      color: var(--muted);
       font-size: .75rem;
     }
 
@@ -266,6 +276,19 @@
       border-color: var(--cyan);
     }
 
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 1px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        transition: none !important;
+      }
+    }
+
     .chain-flow {
       display: flex;
       align-items: center;
@@ -314,6 +337,10 @@
       border-color: var(--violet);
     }
 
+    .table-scroll {
+      overflow-x: auto;
+    }
+
     table {
       border-collapse: collapse;
       width: 100%;
@@ -327,6 +354,7 @@
       color: var(--muted);
       padding: .5rem .6rem;
       border-bottom: 1px solid var(--line);
+      white-space: nowrap;
     }
 
     tbody td {
@@ -362,6 +390,19 @@
       flex-wrap: wrap;
     }
 
+    .quickapp-cell {
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+      flex-wrap: wrap;
+    }
+
+    .quickapp-cell select {
+      font-size: .72rem;
+      padding: .25rem .35rem;
+      max-width: 140px;
+    }
+
     #log {
       background: #07090b;
       border: 1px solid var(--line);
@@ -392,6 +433,104 @@
       accent-color: var(--accent);
       width: 15px;
       height: 15px;
+    }
+
+    /* ---------- Toasts ---------- */
+    .toast-stack {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      z-index: 2000;
+    }
+
+    .toast {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--cyan);
+      border-radius: 8px;
+      padding: .55rem .8rem;
+      font-size: .78rem;
+      color: var(--text);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity .18s ease, transform .18s ease;
+      max-width: 320px;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.ok {
+      border-left-color: var(--ok);
+    }
+
+    .toast.bad {
+      border-left-color: var(--bad);
+    }
+
+    .toast.warn {
+      border-left-color: var(--warn);
+    }
+
+    /* ---------- Pipeline runner ---------- */
+    .step-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #10131a;
+      padding: .7rem .8rem;
+    }
+
+    .step-card-head {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      flex-wrap: wrap;
+    }
+
+    .step-num {
+      font-family: var(--mono);
+      color: var(--muted);
+      font-size: .75rem;
+      min-width: 30px;
+    }
+
+    .step-card-head select {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .step-card-btns {
+      display: flex;
+      gap: .25rem;
+      margin-left: auto;
+    }
+
+    .step-fields {
+      display: flex;
+      gap: .6rem;
+      flex-wrap: wrap;
+      margin-top: .65rem;
+    }
+
+    .step-fields .field {
+      min-width: 140px;
+    }
+
+    .step-subfields-divider {
+      width: 100%;
+      font-size: .68rem;
+      color: var(--violet);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      border-top: 1px dashed var(--line);
+      padding-top: .55rem;
+      margin-top: .1rem;
     }
 
     /* ---------- Modales ---------- */
@@ -546,6 +685,28 @@
   </header>
 
   <section class="panel">
+    <p class="panel-title">📱 Apps conocidas <span class="hint">— usadas en instalar / abrir / cerrar y en los pasos
+        del pipeline, sin escribir la ruta cada vez</span></p>
+    <div class="row">
+      <button class="teal" onclick="openAppFormModal()">+ Agregar app</button>
+      <span class="hint" id="appsSyncHint"></span>
+    </div>
+    <div class="table-scroll">
+      <table style="margin-top:.7rem;">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Ruta APK</th>
+            <th>Package</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="knownAppsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
     <p class="panel-title">Selección <span class="hint">— aplica a todas las acciones en cadena de abajo</span></p>
     <div class="row">
       <button onclick="toggleSelectAll()">☑ Marcar / desmarcar todas</button>
@@ -663,26 +824,72 @@
   </section>
 
   <section class="panel">
-    <p class="panel-title">Instancias <span class="hint">— "🛠️ Tools" agrupa batería / radios / ubicación / pantalla /
-        input / apps (todo lo que usa ADB). Se deshabilita si el Android de esa instancia no está arriba.</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th></th>
-          <th>Index</th>
-          <th>Nombre</th>
-          <th>Android</th>
-          <th>Batería</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="instancesBody"></tbody>
-    </table>
+    <p class="panel-title">🧩 Pipeline runner <span class="hint">— armá una secuencia de pasos (abrir app, esperar,
+        comando ADB, cambiar/verificar config, etc.) y correla sobre las instancias seleccionadas</span></p>
+    <div class="row">
+      <div class="field">
+        <label for="pipelineNameInput">Nombre</label>
+        <input type="text" id="pipelineNameInput" value="Mi pipeline" style="width:220px"
+          oninput="currentPipeline.name = this.value" />
+      </div>
+      <button onclick="loadPreset('encendido')">Preset: Encendido</button>
+      <button onclick="loadPreset('instalacion')">Preset: Instalación</button>
+      <button onclick="loadPreset('monitor')">Preset: Con monitor</button>
+      <button onclick="exportPipeline()">⬇ Exportar JSON</button>
+      <label class="small" style="cursor:pointer; display:inline-flex; align-items:center; gap:.3rem; padding:.45rem .85rem; border-radius:6px; border:1px solid var(--line); background:var(--panel-2); font-size:.8rem; font-weight:600;">
+        ⬆ Importar JSON
+        <input type="file" accept="application/json" style="display:none" onchange="importPipelineFile(this)" />
+      </label>
+    </div>
+    <div class="row" style="margin-top:.6rem;">
+      <label class="row" style="gap:.35rem;"><input type="checkbox" id="pipelineParallel" /> Ejecutar instancias en
+        paralelo</label>
+      <button id="pipelineRunBtn" class="primary" onclick="runPipeline()">▶ Ejecutar pipeline</button>
+      <button id="pipelineStopBtn" class="ghost" onclick="stopPipeline()" disabled>■ Detener</button>
+      <span class="chain-status-pill" id="pipelineStatus">Inactivo</span>
+    </div>
+
+    <div id="pipelineStepsList" style="margin-top: 1rem; display:flex; flex-direction:column; gap:.6rem;"></div>
+
+    <div class="row" style="margin-top:.8rem;">
+      <select id="newStepTypeSelect"></select>
+      <button class="teal" onclick="addStep(document.getElementById('newStepTypeSelect').value)">+ Agregar
+        paso</button>
+    </div>
   </section>
 
   <section class="panel">
-    <p class="panel-title">Log</p>
-    <div id="log"></div>
+    <p class="panel-title">Instancias <span class="hint">— "🛠️ Tools" agrupa batería / radios / ubicación / pantalla /
+        input / apps (todo lo que usa ADB). Se deshabilita si el Android de esa instancia no está arriba.</span></p>
+    <div class="row">
+      <input type="text" id="instanceSearchInput" placeholder="🔎 Buscar por nombre o index..."
+        oninput="renderInstances(Object.values(instancesByIndex))" style="min-width:220px" />
+      <span class="hint" id="instanceCountHint"></span>
+    </div>
+    <div class="table-scroll" style="margin-top:.8rem;">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Index</th>
+            <th>Nombre</th>
+            <th>Android</th>
+            <th>Batería</th>
+            <th>App rápida</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="instancesBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row" style="justify-content:space-between;">
+      <p class="panel-title" style="margin:0;">Log</p>
+      <button class="small ghost" onclick="clearLog()">🧹 Limpiar</button>
+    </div>
+    <div id="log" style="margin-top:.8rem;"></div>
   </section>
 
   <!-- Contenedor de modales -->
@@ -708,11 +915,33 @@
       },
     ];
 
+    // ==================================================================
+    // APPS CONOCIDAS — evita tener que escribir la ruta / package name
+    // cada vez que instalás, abrís o cerrás una app. Se usan en:
+    //  - los modales de Instalar / Abrir app / Kill app
+    //  - la fila de "App rápida" de cada instancia
+    //  - los pasos "install" / "run" / "kill" del pipeline runner
+    //
+    // Se intentan cargar/guardar contra el backend en /api/config/apps
+    // (GET para cargar, PUT para guardar). Si esas rutas no existen todavía
+    // en tu servidor Python, no pasa nada: seguimos trabajando en memoria
+    // con estos valores por defecto durante la sesión.
+    // ==================================================================
+    const DEFAULT_KNOWN_APPS = [
+      { id: 'socks', label: 'SOCKS proxy', apk_path: 'C:\\playeremulador\\apks\\soks.apk', package_name: '' },
+      { id: 'earn', label: 'Earn app', apk_path: 'C:\\playeremulador\\apks\\earn.apk', package_name: '' },
+      { id: 'monitor', label: 'Monitor (app-debug)', apk_path: 'C:\\playeremulador\\apks\\app-debug.apk', package_name: 'com.chataolutions.app' },
+    ];
+    let KNOWN_APPS = DEFAULT_KNOWN_APPS.map((a) => ({ ...a }));
+
     const logEl = document.getElementById('log');
     function log(line, cls) {
       const span = cls ? `<span class="${cls}">${line}</span>` : line;
       logEl.innerHTML += span + '\n';
       logEl.scrollTop = logEl.scrollHeight;
+    }
+    function clearLog() {
+      logEl.innerHTML = '';
     }
     function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
     function secInput(id, fallback) {
@@ -737,6 +966,35 @@
       try { payload = await r.json(); } catch { }
       return { status: r.status, ok: r.ok, payload };
     }
+    function getByPath(obj, path) {
+      if (!obj || !path) return undefined;
+      return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
+    }
+
+    // ==================================================================
+    // TOASTS — feedback rápido además del log
+    // ==================================================================
+    let toastStack;
+    function ensureToastStack() {
+      if (!toastStack) {
+        toastStack = document.createElement('div');
+        toastStack.className = 'toast-stack';
+        document.body.appendChild(toastStack);
+      }
+      return toastStack;
+    }
+    function toast(message, cls) {
+      const stack = ensureToastStack();
+      const el = document.createElement('div');
+      el.className = `toast ${cls || ''}`;
+      el.textContent = message;
+      stack.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('show'));
+      setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 200);
+      }, 2600);
+    }
 
     // ==================================================================
     // MODALES — reemplazo genérico de prompt()/alert() con UI interactiva
@@ -756,7 +1014,8 @@
       modalBox.innerHTML = '';
     }
 
-    // config = { title, subtitle, fields: [{id,label,type,value,placeholder,options,unit,min,step}], confirmLabel, danger }
+    // config = { title, subtitle, fields: [{id,label,type,value,placeholder,options,unit,min,step,onChange}], confirmLabel, danger }
+    // onChange(value, fieldEls) permite que un campo actualice otro (ej: elegir una "app conocida" autocompleta la ruta/package).
     function showModal(config) {
       return new Promise((resolve) => {
         modalBox.innerHTML = '';
@@ -805,6 +1064,9 @@
           }
           wrap.appendChild(input);
           fieldEls[f.id] = { input, def: f };
+          if (f.onChange) {
+            input.addEventListener('change', () => f.onChange(input.value, fieldEls));
+          }
           modalBox.appendChild(wrap);
         }
 
@@ -876,13 +1138,24 @@
       return r.status;
     }
 
-    // --- Instalar APK manual (modal) ---
+    function knownAppOptions() {
+      return [{ value: '', label: '— manual —' }, ...KNOWN_APPS.map((a) => ({ value: a.id, label: a.label }))];
+    }
+
+    // --- Instalar APK (modal con selector de app conocida + ruta manual) ---
     async function installApk(index) {
       const result = await showModal({
         title: `Instalar APK — instancia #${index}`,
-        subtitle: 'Ruta local del APK en la máquina donde corre Python.',
+        subtitle: 'Elegí una app conocida o escribí la ruta manualmente.',
         confirmLabel: 'Instalar',
         fields: [
+          {
+            id: 'known_app', label: 'App conocida', type: 'select', value: '', options: knownAppOptions(),
+            onChange: (val, fieldEls) => {
+              const app = KNOWN_APPS.find((a) => a.id === val);
+              if (fieldEls.apk_path) fieldEls.apk_path.input.value = app ? app.apk_path : '';
+            },
+          },
           { id: 'apk_path', label: 'Ruta del APK', type: 'text', placeholder: 'C:\\playeremulador\\apks\\app.apk', required: true },
         ],
       });
@@ -891,13 +1164,20 @@
       log(`[instances] install #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
     }
 
-    // --- Correr una app instalada (modal) ---
+    // --- Correr una app instalada (modal con selector de app conocida + package manual) ---
     async function runApp(index) {
       const result = await showModal({
         title: `Abrir app — instancia #${index}`,
-        subtitle: 'Package name de la app a correr.',
+        subtitle: 'Elegí una app conocida o escribí el package name manualmente.',
         confirmLabel: 'Abrir',
         fields: [
+          {
+            id: 'known_app', label: 'App conocida', type: 'select', value: '', options: knownAppOptions(),
+            onChange: (val, fieldEls) => {
+              const app = KNOWN_APPS.find((a) => a.id === val);
+              if (fieldEls.package_name) fieldEls.package_name.input.value = app ? (app.package_name || '') : '';
+            },
+          },
           { id: 'package_name', label: 'Package name', type: 'text', placeholder: 'net.typeblog.socks', required: true },
         ],
       });
@@ -976,10 +1256,17 @@
     async function killApp(index) {
       const result = await showModal({
         title: `Cerrar app — instancia #${index}`,
-        subtitle: 'Package name de la app a cerrar.',
+        subtitle: 'Elegí una app conocida o escribí el package name manualmente.',
         confirmLabel: 'Cerrar app',
         danger: true,
         fields: [
+          {
+            id: 'known_app', label: 'App conocida', type: 'select', value: '', options: knownAppOptions(),
+            onChange: (val, fieldEls) => {
+              const app = KNOWN_APPS.find((a) => a.id === val);
+              if (fieldEls.package_name) fieldEls.package_name.input.value = app ? (app.package_name || '') : '';
+            },
+          },
           { id: 'package_name', label: 'Package name', type: 'text', placeholder: 'com.example.app', required: true },
         ],
       });
@@ -989,9 +1276,138 @@
     }
 
     // ==================================================================
+    // Gestión de Apps conocidas (panel superior)
+    // ==================================================================
+    function renderKnownApps() {
+      const body = document.getElementById('knownAppsBody');
+      body.innerHTML = '';
+      if (KNOWN_APPS.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="4" class="hint">Sin apps configuradas todavía.</td>`;
+        body.appendChild(tr);
+        return;
+      }
+      for (const app of KNOWN_APPS) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${app.label}</td>
+          <td style="font-family:var(--mono); font-size:.75rem;">${app.apk_path || '-'}</td>
+          <td style="font-family:var(--mono); font-size:.75rem;">${app.package_name || '-'}</td>
+          <td class="actions">
+            <button class="small" onclick="openAppFormModal('${app.id}')">Editar</button>
+            <button class="small danger" onclick="deleteKnownApp('${app.id}')">Borrar</button>
+          </td>`;
+        body.appendChild(tr);
+      }
+    }
+
+    async function openAppFormModal(appId) {
+      const existing = appId ? KNOWN_APPS.find((a) => a.id === appId) : null;
+      const result = await showModal({
+        title: existing ? `Editar app — ${existing.label}` : 'Agregar app conocida',
+        subtitle: 'Se va a poder elegir en instalar / abrir / cerrar y en los pasos del pipeline.',
+        confirmLabel: existing ? 'Guardar cambios' : 'Agregar',
+        fields: [
+          { id: 'label', label: 'Nombre', type: 'text', placeholder: 'SOCKS proxy', value: existing?.label || '', required: true },
+          { id: 'apk_path', label: 'Ruta del APK', type: 'text', placeholder: 'C:\\playeremulador\\apks\\app.apk', value: existing?.apk_path || '' },
+          { id: 'package_name', label: 'Package name', type: 'text', placeholder: 'com.example.app', value: existing?.package_name || '' },
+        ],
+      });
+      if (!result) return;
+      if (existing) {
+        existing.label = result.label;
+        existing.apk_path = result.apk_path;
+        existing.package_name = result.package_name;
+      } else {
+        const id = `${result.label.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 24)}_${Math.random().toString(36).slice(2, 6)}`;
+        KNOWN_APPS.push({ id, label: result.label, apk_path: result.apk_path, package_name: result.package_name });
+      }
+      renderKnownApps();
+      renderInstances(Object.values(instancesByIndex));
+      syncKnownAppsToBackend();
+      toast(`App "${result.label}" ${existing ? 'actualizada' : 'agregada'}`, 'ok');
+      log(`[apps] "${result.label}" ${existing ? 'actualizada' : 'agregada'}`, 'ok');
+    }
+
+    function deleteKnownApp(appId) {
+      const app = KNOWN_APPS.find((a) => a.id === appId);
+      KNOWN_APPS = KNOWN_APPS.filter((a) => a.id !== appId);
+      renderKnownApps();
+      renderInstances(Object.values(instancesByIndex));
+      syncKnownAppsToBackend();
+      toast(`App "${app?.label ?? appId}" borrada`, 'warn');
+      log(`[apps] "${app?.label ?? appId}" borrada`, 'warn');
+    }
+
+    async function loadKnownApps() {
+      const hintEl = document.getElementById('appsSyncHint');
+      try {
+        const { ok, payload } = await getJSON('/api/config/apps');
+        if (ok && Array.isArray(payload) && payload.length) {
+          KNOWN_APPS = payload;
+          if (hintEl) hintEl.textContent = '(cargadas desde el backend)';
+        } else if (hintEl) {
+          hintEl.textContent = '(valores por defecto — en memoria de esta pestaña)';
+        }
+      } catch {
+        if (hintEl) hintEl.textContent = '(valores por defecto — en memoria de esta pestaña)';
+      }
+      renderKnownApps();
+      renderInstances(Object.values(instancesByIndex));
+    }
+
+    async function syncKnownAppsToBackend() {
+      const hintEl = document.getElementById('appsSyncHint');
+      try {
+        const r = await fetch('/api/config/apps', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(KNOWN_APPS),
+        });
+        if (r.ok && hintEl) hintEl.textContent = '(sincronizado con el backend)';
+      } catch {
+        // El backend puede no tener todavía GET/PUT /api/config/apps.
+        // No pasa nada: seguimos funcionando en memoria sin problema.
+      }
+    }
+
+    // --- Quick actions: instalar / abrir / cerrar una app conocida directo desde la fila ---
+    function selectedQuickApp(index) {
+      const sel = document.getElementById(`qa-${index}`);
+      if (!sel) return null;
+      return KNOWN_APPS.find((a) => a.id === sel.value) || null;
+    }
+    async function quickInstall(index) {
+      const app = selectedQuickApp(index);
+      if (!app) return;
+      if (!app.apk_path) { log(`[quick] "${app.label}" no tiene ruta de APK configurada`, 'warn'); return; }
+      const { status, ok, payload } = await postJSON(`/api/instances/${index}/install`, { apk_path: app.apk_path });
+      log(`[quick] instalar "${app.label}" en #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`, ok ? 'ok' : 'bad');
+      toast(ok ? `Instalando ${app.label} en #${index}` : `Falló instalar ${app.label} en #${index}`, ok ? 'ok' : 'bad');
+    }
+    async function quickRun(index) {
+      const app = selectedQuickApp(index);
+      if (!app) return;
+      if (!app.package_name) { log(`[quick] "${app.label}" no tiene package name configurado`, 'warn'); return; }
+      const { status, ok, payload } = await postJSON(`/api/instances/${index}/run`, { package_name: app.package_name });
+      log(`[quick] abrir "${app.label}" en #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`, ok ? 'ok' : 'bad');
+      toast(ok ? `Abriendo ${app.label} en #${index}` : `Falló abrir ${app.label} en #${index}`, ok ? 'ok' : 'bad');
+    }
+    async function quickKill(index) {
+      const app = selectedQuickApp(index);
+      if (!app) return;
+      if (!app.package_name) { log(`[quick] "${app.label}" no tiene package name configurado`, 'warn'); return; }
+      const { status, ok, payload } = await postJSON(`/api/instances/${index}/kill`, { package_name: app.package_name });
+      log(`[quick] cerrar "${app.label}" en #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`, ok ? 'ok' : 'bad');
+      toast(ok ? `Cerrando ${app.label} en #${index}` : `Falló cerrar ${app.label} en #${index}`, ok ? 'ok' : 'bad');
+    }
+
+    // ==================================================================
     // TOOLS — todo lo que pega contra ADB (batería, radios, ubicación,
     // pantalla, input, apps). Requiere que la instancia esté con Android
     // arriba (android_started === true); si no, ni se abre el modal.
+    // También se reutiliza como catálogo de "acciones" dentro del pipeline
+    // runner (pasos tipo "tool" y "verify").
     // ==================================================================
     const TOOL_ACTIONS = [
       // Batería
@@ -1565,18 +1981,623 @@
       }
     }
 
-    // ---- Render ----
+    // ==================================================================
+    // PIPELINE RUNNER — motor genérico de pasos
+    //
+    // Un pipeline es: { name, steps: [ { type, values }, ... ] }
+    // Cada "type" viene de PIPELINE_STEP_TYPES: define sus campos (fields)
+    // y una función exec(index, values, ctx) que hace la acción real
+    // contra la instancia `index`. El motor corre los pasos EN ORDEN para
+    // cada instancia seleccionada (una por una, o en paralelo si tildás
+    // la opción), respetando esperas (wait) e inputs (tap/swipe/texto via
+    // el paso "tool"), y puede abortar solo esa instancia si un "launch"
+    // no bootea o una "verify" falla con "abortar".
+    // ==================================================================
+    function appSelectOptions() {
+      return [{ value: '', label: '— manual —' }, ...KNOWN_APPS.map((a) => ({ value: a.id, label: a.label }))];
+    }
+
+    const PIPELINE_STEP_TYPES = [
+      {
+        id: 'note', label: '📝 Nota (solo log, no hace nada)',
+        fields: [
+          { id: 'text', label: 'Texto', type: 'text', placeholder: 'Ej: preparando cuentas nuevas...' },
+        ],
+        exec: async (index, v, ctx) => { ctx.log(`nota: ${v.text || ''}`); return { ok: true }; },
+      },
+      {
+        id: 'wait', label: '⏱️ Esperar',
+        fields: [
+          { id: 'seconds', label: 'Segundos', type: 'number', value: 5, min: 0, required: true },
+        ],
+        exec: async (index, v, ctx) => { await ctx.sleep(Number(v.seconds || 0) * 1000); return { ok: true }; },
+      },
+      {
+        id: 'launch', label: '🟢 Encender (launch) + esperar boot',
+        fields: [
+          { id: 'bootTimeoutSec', label: 'Timeout de boot (seg)', type: 'number', value: 90, min: 10, required: true },
+        ],
+        exec: async (index, v, ctx) => {
+          const r = await postJSON(`/api/instances/${index}/launch`);
+          if (!r.ok) return { ok: false, detail: `launch falló (status ${r.status})`, abort: true };
+          try {
+            await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000);
+          } catch (e) {
+            return { ok: false, detail: e.message, abort: true };
+          }
+          return { ok: true };
+        },
+      },
+      {
+        id: 'reboot', label: '🔁 Reboot', fields: [],
+        exec: async (index) => { const r = await postJSON(`/api/instances/${index}/reboot`); return { ok: r.ok, detail: `status ${r.status}` }; },
+      },
+      {
+        id: 'quit', label: '🔴 Apagar (quit)', fields: [],
+        exec: async (index) => { const r = await postJSON(`/api/instances/${index}/quit`); return { ok: r.ok, detail: `status ${r.status}` }; },
+      },
+      {
+        id: 'install', label: '⬇️ Instalar APK',
+        fields: [
+          {
+            id: 'known_app', label: 'App conocida', type: 'select', value: '', options: () => appSelectOptions(),
+            onChange: (val, fieldEls) => {
+              const app = KNOWN_APPS.find((a) => a.id === val);
+              if (app && fieldEls.apk_path) fieldEls.apk_path.input.value = app.apk_path;
+            },
+          },
+          { id: 'apk_path', label: 'Ruta del APK (o manual)', type: 'text', placeholder: 'C:\\playeremulador\\apks\\app.apk' },
+        ],
+        exec: async (index, v) => {
+          if (!v.apk_path) return { ok: false, detail: 'sin ruta de APK' };
+          const r = await postJSON(`/api/instances/${index}/install`, { apk_path: v.apk_path });
+          return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
+        },
+      },
+      {
+        id: 'run', label: '▶️ Abrir app',
+        fields: [
+          {
+            id: 'known_app', label: 'App conocida', type: 'select', value: '', options: () => appSelectOptions(),
+            onChange: (val, fieldEls) => {
+              const app = KNOWN_APPS.find((a) => a.id === val);
+              if (app && fieldEls.package_name) fieldEls.package_name.input.value = app.package_name || '';
+            },
+          },
+          { id: 'package_name', label: 'Package name (o manual)', type: 'text', placeholder: 'com.example.app' },
+        ],
+        exec: async (index, v) => {
+          if (!v.package_name) return { ok: false, detail: 'sin package name' };
+          const r = await postJSON(`/api/instances/${index}/run`, { package_name: v.package_name });
+          return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
+        },
+      },
+      {
+        id: 'kill', label: '✖️ Cerrar app',
+        fields: [
+          {
+            id: 'known_app', label: 'App conocida', type: 'select', value: '', options: () => appSelectOptions(),
+            onChange: (val, fieldEls) => {
+              const app = KNOWN_APPS.find((a) => a.id === val);
+              if (app && fieldEls.package_name) fieldEls.package_name.input.value = app.package_name || '';
+            },
+          },
+          { id: 'package_name', label: 'Package name (o manual)', type: 'text', placeholder: 'com.example.app' },
+        ],
+        exec: async (index, v) => {
+          if (!v.package_name) return { ok: false, detail: 'sin package name' };
+          const r = await postJSON(`/api/instances/${index}/kill`, { package_name: v.package_name });
+          return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
+        },
+      },
+      {
+        id: 'tool', label: '🛠️ Acción ADB (batería / radios / pantalla / input / apps)',
+        fields: [
+          {
+            id: 'tool_action', label: 'Acción', type: 'select', dynamic: true,
+            options: () => TOOL_ACTIONS.map((a) => ({ value: a.id, label: `${a.group} — ${a.label}` })),
+          },
+        ],
+        exec: async (index, v) => {
+          const action = TOOL_ACTIONS.find((a) => a.id === v.tool_action);
+          if (!action) return { ok: false, detail: 'acción inválida' };
+          let res;
+          if (action.method === 'get') {
+            const qs = action.query ? action.query(v) : '';
+            res = await getJSON(`${action.path(index)}${qs}`);
+          } else {
+            res = await postJSON(action.path(index), action.body ? action.body(v) : {});
+          }
+          return { ok: res.ok, detail: JSON.stringify(res.payload) };
+        },
+      },
+      {
+        id: 'verify', label: '✅ Verificar config',
+        fields: [
+          {
+            id: 'tool_action', label: 'Acción (de consulta)', type: 'select', dynamic: true,
+            options: () => TOOL_ACTIONS.filter((a) => a.method === 'get').map((a) => ({ value: a.id, label: `${a.group} — ${a.label}` })),
+          },
+          { id: 'expect_path', label: 'Campo a verificar', type: 'text', placeholder: 'level' },
+          { id: 'expect_value', label: 'Valor esperado', type: 'text', placeholder: '80' },
+          {
+            id: 'on_mismatch', label: 'Si no coincide', type: 'select', value: 'continue',
+            options: [{ value: 'continue', label: 'Continuar igual' }, { value: 'abort', label: 'Abortar esta instancia' }],
+          },
+        ],
+        exec: async (index, v) => {
+          const action = TOOL_ACTIONS.find((a) => a.id === v.tool_action);
+          if (!action) return { ok: false, detail: 'acción inválida' };
+          const qs = action.query ? action.query(v) : '';
+          const res = await getJSON(`${action.path(index)}${qs}`);
+          const actual = getByPath(res.payload, v.expect_path);
+          const matches = String(actual) === String(v.expect_value);
+          return {
+            ok: matches,
+            detail: `esperado="${v.expect_value}" obtenido="${actual}"`,
+            abort: !matches && v.on_mismatch === 'abort',
+          };
+        },
+      },
+      {
+        id: 'adb_raw', label: '⌨️ Comando ADB crudo dentro de la instancia (requiere backend)',
+        fields: [
+          { id: 'command', label: 'Comando (shell)', type: 'text', placeholder: 'settings put system screen_brightness 120', required: true },
+        ],
+        exec: async (index, v) => {
+          // Espera un endpoint del estilo POST /api/instances/:index/adb { command } -> { output }
+          const r = await postJSON(`/api/instances/${index}/adb`, { command: v.command });
+          return { ok: r.ok, detail: r.payload?.error || r.payload?.output || `status ${r.status}` };
+        },
+      },
+      {
+        id: 'host_command', label: '💻 Comando en el host (requiere backend)',
+        fields: [
+          { id: 'command', label: 'Comando', type: 'text', placeholder: 'echo listo', required: true },
+        ],
+        exec: async (index, v) => {
+          // Espera un endpoint del estilo POST /api/host/run { command } -> { output }
+          // (no depende de la instancia, pero se ejecuta en su turno dentro del pipeline)
+          const r = await postJSON(`/api/host/run`, { command: v.command });
+          return { ok: r.ok, detail: r.payload?.error || r.payload?.output || `status ${r.status}` };
+        },
+      },
+    ];
+
+    let currentPipeline = { name: 'Mi pipeline', steps: [] };
+
+    function defaultValuesForType(type) {
+      const stepType = PIPELINE_STEP_TYPES.find((t) => t.id === type);
+      if (!stepType) return {};
+      const values = {};
+      for (const f of stepType.fields) {
+        const opts = typeof f.options === 'function' ? f.options() : (f.options || []);
+        values[f.id] = f.value !== undefined ? f.value : (opts[0]?.value ?? '');
+      }
+      return values;
+    }
+
+    function addStep(type) {
+      currentPipeline.steps.push({ type, values: defaultValuesForType(type) });
+      renderPipelineBuilder();
+    }
+
+    function renderPipelineBuilder() {
+      const nameInput = document.getElementById('pipelineNameInput');
+      if (nameInput && document.activeElement !== nameInput) nameInput.value = currentPipeline.name || '';
+
+      const list = document.getElementById('pipelineStepsList');
+      list.innerHTML = '';
+      if (currentPipeline.steps.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'hint';
+        empty.textContent = 'Sin pasos todavía — agregá uno con el selector de abajo, o cargá un preset.';
+        list.appendChild(empty);
+        return;
+      }
+      currentPipeline.steps.forEach((step, i) => {
+        list.appendChild(buildStepCard(step, i));
+      });
+    }
+
+    function buildStepCard(step, i) {
+      const card = document.createElement('div');
+      card.className = 'step-card';
+
+      const head = document.createElement('div');
+      head.className = 'step-card-head';
+
+      const num = document.createElement('span');
+      num.className = 'step-num';
+      num.textContent = `#${i + 1}`;
+      head.appendChild(num);
+
+      const typeSelect = document.createElement('select');
+      for (const st of PIPELINE_STEP_TYPES) {
+        const o = document.createElement('option');
+        o.value = st.id;
+        o.textContent = st.label;
+        if (st.id === step.type) o.selected = true;
+        typeSelect.appendChild(o);
+      }
+      typeSelect.addEventListener('change', () => {
+        step.type = typeSelect.value;
+        step.values = defaultValuesForType(step.type);
+        renderPipelineBuilder();
+      });
+      head.appendChild(typeSelect);
+
+      const btns = document.createElement('div');
+      btns.className = 'step-card-btns';
+
+      const upBtn = document.createElement('button');
+      upBtn.className = 'small ghost';
+      upBtn.textContent = '↑';
+      upBtn.title = 'Subir paso';
+      upBtn.disabled = i === 0;
+      upBtn.onclick = () => {
+        [currentPipeline.steps[i - 1], currentPipeline.steps[i]] = [currentPipeline.steps[i], currentPipeline.steps[i - 1]];
+        renderPipelineBuilder();
+      };
+
+      const downBtn = document.createElement('button');
+      downBtn.className = 'small ghost';
+      downBtn.textContent = '↓';
+      downBtn.title = 'Bajar paso';
+      downBtn.disabled = i === currentPipeline.steps.length - 1;
+      downBtn.onclick = () => {
+        [currentPipeline.steps[i + 1], currentPipeline.steps[i]] = [currentPipeline.steps[i], currentPipeline.steps[i + 1]];
+        renderPipelineBuilder();
+      };
+
+      const dupBtn = document.createElement('button');
+      dupBtn.className = 'small ghost';
+      dupBtn.textContent = '⧉';
+      dupBtn.title = 'Duplicar paso';
+      dupBtn.onclick = () => {
+        currentPipeline.steps.splice(i + 1, 0, JSON.parse(JSON.stringify(step)));
+        renderPipelineBuilder();
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'small danger';
+      delBtn.textContent = '🗑️';
+      delBtn.title = 'Borrar paso';
+      delBtn.onclick = () => {
+        currentPipeline.steps.splice(i, 1);
+        renderPipelineBuilder();
+      };
+
+      btns.append(upBtn, downBtn, dupBtn, delBtn);
+      head.appendChild(btns);
+      card.appendChild(head);
+
+      const fieldsWrap = document.createElement('div');
+      fieldsWrap.className = 'step-fields';
+      card.appendChild(fieldsWrap);
+
+      renderStepFields(step, fieldsWrap);
+
+      return card;
+    }
+
+    function buildFieldInput(f, currentValue) {
+      const opts = typeof f.options === 'function' ? f.options() : (f.options || []);
+      let input;
+      if (f.type === 'select') {
+        input = document.createElement('select');
+        for (const opt of opts) {
+          const o = document.createElement('option');
+          o.value = opt.value;
+          o.textContent = opt.label ?? opt.value;
+          if (String(opt.value) === String(currentValue ?? f.value ?? '')) o.selected = true;
+          input.appendChild(o);
+        }
+      } else {
+        input = document.createElement('input');
+        input.type = f.type === 'number' ? 'number' : 'text';
+        if (f.placeholder) input.placeholder = f.placeholder;
+        if (f.min !== undefined) input.min = f.min;
+        if (f.max !== undefined) input.max = f.max;
+        input.value = currentValue ?? f.value ?? '';
+      }
+      return input;
+    }
+
+    function renderStepFields(step, container) {
+      container.innerHTML = '';
+      const stepType = PIPELINE_STEP_TYPES.find((t) => t.id === step.type);
+      if (!stepType) return;
+      step.values = step.values || {};
+
+      const fieldEls = {};
+
+      for (const f of stepType.fields) {
+        const wrap = document.createElement('div');
+        wrap.className = 'field';
+        const label = document.createElement('label');
+        label.textContent = f.label;
+        wrap.appendChild(label);
+
+        const input = buildFieldInput(f, step.values[f.id]);
+        wrap.appendChild(input);
+        container.appendChild(wrap);
+        fieldEls[f.id] = input;
+
+        if (step.values[f.id] === undefined) {
+          step.values[f.id] = f.type === 'number' ? Number(input.value || 0) : input.value;
+        }
+
+        input.addEventListener('input', () => {
+          step.values[f.id] = f.type === 'number' ? Number(input.value) : input.value;
+        });
+        input.addEventListener('change', () => {
+          step.values[f.id] = f.type === 'number' ? Number(input.value) : input.value;
+          if (f.onChange) {
+            const proxyEls = Object.fromEntries(Object.entries(fieldEls).map(([k, el]) => [k, { input: el }]));
+            f.onChange(input.value, proxyEls);
+          }
+          if (f.dynamic) renderStepFields(step, container);
+        });
+      }
+
+      // Sub-campos dinámicos para pasos "tool" / "verify", según la acción ADB elegida
+      if (stepType.id === 'tool' || stepType.id === 'verify') {
+        const pool = stepType.id === 'verify' ? TOOL_ACTIONS.filter((a) => a.method === 'get') : TOOL_ACTIONS;
+        let subAction = TOOL_ACTIONS.find((a) => a.id === step.values.tool_action);
+        if (!subAction || (stepType.id === 'verify' && subAction.method !== 'get')) {
+          subAction = pool[0];
+          if (subAction) step.values.tool_action = subAction.id;
+        }
+
+        if (subAction && subAction.fields.length > 0) {
+          const divider = document.createElement('div');
+          divider.className = 'step-subfields-divider';
+          divider.textContent = `Parámetros de: ${subAction.label}`;
+          container.appendChild(divider);
+
+          for (const f of subAction.fields) {
+            const wrap = document.createElement('div');
+            wrap.className = 'field';
+            const label = document.createElement('label');
+            label.textContent = f.label;
+            wrap.appendChild(label);
+
+            const input = buildFieldInput(f, step.values[f.id]);
+            wrap.appendChild(input);
+            container.appendChild(wrap);
+
+            if (step.values[f.id] === undefined) {
+              step.values[f.id] = f.type === 'number' ? Number(input.value || 0) : input.value;
+            }
+            input.addEventListener('input', () => {
+              step.values[f.id] = f.type === 'number' ? Number(input.value) : input.value;
+            });
+            input.addEventListener('change', () => {
+              step.values[f.id] = f.type === 'number' ? Number(input.value) : input.value;
+            });
+          }
+        }
+      }
+    }
+
+    function initStepTypeSelect() {
+      const sel = document.getElementById('newStepTypeSelect');
+      sel.innerHTML = '';
+      for (const st of PIPELINE_STEP_TYPES) {
+        const o = document.createElement('option');
+        o.value = st.id;
+        o.textContent = st.label;
+        sel.appendChild(o);
+      }
+    }
+
+    function loadPreset(name) {
+      const socks = KNOWN_APPS.find((a) => a.id === 'socks');
+      const earn = KNOWN_APPS.find((a) => a.id === 'earn');
+      const monitor = KNOWN_APPS.find((a) => a.id === 'monitor');
+
+      if (name === 'encendido') {
+        currentPipeline = {
+          name: 'Encendido en cadena', steps: [
+            { type: 'launch', values: { bootTimeoutSec: 90 } },
+            { type: 'wait', values: { seconds: 5 } },
+          ],
+        };
+      } else if (name === 'instalacion') {
+        currentPipeline = {
+          name: 'Cadena de instalación', steps: [
+            { type: 'launch', values: { bootTimeoutSec: 90 } },
+            { type: 'install', values: { known_app: socks?.id || '', apk_path: socks?.apk_path || '' } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'install', values: { known_app: earn?.id || '', apk_path: earn?.apk_path || '' } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'quit', values: {} },
+            { type: 'wait', values: { seconds: 15 } },
+          ],
+        };
+      } else if (name === 'monitor') {
+        currentPipeline = {
+          name: 'Iniciar con monitor', steps: [
+            { type: 'launch', values: { bootTimeoutSec: 90 } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '' } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'run', values: { known_app: monitor?.id || '', package_name: monitor?.package_name || '' } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'kill', values: { known_app: monitor?.id || '', package_name: monitor?.package_name || '' } },
+            { type: 'wait', values: { seconds: 15 } },
+            { type: 'quit', values: {} },
+            { type: 'wait', values: { seconds: 15 } },
+          ],
+        };
+      } else {
+        return;
+      }
+      renderPipelineBuilder();
+      toast(`Preset "${currentPipeline.name}" cargado`, 'ok');
+      log(`[pipeline] preset "${name}" cargado`, 'ok');
+    }
+
+    function exportPipeline() {
+      const blob = new Blob([JSON.stringify(currentPipeline, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(currentPipeline.name || 'pipeline').replace(/[^a-z0-9_-]+/gi, '_')}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      log('[pipeline] exportado a JSON', 'ok');
+    }
+
+    function importPipelineFile(fileInput) {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          if (!parsed || !Array.isArray(parsed.steps)) throw new Error('formato inválido: falta "steps"');
+          currentPipeline = parsed;
+          renderPipelineBuilder();
+          toast('Pipeline importado', 'ok');
+          log('[pipeline] importado correctamente', 'ok');
+        } catch (e) {
+          toast(`Error importando: ${e.message}`, 'bad');
+          log(`[pipeline] error importando: ${e.message}`, 'bad');
+        }
+      };
+      reader.readAsText(file);
+      fileInput.value = '';
+    }
+
+    let pipelineCancelled = false;
+    let pipelineRunning = false;
+
+    function stopPipeline() {
+      pipelineCancelled = true;
+      log('[pipeline] deteniendo tras el paso actual...', 'warn');
+      document.getElementById('pipelineStopBtn').disabled = true;
+    }
+
+    async function pipelineSleep(ms) {
+      const chunk = 500;
+      let remaining = ms;
+      while (remaining > 0) {
+        if (pipelineCancelled) throw new Error('cancelado');
+        const t = Math.min(chunk, remaining);
+        await sleep(t);
+        remaining -= t;
+      }
+    }
+
+    async function runPipelineStepsForInstance(index, steps) {
+      for (let i = 0; i < steps.length; i++) {
+        if (pipelineCancelled) throw new Error('cancelado');
+        const step = steps[i];
+        const stepType = PIPELINE_STEP_TYPES.find((t) => t.id === step.type);
+        if (!stepType) {
+          log(`[pipeline] #${index} paso ${i + 1}: tipo desconocido "${step.type}"`, 'bad');
+          continue;
+        }
+        log(`[pipeline] #${index} paso ${i + 1}/${steps.length}: ${stepType.label}`);
+        const ctx = {
+          log: (m) => log(`[pipeline] #${index} · ${m}`),
+          sleep: pipelineSleep,
+          waitForBoot: (idx, ms) => waitForAndroidReady(idx, ms, () => pipelineCancelled),
+        };
+        try {
+          const result = await stepType.exec(index, step.values || {}, ctx);
+          if (result?.ok) {
+            log(`[pipeline] #${index} paso ${i + 1} OK ${result.detail ? '- ' + result.detail : ''}`, 'ok');
+          } else {
+            log(`[pipeline] #${index} paso ${i + 1} FALLÓ ${result?.detail ? '- ' + result.detail : ''}`, 'bad');
+            if (result?.abort) throw new Error('abortado_por_verificacion');
+          }
+        } catch (e) {
+          if (e.message === 'cancelado') throw e;
+          if (e.message === 'abortado_por_verificacion') {
+            log(`[pipeline] #${index} pipeline abortado para esta instancia (paso ${i + 1})`, 'bad');
+            return;
+          }
+          log(`[pipeline] #${index} paso ${i + 1} error: ${e.message}`, 'bad');
+        }
+      }
+    }
+
+    async function runPipeline() {
+      if (pipelineRunning) return;
+      const indices = getSelectedIndices();
+      if (indices.length === 0) { log('[pipeline] no hay instancias para procesar', 'warn'); return; }
+      if (!currentPipeline.steps.length) { log('[pipeline] el pipeline no tiene pasos', 'warn'); return; }
+
+      pipelineRunning = true;
+      pipelineCancelled = false;
+      document.getElementById('pipelineRunBtn').disabled = true;
+      document.getElementById('pipelineStopBtn').disabled = false;
+      const statusEl = document.getElementById('pipelineStatus');
+      statusEl.textContent = `Corriendo (${indices.length})`;
+      statusEl.classList.add('active');
+
+      const parallel = document.getElementById('pipelineParallel').checked;
+      log(`[pipeline] "${currentPipeline.name || 'sin nombre'}" iniciando sobre: ${indices.join(', ')} (${parallel ? 'en paralelo' : 'secuencial'})`, 'warn');
+
+      try {
+        if (parallel) {
+          await Promise.all(indices.map((index) =>
+            runPipelineStepsForInstance(index, currentPipeline.steps).catch((e) => {
+              if (e.message !== 'cancelado') log(`[pipeline] #${index} error inesperado: ${e.message}`, 'bad');
+            })
+          ));
+        } else {
+          for (const index of indices) {
+            if (pipelineCancelled) { log('[pipeline] detenida por el usuario', 'warn'); break; }
+            try {
+              await runPipelineStepsForInstance(index, currentPipeline.steps);
+            } catch (e) {
+              if (e.message === 'cancelado') { log('[pipeline] detenida por el usuario', 'warn'); break; }
+              log(`[pipeline] #${index} error inesperado: ${e.message}`, 'bad');
+            }
+          }
+        }
+      } finally {
+        pipelineRunning = false;
+        document.getElementById('pipelineRunBtn').disabled = false;
+        document.getElementById('pipelineStopBtn').disabled = true;
+        statusEl.textContent = 'Inactivo';
+        statusEl.classList.remove('active');
+        log('[pipeline] finalizado', 'ok');
+      }
+    }
+
+    // ---- Render de instancias ----
     function renderInstances(instances) {
       const body = document.getElementById('instancesBody');
       const list = Array.isArray(instances) ? instances : Object.values(instances || {});
       lastKnownIndices = list.map((inst) => inst.index);
       instancesByIndex = Object.fromEntries(list.map((inst) => [inst.index, inst]));
 
-      // Preservar checks existentes al re-renderizar
+      // Preservar checks y selección de "app rápida" al re-renderizar
       const checkedSet = new Set(lastKnownIndices.filter((i) => getCheckbox(i)?.checked));
+      const quickAppSelections = {};
+      for (const i of lastKnownIndices) {
+        const sel = document.getElementById(`qa-${i}`);
+        if (sel) quickAppSelections[i] = sel.value;
+      }
+
+      const searchEl = document.getElementById('instanceSearchInput');
+      const searchTerm = (searchEl?.value || '').trim().toLowerCase();
+      const filtered = searchTerm
+        ? list.filter((inst) => `${inst.index}`.includes(searchTerm) || (inst.name || '').toLowerCase().includes(searchTerm))
+        : list;
+
+      const countHint = document.getElementById('instanceCountHint');
+      if (countHint) {
+        countHint.textContent = searchTerm ? `${filtered.length} de ${list.length} instancia(s)` : `${list.length} instancia(s)`;
+      }
 
       body.innerHTML = '';
-      for (const inst of list) {
+      for (const inst of filtered) {
         const tr = document.createElement('tr');
         const checked = checkedSet.has(inst.index) ? 'checked' : '';
         const isUp = inst.android_started === true;
@@ -1584,12 +2605,22 @@
           ? '<span class="badge on">● activo</span>'
           : '<span class="badge off">● apagado</span>';
         const toolsTitle = isUp ? 'Batería / radios / ubicación / pantalla / input / apps (ADB)' : 'Encendé la instancia (Launch) para poder usar herramientas ADB';
+
+        const appOptions = KNOWN_APPS.map((a) => `<option value="${a.id}">${a.label}</option>`).join('');
+        const quickAppBlock = KNOWN_APPS.length
+          ? `<select id="qa-${inst.index}">${appOptions}</select>
+             <button class="small" onclick="quickInstall(${inst.index})" title="Instalar la app elegida">⬇️</button>
+             <button class="small" onclick="quickRun(${inst.index})" title="Abrir la app elegida" ${isUp ? '' : 'disabled'}>▶️</button>
+             <button class="small" onclick="quickKill(${inst.index})" title="Cerrar la app elegida" ${isUp ? '' : 'disabled'}>✖️</button>`
+          : `<span class="hint">agregá apps arriba ↑</span>`;
+
         tr.innerHTML = `
           <td><input type="checkbox" id="chk-${inst.index}" ${checked} /></td>
           <td>${inst.index}</td>
           <td>${inst.name ?? ''}</td>
           <td>${androidBadge}</td>
           <td>${inst.battery ? `${inst.battery.level ?? '?'}% (${inst.battery.status ?? '?'})` : '-'}</td>
+          <td class="quickapp-cell">${quickAppBlock}</td>
           <td class="actions">
             <button class="small" onclick="instanceAction(${inst.index}, 'launch')">Launch</button>
             <button class="small" onclick="instanceAction(${inst.index}, 'reboot')">Reboot</button>
@@ -1602,11 +2633,19 @@
             <button class="small teal" onclick="openTools(${inst.index})" ${isUp ? '' : 'disabled'} title="${toolsTitle}">🛠️ Tools</button>
           </td>`;
         body.appendChild(tr);
+
+        if (quickAppSelections[inst.index]) {
+          const sel = document.getElementById(`qa-${inst.index}`);
+          if (sel) sel.value = quickAppSelections[inst.index];
+        }
       }
     }
 
     // Carga inicial
     fetch('/api/status/all').then((r) => r.json()).then(renderInstances);
+    loadKnownApps();
+    initStepTypeSelect();
+    renderPipelineBuilder();
 
     // Tiempo real vía SSE
     const es = new EventSource('/events');
