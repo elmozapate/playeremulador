@@ -1,8 +1,6 @@
 """
 Estado runtime configurable sin reiniciar el proceso: modo debug (verbose
-logging) y TTL del health cache. Separado de config.Settings porque eso
-se lee una sola vez al boot desde el .env; esto se puede tocar en caliente
-vía API (ver api/debug.py).
+logging) y TTL del health cache.
 """
 import threading
 
@@ -15,7 +13,6 @@ class RuntimeState:
         self._debug = initial_debug
         self._health_ttl = initial_health_ttl
 
-    # ------------------------------------------------------------------
     @property
     def debug(self) -> bool:
         with self._lock:
@@ -36,15 +33,11 @@ class RuntimeState:
         with self._lock:
             self._health_ttl = value
 
-    # ------------------------------------------------------------------
     def log(self, *args, **kwargs) -> None:
-        """Logs 'de schedule' / rutinarios: solo si debug está activo."""
         if self._debug:
             print(*args, **kwargs)
 
     def log_always(self, *args, **kwargs) -> None:
-        """Eventos importantes (descubrimientos, alias duplicados, errores):
-        se mandan siempre, sin importar el modo debug."""
         print(*args, **kwargs)
 
 
