@@ -1,4 +1,5 @@
 from typing import List
+from models import RootShellRequest
 
 from fastapi import APIRouter, HTTPException
 
