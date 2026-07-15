@@ -10,12 +10,12 @@ const buildStatusRouter = require('./routes/status');
 const buildServiceRouter = require('./routes/service');
 const buildEventsRouter = require('./routes/events');
 const buildAgentRouter = require('./routes/agent');
-const { listAgents } = require('./services/agentHealth');
+const deviceRegistry = require('./services/deviceRegistry');
 const corsOptions = {
-  origin: '*', // o lista de orígenes permitidos
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  credentials: true, // si la APK envía cookies o autenticación
+  credentials: true,
 };
 function createServer({ manager } = {}) {
   const client = new LDPlayerClient();
@@ -41,11 +41,18 @@ function createServer({ manager } = {}) {
   }
   app.get('/api/status/combined', async (req, res) => {
     const instances = (await client.listInstances?.()) ?? [];
-    const agents = listAgents();
-    res.json({ instances, agents });
+    const agents = deviceRegistry.listDevices();
+    // mismo shape que antes (instances + agents) pero ahora cada instancia
+    // ya trae su agente correlacionado si existe (ver withAgent en instances.js
+    // -- acá lo repetimos por si esta ruta se llama antes de pasar por ese router).
+    const arr = Array.isArray(instances) ? instances : instances?.instances || [];
+    const withAgents = arr.map((inst) => {
+      const index = inst.index ?? inst.Index ?? inst.idx;
+      return { ...inst, agent: deviceRegistry.getDeviceByIndex(index) };
+    });
+    res.json({ instances: withAgents, agents });
   });
   app.use(express.static(require('path').resolve(__dirname, '..', 'public')));
-  // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     res.status(err.status || 500).json({ error: err.message || 'Error interno' });
   });
