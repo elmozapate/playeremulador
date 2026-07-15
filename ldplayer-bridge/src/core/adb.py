@@ -24,11 +24,11 @@ dependencias extra). Instalar con: pip install psutil
 """
 import re
 import subprocess
-from typing import Dict
-
-from core.runtime_state import runtime_state
+import threading
+from typing import Dict, List, Optional
 
 from config import settings
+from core.runtime_state import runtime_state
 
 try:
     import psutil
@@ -36,7 +36,7 @@ try:
 except ImportError:
     psutil = None
     _HAS_PSUTIL = False
-
+    
 BATTERY_HEALTH_MAP = {
     "1": "unknown",
     "2": "good",
