@@ -1,107 +1,150 @@
 'use strict';
 const express = require('express');
-const eventBus = require('../utils/eventBus');
-const { LDPlayerApiError } = require('../services/ldplayerClient');
+const sseHub = require('../sse/sseHub');
 const deviceRegistry = require('../services/deviceRegistry');
 
-function withAgent(instance) {
-  if (!instance || typeof instance !== 'object') return instance;
-  const index = instance.index ?? instance.Index ?? instance.idx;
-  return { ...instance, agent: deviceRegistry.getDeviceByIndex(index) };
-}
+let heartbeatInstanceIndex = null;
 
-function buildInstancesRouter(client, poller) {
+function buildAgentRouter() {
   const router = express.Router();
-  const handle = (fn) => async (req, res) => {
-    try {
-      const data = await fn(req, res);
-      res.json(data ?? { success: true });
-    } catch (err) {
-      if (err instanceof LDPlayerApiError) {
-        return res.status(err.status || 502).json({ error: err.message, detail: err.detail });
-      }
-      res.status(500).json({ error: err.message });
+
+  // --- Registro: primera conexión del dispositivo -----------------------
+  // El cliente NO manda deviceId acá (todavía no lo tiene). El bridge le
+  // asigna uno + (si puede correlacionarlo) el instanceIndex de LDPlayer,
+  // y el cliente se queda con eso guardado en su storage local.
+  router.post('/register', (req, res) => {
+    const { appVersion, ua, meta, instanceIndex } = req.body || {};
+    const device = deviceRegistry.registerDevice({
+      appVersion,
+      ua,
+      meta,
+      requestedInstanceIndex: instanceIndex,
+    });
+    console.log(
+      `[agent] 🆕 REGISTER deviceId=${device.deviceId} instance=${device.instanceIndex ?? '?'} appVersion=${appVersion ?? '?'}`
+    );
+    // (el broadcast por SSE ya lo hace deviceRegistry vía eventBus -> sseHub)
+    return res.status(201).json({
+      ok: true,
+      deviceId: device.deviceId,
+      instanceIndex: device.instanceIndex,
+      serverTime: Date.now(),
+    });
+  });
+
+  router.post('/heartbeat', (req, res) => {
+    const {
+      deviceId,
+      status,
+      ts,
+      appVersion,
+      event,
+      instanceIndex,
+      activeApks,
+      proxies,
+      ua,
+      meta,
+    } = req.body || {};
+    if (!deviceId) {
+      return res.status(400).json({
+        error: 'deviceId requerido (registrate primero con POST /api/agent/register)',
+      });
     }
-  };
-  const emitAction = (action, index, result) => {
-    eventBus.emit('instance:action', { action, index, result, ts: Date.now() });
-    poller.refreshNow().catch(() => { });
-  };
-  router.get('/', handle(async () => {
-    const instances = await client.listInstances();
-    return Array.isArray(instances) ? instances.map(withAgent) : instances;
-  }));
-  router.post('/quitall', handle(async () => {
-    const result = await client.quitAllInstances();
-    emitAction('quitall', null, result);
-    return result;
-  }));
-  router.get('/:index', handle(async (req) => withAgent(await client.getInstance(Number(req.params.index)))));
-  router.get('/:index/health', handle((req) => client.getHealth(Number(req.params.index))));
-  router.post('/:index/launch', handle(async (req) => {
-    const result = await client.launch(Number(req.params.index));
-    // Avisamos al registro que estamos por recibir un /register asociado a
-    // este índice, así el matching de deviceId <-> instanceIndex funciona
-    // aunque la app del emulador no sepa su propio índice.
-    deviceRegistry.expectRegistration(Number(req.params.index));
-    emitAction('launch', Number(req.params.index), result);
-    return result;
-  }));
-  router.post('/:index/reboot', handle(async (req) => {
-    const result = await client.reboot(Number(req.params.index));
-    emitAction('reboot', Number(req.params.index), result);
-    return result;
-  }));
-  router.post('/:index/clone', handle(async (req) => {
-    const { new_name: newName } = req.body || {};
-    const result = await client.clone(Number(req.params.index), newName);
-    emitAction('clone', Number(req.params.index), result);
-    return result;
-  }));
-  router.post('/:index/quit', handle(async (req) => {
-    const result = await client.quit(Number(req.params.index));
-    emitAction('quit', Number(req.params.index), result);
-    return result;
-  }));
-  router.post('/:index/install', handle(async (req) => {
-    const { apk_path: apkPath } = req.body || {};
-    if (!apkPath) {
-      const e = new Error('Falta apk_path en el body');
-      e.status = 400;
-      throw e;
+    const agent = deviceRegistry.upsertHeartbeat({
+      deviceId,
+      status,
+      ts,
+      appVersion,
+      event,
+      instanceIndex,
+      activeApks,
+      proxies,
+      ua,
+      meta,
+    });
+    const tag = '[agent]';
+    if (event === 'boot') {
+      console.log(
+        `${tag} 🟢 BOOT deviceId=${deviceId} instance=${agent.instanceIndex ?? '?'} appVersion=${appVersion ?? '?'} @ ${new Date(agent.lastSeen).toLocaleTimeString()}`
+      );
+    } else if (event === 'closing') {
+      console.log(`${tag} 🔴 CLOSING deviceId=${deviceId} instance=${agent.instanceIndex ?? '?'}`);
+    } else {
+      console.log(
+        `${tag} · tick deviceId=${deviceId.slice(0, 8)} instance=${agent.instanceIndex ?? '?'} status=${status}`
+      );
     }
-    const result = await client.installApp(Number(req.params.index), apkPath);
-    emitAction('install', Number(req.params.index), result);
-    return result;
-  }));
-  router.post('/:index/run', handle(async (req) => {
-    const { package_name: packageName } = req.body || {};
-    if (!packageName) {
-      const e = new Error('Falta package_name en el body');
-      e.status = 400;
-      throw e;
+    sseHub.broadcast('agent:heartbeat', agent);
+    return res.json({ ok: true });
+  });
+
+  router.post('/heartbeat/continue/index', (req, res) => {
+    const { instance_index } = req.body || {};
+    if (instance_index === undefined || instance_index === null) {
+      return res.status(400).json({ error: 'instance_index requerido' });
     }
-    const result = await client.runApp(Number(req.params.index), packageName);
-    emitAction('run', Number(req.params.index), result);
-    return result;
-  }));
-  router.post('/:index/modify', handle(async (req) => {
-    const { cpu, memory, resolution } = req.body || {};
-    const result = await client.modify(Number(req.params.index), { cpu, memory, resolution });
-    emitAction('modify', Number(req.params.index), result);
-    return result;
-  }));
-  router.post('/:index/kill', handle(async (req) => {
-    const { package_name: packageName } = req.body || {};
-    if (!packageName) {
-      const e = new Error('Falta package_name en el body');
-      e.status = 400;
-      throw e;
+    const index = Number(instance_index);
+    if (!Number.isFinite(index)) {
+      return res.status(400).json({ error: 'instance_index inválido' });
     }
-    const result = await client.killApp(Number(req.params.index), packageName);
-    emitAction('kill', Number(req.params.index), result);
-    return result;
-  }));
+    heartbeatInstanceIndex = index;
+    console.log(`[continue:index] 💾 index autorizado=${heartbeatInstanceIndex}`);
+    return res.status(200).json({ ok: true, instance_index: heartbeatInstanceIndex });
+  });
+
+  router.post('/heartbeat/continue', (req, res) => {
+    const { instance_index } = req.body || {};
+    if (instance_index === undefined || instance_index === null) {
+      return res.status(400).json({ error: 'instance_index requerido' });
+    }
+    const requestedIndex = Number(instance_index);
+    console.log(`[continue] solicitado=${requestedIndex} autorizado=${heartbeatInstanceIndex}`);
+    if (requestedIndex !== heartbeatInstanceIndex) {
+      console.log(`[continue] ⛔ index no coincide requested=${requestedIndex} autorizado=${heartbeatInstanceIndex}`);
+      return res.status(200).json({ action: 'wait' });
+    }
+    console.log(`[continue] ✅ index coincide=${requestedIndex}`);
+    // FIX: acá se emitía "payload", una variable que no existía en ningún lado
+    // (ReferenceError seguro). Mandamos algo con sentido en su lugar.
+    sseHub.broadcast('agent:continue', { instance_index: requestedIndex });
+    return res.status(200).json({ ok: true, action: 'continue' });
+  });
+
+  router.get('/status', (req, res) => {
+    return res.json(deviceRegistry.listDevices());
+  });
+
+  router.get('/status/:deviceId', (req, res) => {
+    const agent = deviceRegistry.getDevice(req.params.deviceId);
+    if (!agent) {
+      return res.status(404).json({ error: 'no encontrado' });
+    }
+    return res.json(agent);
+  });
+
+  // Alias más explícito para lo mismo que /status, con nombre acorde a lo
+  // que realmente devuelve ahora (metadata completa, no sólo status).
+  router.get('/devices', (req, res) => {
+    return res.json(deviceRegistry.listDevices());
+  });
+
+  router.get('/devices/:deviceId', (req, res) => {
+    const agent = deviceRegistry.getDevice(req.params.deviceId);
+    if (!agent) {
+      return res.status(404).json({ error: 'no encontrado' });
+    }
+    return res.json(agent);
+  });
+
+  router.get('/devices/by-index/:index', (req, res) => {
+    const agent = deviceRegistry.getDeviceByIndex(req.params.index);
+    if (!agent) {
+      return res.status(404).json({ error: 'no encontrado' });
+    }
+    return res.json(agent);
+  });
+
   return router;
 }
-module.exports = buildInstancesRouter;
+
+module.exports = buildAgentRouter;
