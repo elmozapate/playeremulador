@@ -860,7 +860,8 @@
 
   <section class="panel">
     <p class="panel-title">Instancias <span class="hint">— "🛠️ Tools" agrupa batería / radios / ubicación / pantalla /
-        input / apps (todo lo que usa ADB). Se deshabilita si el Android de esa instancia no está arriba.</span></p>
+        input / apps (todo lo que usa ADB). "🌱 Root Inicial" y "✅ Ready" configuran el perfil de recursos/depuración
+        de la instancia. Se deshabilita si el Android de esa instancia no está arriba.</span></p>
     <div class="row">
       <input type="text" id="instanceSearchInput" placeholder="🔎 Buscar por nombre o index..."
         oninput="renderInstances(Object.values(instancesByIndex))" style="min-width:220px" />
@@ -1032,6 +1033,13 @@
           modalBox.appendChild(sub);
         }
 
+        if (config.warning) {
+          const warn = document.createElement('div');
+          warn.className = 'modal-warning';
+          warn.textContent = config.warning;
+          modalBox.appendChild(warn);
+        }
+
         const fieldEls = {};
         for (const f of config.fields || []) {
           const wrap = document.createElement('div');
@@ -1114,8 +1122,8 @@
       });
     }
 
-    function confirmModal(title, subtitle, confirmLabel, danger) {
-      return showModal({ title, subtitle, fields: [], confirmLabel: confirmLabel || 'Confirmar', danger });
+    function confirmModal(title, subtitle, confirmLabel, danger, warning) {
+      return showModal({ title, subtitle, fields: [], confirmLabel: confirmLabel || 'Confirmar', danger, warning });
     }
 
     modalOverlay.addEventListener('click', (e) => {
@@ -1276,6 +1284,54 @@
     }
 
     // ==================================================================
+    // PERFILES — Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)
+    //           y Ready (3 núcleos + 3072MB)
+    // Ambos pegan a endpoints compuestos del backend (Python), que ya se
+    // encargan de aplicar todo en un solo paso. Como `modify`/`root` en
+    // LDPlayer suele aplicarse mejor con la instancia apagada, avisamos
+    // en el modal y sugerimos reiniciar después si hace falta.
+    // ==================================================================
+    async function initialRootInstance(index) {
+      const ok = await confirmModal(
+        `🌱 Root Inicial — instancia #${index}`,
+        'Se van a aplicar: root ON, depuración ADB ON, 6 núcleos, 8192 MB de RAM y resolución 540x960 (tipo mobile).',
+        'Aplicar Root Inicial',
+        false,
+        'Si la instancia está encendida, algunos cambios (CPU/RAM/resolución/root) pueden no aplicarse hasta reiniciarla. Se recomienda hacer Quit antes y Launch después.',
+      );
+      if (!ok) return;
+      log(`[perfil] #${index} -> aplicando Root Inicial...`, 'warn');
+      const { status, ok: httpOk, payload } = await postJSON(`/api/instances/${index}/initial-root`);
+      if (httpOk) {
+        log(`[perfil] #${index} -> Root Inicial aplicado -> ${status} ${JSON.stringify(payload)}`, 'ok');
+        toast(`#${index}: Root Inicial aplicado`, 'ok');
+      } else {
+        log(`[perfil] #${index} -> Root Inicial FALLÓ -> ${status} ${payload?.error ? '- ' + payload.error : ''}`, 'bad');
+        toast(`#${index}: falló Root Inicial`, 'bad');
+      }
+    }
+
+    async function makeReadyInstance(index) {
+      const ok = await confirmModal(
+        `✅ Ready — instancia #${index}`,
+        'Se van a aplicar: 3 núcleos y 3072 MB de RAM (sin tocar resolución ni root).',
+        'Aplicar Ready',
+        false,
+        'Si la instancia está encendida, CPU/RAM pueden no aplicarse hasta reiniciarla. Se recomienda hacer Quit antes y Launch después.',
+      );
+      if (!ok) return;
+      log(`[perfil] #${index} -> aplicando Ready...`, 'warn');
+      const { status, ok: httpOk, payload } = await postJSON(`/api/instances/${index}/ready`);
+      if (httpOk) {
+        log(`[perfil] #${index} -> Ready aplicado -> ${status} ${JSON.stringify(payload)}`, 'ok');
+        toast(`#${index}: Ready aplicado`, 'ok');
+      } else {
+        log(`[perfil] #${index} -> Ready FALLÓ -> ${status} ${payload?.error ? '- ' + payload.error : ''}`, 'bad');
+        toast(`#${index}: falló Ready`, 'bad');
+      }
+    }
+
+    // ==================================================================
     // Gestión de Apps conocidas (panel superior)
     // ==================================================================
     function renderKnownApps() {
@@ -1404,10 +1460,10 @@
 
     // ==================================================================
     // TOOLS — todo lo que pega contra ADB (batería, radios, ubicación,
-    // pantalla, input, apps). Requiere que la instancia esté con Android
-    // arriba (android_started === true); si no, ni se abre el modal.
-    // También se reutiliza como catálogo de "acciones" dentro del pipeline
-    // runner (pasos tipo "tool" y "verify").
+    // pantalla, input, apps) + Perfiles (Root Inicial / Ready). Requiere
+    // que la instancia esté con Android arriba (android_started === true);
+    // si no, ni se abre el modal. También se reutiliza como catálogo de
+    // "acciones" dentro del pipeline runner (pasos tipo "tool" y "verify").
     // ==================================================================
     const TOOL_ACTIONS = [
       // Batería
@@ -1450,6 +1506,10 @@
       { id: 'apps_revoke', group: 'Apps', label: '🔑 Revocar permiso', method: 'post', path: i => `/api/instances/${i}/apps/permissions/revoke`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }, { id: 'permission', label: 'Permiso', type: 'text', required: true }], body: v => ({ package_name: v.package_name, permission: v.permission }) },
       { id: 'play_protect', group: 'Apps', label: '🛡️ Play Protect — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/apps/play-protect`, fields: [{ id: 'disable', label: 'Acción', type: 'select', value: 'true', options: [{ value: 'true', label: 'Desactivar' }, { value: 'false', label: 'Activar' }] }], body: v => ({ disable: v.disable === 'true' }) },
       { id: 'run_reliable', group: 'Apps', label: '🚀 Abrir (modo confiable, con fallback ADB)', method: 'post', path: i => `/api/instances/${i}/apps/run-reliable`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }, { id: 'activity', label: 'Activity (opcional)', type: 'text' }, { id: 'timeout_s', label: 'Timeout (s)', type: 'number', value: 6 }], body: v => ({ package_name: v.package_name, activity: v.activity || null, timeout_s: Number(v.timeout_s) || 6 }) },
+      // Perfiles (configuración compuesta: root/debug/recursos)
+      { id: 'root_status', group: 'Perfiles', label: '🔎 Estado root/ADB — consultar', method: 'get', path: i => `/api/instances/${i}/root/status`, fields: [] },
+      { id: 'initial_root', group: 'Perfiles', label: '🌱 Configurar como Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)', method: 'post', path: i => `/api/instances/${i}/initial-root`, fields: [] },
+      { id: 'make_ready', group: 'Perfiles', label: '✅ Configurar como Ready (3 núcleos + 3072MB)', method: 'post', path: i => `/api/instances/${i}/ready`, fields: [] },
     ];
 
     // index -> última instancia conocida (para chequear android_started)
@@ -2035,6 +2095,22 @@
       {
         id: 'quit', label: '🔴 Apagar (quit)', fields: [],
         exec: async (index) => { const r = await postJSON(`/api/instances/${index}/quit`); return { ok: r.ok, detail: `status ${r.status}` }; },
+      },
+      {
+        id: 'initial_root', label: '🌱 Perfil: Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)',
+        fields: [],
+        exec: async (index) => {
+          const r = await postJSON(`/api/instances/${index}/initial-root`);
+          return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
+        },
+      },
+      {
+        id: 'make_ready', label: '✅ Perfil: Ready (3 núcleos + 3072MB)',
+        fields: [],
+        exec: async (index) => {
+          const r = await postJSON(`/api/instances/${index}/ready`);
+          return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
+        },
       },
       {
         id: 'install', label: '⬇️ Instalar APK',
@@ -2630,6 +2706,8 @@
             <button class="small" onclick="modifyInstance(${inst.index})">Modify</button>
             <button class="small" onclick="cloneInstance(${inst.index})">Clone</button>
             <button class="small" onclick="killApp(${inst.index})">Kill app</button>
+            <button class="small violet" onclick="initialRootInstance(${inst.index})" title="Root ON + debug ADB ON + 6 núcleos + 8192MB + 540x960">🌱 Root Inicial</button>
+            <button class="small teal" onclick="makeReadyInstance(${inst.index})" title="3 núcleos + 3072MB">✅ Ready</button>
             <button class="small teal" onclick="openTools(${inst.index})" ${isUp ? '' : 'disabled'} title="${toolsTitle}">🛠️ Tools</button>
           </td>`;
         body.appendChild(tr);
