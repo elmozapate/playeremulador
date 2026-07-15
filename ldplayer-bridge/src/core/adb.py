@@ -869,7 +869,7 @@ class ADBController:
         print(f"[ADB] debug status index={index}: {result}")
         return result
 
-        @staticmethod
+    @staticmethod
     def enable_adb_debugging(index: int) -> str:
         """Activa opciones de desarrollador y depuración ADB dentro del guest."""
         ADBController.shell(index, "settings put global development_settings_enabled 1")
