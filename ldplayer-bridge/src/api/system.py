@@ -397,3 +397,56 @@ async def run_app_reliable(index: int, body: RunAppReliableRequest):
         raise HTTPException(status_code=504, detail=str(e))
     except Exception as e:
         _raise_for(e)
+
+# ======================================================================
+# ROOT / Depuración
+# ======================================================================
+@router.get("/{index}/root/status")
+async def get_root_status(index: int):
+    """Diagnóstico completo: serial, uid del shell, y estado de root."""
+    try:
+        return await instance_service.test_debug_mode(index)
+    except Exception as e:
+        _raise_for(e)
+
+
+@router.get("/{index}/root/check")
+async def check_root(index: int):
+    try:
+        return {"root": await instance_service.is_root(index)}
+    except Exception as e:
+        _raise_for(e)
+
+
+@router.get("/{index}/root/ensure")
+async def ensure_root(index: int):
+    """Valida y loguea si root está disponible; no falla si no lo está."""
+    try:
+        available = await instance_service.ensure_root(index)
+        return {"index": index, "root_available": available}
+    except Exception as e:
+        _raise_for(e)
+
+
+@router.get("/{index}/uid")
+async def get_uid(index: int):
+    try:
+        return {"uid": await instance_service.get_uid(index)}
+    except Exception as e:
+        _raise_for(e)
+
+
+@router.post("/{index}/root/shell", response_model=ActionResponse)
+async def root_shell(index: int, body: RootShellRequest):
+    """
+    Ejecuta un comando arbitrario como root (`su -c`). Se enqueue para no
+    pisar otros comandos en la misma instancia. Requiere que la instancia
+    tenga root habilitado en la config de LDPlayer.
+    """
+    try:
+        output = await task_queue.enqueue(
+            index, instance_service.root_shell, index, body.command
+        )
+        return ActionResponse(success=True, message=output.strip() or "OK", index=index)
+    except Exception as e:
+        _raise_for(e)

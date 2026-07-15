@@ -64,8 +64,9 @@ class InstanceService:
         await asyncio.to_thread(LDConsole.run_app, index, package_name)
 
     async def modify(self, index: int, cpu: Optional[int] = None,
-                     memory: Optional[int] = None, resolution: Optional[str] = None) -> None:
-        await asyncio.to_thread(LDConsole.modify, index, cpu, memory, resolution)
+                     memory: Optional[int] = None, resolution: Optional[str] = None,
+                     root: Optional[bool] = None) -> None:
+        await asyncio.to_thread(LDConsole.modify, index, cpu, memory, resolution, root)
 
     async def clone(self, index: int, new_name: str) -> None:
         # Clona la instancia 'index' a un nuevo nombre
@@ -258,6 +259,61 @@ class InstanceService:
             f"(último foreground: {foreground})"
         )
 
+# ==================================================================
+    # ROOT / Depuración
+    # ==================================================================
+    async def is_root(self, index: int) -> bool:
+        return await asyncio.to_thread(ADBController.is_root, index)
+    async def root_shell(self, index: int, command: str) -> str:
+        return await asyncio.to_thread(ADBController.root_shell, index, command)
+    async def ensure_root(self, index: int) -> bool:
+        return await asyncio.to_thread(ADBController.ensure_root, index)
+    async def get_uid(self, index: int) -> str:
+        return await asyncio.to_thread(ADBController.get_uid, index)
+    async def get_root_uid(self, index: int) -> str:
+        return await asyncio.to_thread(ADBController.get_root_uid, index)
+    async def test_debug_mode(self, index: int) -> Dict:
+        return await asyncio.to_thread(ADBController.test_debug_mode, index)
 
+    # ==================================================================
+    # Perfiles de configuración: initial-root / ready
+    # ==================================================================
+    async def initial_root(self, index: int) -> Dict:
+        """
+        Perfil de desarrollo: root + depuración ADB + máximos recursos
+        (6 núcleos / 8192 MB) + resolución tipo mobile (540x960).
+        """
+        await asyncio.to_thread(
+            LDConsole.modify, index, 6, 8192, "540,960,240", True
+        )
+        self._health_cache.pop(index, None)
+        ADBController.invalidate_serial(index)
+        result = {
+            "index": index,
+            "cpu": 6,
+            "memory": 8192,
+            "resolution": "540,960,240",
+            "root_requested": True,
+        }
+        try:
+            await asyncio.to_thread(ADBController.enable_adb_debugging, index)
+            result["adb_debugging"] = True
+        except Exception as e:
+            result["adb_debugging"] = False
+            result["adb_debugging_error"] = str(e)
+        try:
+            result["root_active"] = await asyncio.to_thread(ADBController.ensure_root, index)
+        except Exception as e:
+            result["root_active"] = False
+            result["root_error"] = str(e)
+        return result
+    async def make_ready(self, index: int) -> Dict:
+        """
+        Perfil 'ready': recursos estándar de uso (3 núcleos / 3072 MB).
+        No toca resolución ni root — solo ajusta CPU/RAM.
+        """
+        await asyncio.to_thread(LDConsole.modify, index, 3, 3072, None, None)
+        self._health_cache.pop(index, None)
+        return {"index": index, "cpu": 3, "memory": 3072}
 # Instancia única (singleton)
 instance_service = InstanceService()

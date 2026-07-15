@@ -133,3 +133,22 @@ async def kill_app(index: int, body: KillAppRequest):
         return ActionResponse(success=True, message=f"App {body.package_name} cerrada", index=index)
     except Exception as e:
         _raise_for(e)
+
+@router.post("/{index}/initial-root")
+async def initial_root(index: int):
+    """Deja la instancia lista para desarrollo: root + ADB debug + 6 núcleos / 8192 MB / 540x960."""
+    try:
+        result = await task_queue.enqueue(index, instance_service.initial_root, index)
+        monitor.invalidate(index)
+        return {"success": True, "message": "Instancia configurada como initial-root", **result}
+    except Exception as e:
+        _raise_for(e)
+@router.post("/{index}/ready")
+async def make_ready(index: int):
+    """Perfil normal: 3 núcleos / 3072 MB (sin tocar resolución ni root)."""
+    try:
+        result = await task_queue.enqueue(index, instance_service.make_ready, index)
+        monitor.invalidate(index)
+        return {"success": True, "message": "Instancia configurada como ready", **result}
+    except Exception as e:
+        _raise_for(e)

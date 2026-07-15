@@ -1,13 +1,25 @@
 # src/models/__init__.py
 """Esquemas Pydantic de la API."""
-from .schemas import (
+from models.schemas import (
     ActionResponse,
-    InstanceStatus,
-    ModifyRequest,
-    InstallAppRequest,
-    RunAppRequest,
-    KillAppRequest,
-    CloneRequest,
+    BatteryLevelRequest,
+    BatteryStatusRequest,
+    BrightnessRequest,
+    GeoRequest,
+    KeyRequest,
+    LongPressRequest,
+    PackageRequest,
+    PermissionRequest,
+    PlayProtectRequest,
+    RootShellRequest,
+    RotationLockRequest,
+    RunAppReliableRequest,
+    ScreenTimeoutRequest,
+    SwipeRequest,
+    TapRequest,
+    TextRequest,
+    ToggleRequest,
+    VolumeRequest,
 )
 
 __all__ = [

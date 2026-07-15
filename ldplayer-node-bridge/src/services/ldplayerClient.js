@@ -302,5 +302,31 @@ class LDPlayerClient {
       body: { package_name: packageName, activity: activity ?? null, timeout_s: timeoutS },
     });
   }
+  // ======================================================================
+  // ROOT / Depuración
+  // ======================================================================
+  getRootStatus(index) {
+    return this._request('GET', `/instances/${index}/root/status`);
+  }
+  checkRoot(index) {
+    return this._request('GET', `/instances/${index}/root/check`);
+  }
+  ensureRoot(index) {
+    return this._request('GET', `/instances/${index}/root/ensure`);
+  }
+  getUid(index) {
+    return this._request('GET', `/instances/${index}/uid`);
+  }
+  rootShell(index, command) {
+    return this._request('POST', `/instances/${index}/root/shell`, {
+      body: { command },
+    });
+  }
+  initialRoot(index) {
+    return this._request('POST', `/instances/${index}/initial-root`);
+  }
+  makeReady(index) {
+    return this._request('POST', `/instances/${index}/ready`);
+  }
 }
 module.exports = { LDPlayerClient, LDPlayerApiError };

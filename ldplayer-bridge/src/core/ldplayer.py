@@ -1,5 +1,7 @@
 import os
 import subprocess
+import json
+import time
 from typing import List, Dict, Optional
 
 from config import settings
@@ -81,10 +83,10 @@ class LDConsole:
     def reboot(index: Optional[int] = None, name: Optional[str] = None) -> None:
         LDConsole._run(LDConsole._selector(["reboot"], index, name))
 
-    # ---- Configuración --------------------------------------------------
+ # ---- Configuración --------------------------------------------------
     @staticmethod
     def modify(index: int, cpu: Optional[int] = None, memory: Optional[int] = None,
-               resolution: Optional[str] = None) -> None:
+               resolution: Optional[str] = None, root: Optional[bool] = None) -> None:
         args = ["modify", "--index", str(index)]
         if resolution:
             args += ["--resolution", resolution]  # "width,height,dpi"
@@ -92,9 +94,146 @@ class LDConsole:
             args += ["--cpu", str(cpu)]
         if memory is not None:
             args += ["--memory", str(memory)]
+        if root is not None:
+            args += ["--root", "1" if root else "0"]
         if len(args) == 3:
-            raise ValueError("modify requiere al menos un parámetro (cpu, memory o resolution)")
+            raise ValueError("modify requiere al menos un parámetro (cpu, memory, resolution o root)")
         LDConsole._run(args)
+        
+    @staticmethod
+    def _config_path(index: int) -> str:
+        """
+        Devuelve el archivo de configuración de la instancia LDPlayer.
+        """
+
+        ldconsole_path = LDConsole._binary()
+        ldplayer_dir = os.path.dirname(ldconsole_path)
+
+        config_path = os.path.join(
+            ldplayer_dir,
+            "vms",
+            "config",
+            f"leidian{index}.config",
+        )
+
+        if not os.path.exists(config_path):
+            raise LDConsoleError(
+                f"No se encontró configuración para index={index}: "
+                f"{config_path}"
+            )
+
+        return config_path
+
+    @staticmethod
+    def set_dev_mode(
+        index: int,
+        root: bool = True,
+        adb_debug: int = 1,
+    ) -> None:
+        """
+        Configura ROOT y ADB Debug de LDPlayer.
+
+        adb_debug:
+            0 = cerrado
+            1 = conexión local
+            2 = conexión remota
+        """
+
+        if adb_debug not in (0, 1, 2):
+            raise ValueError(
+                "adb_debug debe ser 0 (off), 1 (local) o 2 (remote)"
+            )
+
+        config_path = LDConsole._config_path(index)
+
+        with open(config_path, "r", encoding="utf-8-sig") as file:
+            config = json.load(file)
+
+        config["basicSettings.rootMode"] = 1 if root else 0
+        config["basicSettings.adbDebug"] = adb_debug
+
+        temp_path = f"{config_path}.tmp"
+
+        with open(temp_path, "w", encoding="utf-8") as file:
+            json.dump(
+                config,
+                file,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+
+        os.replace(temp_path, config_path)
+
+        print(
+            f"[LDConsole] index={index} "
+            f"root={root} adb_debug={adb_debug}"
+        )
+
+    @staticmethod
+    def enable_dev_mode(index: int) -> None:
+        """
+        Activa ROOT + ADB local.
+        La instancia debe reiniciarse para aplicar los cambios.
+        """
+
+        LDConsole.set_dev_mode(
+            index=index,
+            root=True,
+            adb_debug=1,
+        )
+
+    @staticmethod
+    def disable_dev_mode(index: int) -> None:
+        """
+        Desactiva ROOT y ADB.
+        """
+
+        LDConsole.set_dev_mode(
+            index=index,
+            root=False,
+            adb_debug=0,
+        )
+
+    @staticmethod
+    def restart_with_dev_mode(
+        index: int,
+        wait_after_quit: float = 2.0,
+    ) -> None:
+        """
+        Apaga la instancia, activa ROOT + ADB local y vuelve a lanzarla.
+        """
+
+        instances = LDConsole.list_instances()
+
+        instance = next(
+            (
+                item
+                for item in instances
+                if item["index"] == index
+            ),
+            None,
+        )
+
+        if instance is None:
+            raise LDConsoleError(
+                f"No existe instancia LDPlayer index={index}"
+            )
+
+        if instance["pid"] or instance["vbox_pid"]:
+            print(
+                f"[LDConsole] index={index} -> apagando para modificar config"
+            )
+
+            LDConsole.quit(index=index)
+            time.sleep(wait_after_quit)
+
+        LDConsole.enable_dev_mode(index)
+
+        print(
+            f"[LDConsole] index={index} -> lanzando con ROOT + ADB local"
+        )
+
+        LDConsole.launch(index=index)
 
     # ---- Apps -------------------------------------------------------
     @staticmethod

@@ -123,3 +123,6 @@ class RunAppReliableRequest(BaseModel):
     package_name: str
     activity: Optional[str] = None
     timeout_s: float = 6.0
+
+class RootShellRequest(BaseModel):
+    command: str

@@ -580,7 +580,7 @@ class ADBController:
         """Restaura la batería a su estado real (deshace los `set`)."""
         return ADBController.shell(index, "dumpsys battery reset")
 
-# ==================================================================
+    # ==================================================================
     # Radios: bluetooth / wifi / datos móviles / modo avión
     #
     # NOTA IMPORTANTE (no tocar sin razón): bluetooth y wifi usan
@@ -800,3 +800,77 @@ class ADBController:
         output = ADBController.shell(index, "ip -f inet addr show wlan0")
         match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", output)
         return match.group(1) if match else None
+    
+    @staticmethod
+    def get_prop(index: int, prop: str) -> str:
+        return ADBController.shell(index, f"getprop {prop}").strip()
+    @staticmethod
+    def reboot(index: int) -> str:
+        result = ADBController.shell(index, "reboot")
+        ADBController.invalidate_serial(index)
+        return result
+    @staticmethod
+    def get_ip_address(index: int) -> Optional[str]:
+        output = ADBController.shell(index, "ip -f inet addr show wlan0")
+        match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", output)
+        return match.group(1) if match else None
+    # ------------------------------------------------------------------
+    # ROOT / DEPURACIÓN
+    # ------------------------------------------------------------------
+    @staticmethod
+    def is_root(index: int) -> bool:
+        """Comprueba si la instancia tiene acceso root efectivo."""
+        try:
+            output = ADBController.shell(index, "su -c id")
+            return "uid=0(root)" in output
+        except Exception:
+            return False
+    @staticmethod
+    def root_shell(index: int, command: str) -> str:
+        """Ejecuta un comando como root mediante `su -c`."""
+        escaped = command.replace("\\", "\\\\").replace('"', '\\"')
+        return ADBController.shell(index, f'su -c "{escaped}"')
+    @staticmethod
+    def ensure_root(index: int) -> bool:
+        """Valida que ROOT esté disponible y operativo."""
+        if ADBController.is_root(index):
+            print(f"[ADB] index={index} ROOT activo")
+            return True
+        print(
+            f"[ADB] index={index} ROOT NO disponible. "
+            f"Debe activarse en la configuración de LDPlayer."
+        )
+        return False
+    @staticmethod
+    def get_uid(index: int) -> str:
+        """Devuelve la identidad del shell ADB actual."""
+        return ADBController.shell(index, "id").strip()
+    @staticmethod
+    def get_root_uid(index: int) -> str:
+        """Devuelve la identidad ejecutando mediante su."""
+        return ADBController.root_shell(index, "id").strip()
+    @staticmethod
+    def test_debug_mode(index: int) -> Dict:
+        """Diagnóstico rápido de ADB + ROOT."""
+        serial = ADBController.resolve_serial(index)
+        shell_uid = ADBController.get_uid(index)
+        root_enabled = ADBController.is_root(index)
+        root_uid = None
+        if root_enabled:
+            root_uid = ADBController.get_root_uid(index)
+        result = {
+            "index": index,
+            "serial": serial,
+            "adb": True,
+            "shell_uid": shell_uid,
+            "root": root_enabled,
+            "root_uid": root_uid,
+        }
+        print(f"[ADB] debug status index={index}: {result}")
+        return result
+
+        @staticmethod
+    def enable_adb_debugging(index: int) -> str:
+        """Activa opciones de desarrollador y depuración ADB dentro del guest."""
+        ADBController.shell(index, "settings put global development_settings_enabled 1")
+        return ADBController.shell(index, "settings put global adb_enabled 1")

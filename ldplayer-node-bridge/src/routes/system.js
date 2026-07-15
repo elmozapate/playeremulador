@@ -27,7 +27,7 @@ function buildSystemRouter(client, poller) {
     // Solo refrescamos el snapshot para acciones que probablemente cambien
     // el estado visible en la UI (batería, radios). Los gestos de input
     // (tap/swipe/key) no ameritan un refresh de status.
-    poller.refreshNow().catch(() => {});
+    poller.refreshNow().catch(() => { });
   };
 
   const idx = (req) => Number(req.params.index);
@@ -281,7 +281,27 @@ function buildSystemRouter(client, poller) {
     emitAction('apps:run-reliable', idx(req), result);
     return result;
   }));
-
+  router.post('/:index/apps/run-reliable', handle(async (req) => {
+    const packageName = requireBody(req, 'package_name');
+    const { activity, timeout_s: timeoutS } = req.body || {};
+    const result = await client.runAppReliable(idx(req), packageName, { activity, timeoutS });
+    emitAction('apps:run-reliable', idx(req), result);
+    return result;
+  }));
+  // ======================================================================
+  // ROOT / Depuración
+  // ======================================================================
+  router.get('/:index/root/status', handle((req) => client.getRootStatus(idx(req))));
+  router.get('/:index/root/check', handle((req) => client.checkRoot(idx(req))));
+  router.get('/:index/root/ensure', handle((req) => client.ensureRoot(idx(req))));
+  router.get('/:index/uid', handle((req) => client.getUid(idx(req))));
+  router.post('/:index/root/shell', handle(async (req) => {
+    const command = requireBody(req, 'command');
+    const result = await client.rootShell(idx(req), command);
+    emitAction('root:shell', idx(req), result);
+    return result;
+  }));
   return router;
 }
+
 module.exports = buildSystemRouter;

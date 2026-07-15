@@ -109,7 +109,16 @@ function buildInstancesRouter(client, poller) {
     emitAction('kill', Number(req.params.index), result);
     return result;
   }));
-
+  router.post('/:index/initial-root', handle(async (req) => {
+    const result = await client.initialRoot(Number(req.params.index));
+    emitAction('initial-root', Number(req.params.index), result);
+    return result;
+  }));
+  router.post('/:index/ready', handle(async (req) => {
+    const result = await client.makeReady(Number(req.params.index));
+    emitAction('ready', Number(req.params.index), result);
+    return result;
+  }));
   return router;
 }
 
