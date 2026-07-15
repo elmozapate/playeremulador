@@ -284,7 +284,7 @@ class InstanceService:
         (6 núcleos / 8192 MB) + resolución tipo mobile (540x960).
         """
         await asyncio.to_thread(
-            LDConsole.modify, index, 6, 8192, "540,960,240", True
+            LDConsole.modify, index, 4, 8192, "540,960,240", True
         )
         self._health_cache.pop(index, None)
         ADBController.invalidate_serial(index)
