@@ -2472,6 +2472,189 @@
     function releasePowerSlot(index) {
       if (activePoweredSlot === index) activePoweredSlot = null;
     }
+
+    async function waitForAppForeground({
+      index,
+      packageName,
+
+      runApp,
+      getCurrentApp,
+      getApps,
+      installApp,
+
+      maxRetries = 3,
+      delay = 5000,
+
+      maxInstallRetries = 2,
+      installDelay = 5000,
+    }) {
+      let totalAttempts = 0;
+      let installAttempts = 0;
+
+      for (
+        let installCycle = 0;
+        installCycle <= maxInstallRetries;
+        installCycle++
+      ) {
+        console.log(
+          `[run] ${packageName} -> ciclo ${installCycle + 1}/${maxInstallRetries + 1}`
+        );
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          totalAttempts++;
+
+          console.log(
+            `[run] ${packageName} -> abriendo app (${attempt}/${maxRetries})`
+          );
+
+          try {
+            const runResult = await runApp();
+
+            if (!runResult?.ok) {
+              console.warn(
+                `[run] Error abriendo ${packageName}:`,
+                runResult?.payload?.error || `status ${runResult?.status}`
+              );
+            }
+          } catch (e) {
+            console.error(
+              `[run] Excepción abriendo ${packageName}`,
+              e
+            );
+          }
+
+          // Espera después de abrir
+          await sleep(delay);
+
+          try {
+            const current = await getCurrentApp();
+
+            const foregroundPackage =
+              current?.payload?.package_name;
+
+            const isForeground =
+              current?.status === 200 &&
+              current?.ok &&
+              foregroundPackage === packageName;
+
+            console.log(
+              `[run] [${attempt}/${maxRetries}] Primer plano:`,
+              foregroundPackage || "DESCONOCIDO",
+              isForeground ? "OK" : "NO"
+            );
+
+            if (isForeground) {
+              return {
+                ok: true,
+                attempt,
+                totalAttempts,
+                installAttempts,
+                current,
+              };
+            }
+          } catch (e) {
+            console.error(
+              `[run] Error verificando primer plano (${attempt}/${maxRetries})`,
+              e
+            );
+          }
+        }
+
+        console.warn(
+          `[run] ${packageName} no quedó en primer plano después de ${maxRetries} intentos`
+        );
+
+        // Revisar si sigue instalada
+        let installed = false;
+
+        try {
+          const apps = await getApps();
+
+          installed =
+            apps?.status === 200 &&
+            apps?.ok &&
+            Array.isArray(apps.payload) &&
+            apps.payload.includes(packageName);
+
+          console.log(
+            `[run] ${packageName} -> instalada:`,
+            installed ? "SI" : "NO"
+          );
+        } catch (e) {
+          console.error(
+            `[run] Error verificando instalación de ${packageName}`,
+            e
+          );
+        }
+
+        // Si está instalada, no tiene sentido reinstalar.
+        // Terminamos porque falló al abrir.
+        if (installed) {
+          return {
+            ok: false,
+            totalAttempts,
+            installAttempts,
+            error:
+              `La aplicación ${packageName} está instalada, ` +
+              `pero no quedó en primer plano después de ${maxRetries} intentos.`,
+          };
+        }
+
+        // No quedan intentos de instalación
+        if (installCycle >= maxInstallRetries) {
+          break;
+        }
+
+        if (typeof installApp !== "function") {
+          return {
+            ok: false,
+            totalAttempts,
+            installAttempts,
+            error: `La aplicación ${packageName} no está instalada y no se definió installApp.`,
+          };
+        }
+
+        installAttempts++;
+
+        console.warn(
+          `[run] ${packageName} no está instalada. ` +
+          `Instalando ${installAttempts}/${maxInstallRetries}...`
+        );
+
+        try {
+          const installResult = await installApp();
+
+          if (!installResult?.ok) {
+            console.error(
+              `[run] Error instalando ${packageName}:`,
+              installResult?.payload?.error ||
+              `status ${installResult?.status}`
+            );
+          } else {
+            console.log(
+              `[run] ${packageName} -> instalación enviada correctamente`
+            );
+          }
+        } catch (e) {
+          console.error(
+            `[run] Excepción instalando ${packageName}`,
+            e
+          );
+        }
+
+        await sleep(installDelay);
+      }
+
+      return {
+        ok: false,
+        totalAttempts,
+        installAttempts,
+        error:
+          `La aplicación ${packageName} no pudo quedar en primer plano ` +
+          `después de ${totalAttempts} intentos y ${installAttempts} instalaciones.`,
+      };
+    }
+
     async function waitForAppInstalled({
       index,
       packageName,
@@ -2766,24 +2949,119 @@
         }
       },
       {
-        id: 'run', label: '▶️ Abrir app',
+        id: 'run',
+        label: '▶️ Abrir app',
+
         fields: [
           {
-            id: 'known_app', label: 'App conocida', type: 'select', value: '', options: () => appSelectOptions(),
+            id: 'known_app',
+            label: 'App conocida',
+            type: 'select',
+            value: '',
+            options: () => appSelectOptions(),
+
             onChange: (val, fieldEls) => {
               const app = KNOWN_APPS.find((a) => a.id === val);
-              if (app && fieldEls.package_name) fieldEls.package_name.input.value = app.package_name || '';
+
+              if (app && fieldEls.package_name) {
+                fieldEls.package_name.input.value =
+                  app.package_name || '';
+              }
             },
           },
-          { id: 'package_name', label: 'Package name (o manual)', type: 'text', placeholder: 'com.example.app' },
+
+          {
+            id: 'package_name',
+            label: 'Package name (o manual)',
+            type: 'text',
+            placeholder: 'com.example.app',
+          },
         ],
+
         exec: async (index, v) => {
-          if (!v.package_name) return { ok: false, detail: 'sin package name' };
-          const r = await postJSON(`/api/instances/${index}/run`, { package_name: v.package_name });
-          return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
+          if (!v.package_name) {
+            return {
+              ok: false,
+              detail: 'sin package name',
+            };
+          }
+
+          const appk = KNOWN_APPS.find(
+            (a) =>
+              a.id === v.known_app ||
+              a.package_name === v.package_name
+          );
+
+          const currentAction = TOOL_ACTIONS.find(
+            a => a.id === 'apps_current'
+          );
+
+          const appsAction = TOOL_ACTIONS.find(
+            a => a.id === 'apps_list'
+          );
+
+          const qs = '?only_third_party=true';
+
+          const result = await waitForAppForeground({
+            index,
+            packageName: v.package_name,
+
+            // Configuración
+            maxRetries: 3,
+            delay: 5000,
+
+            maxInstallRetries: 2,
+            installDelay: 5000,
+
+            runApp: () =>
+              postJSON(
+                `/api/instances/${index}/run`,
+                {
+                  package_name: v.package_name,
+                }
+              ),
+
+            getCurrentApp: () =>
+              getJSON(
+                currentAction.path(index)
+              ),
+
+            getApps: () =>
+              getJSON(
+                `${appsAction.path(index)}${qs}`
+              ),
+
+            installApp: appk?.apk_path
+              ? () =>
+                postJSON(
+                  `/api/instances/${index}/install`,
+                  {
+                    apk_path: appk.apk_path,
+                  }
+                )
+              : null,
+          });
+
+          if (!result.ok) {
+            return {
+              ok: false,
+              detail: result.error,
+            };
+          }
+
+          return {
+            ok: true,
+            detail:
+              `${v.package_name} quedó en primer plano ` +
+              `después de ${result.totalAttempts} intentos` +
+              (
+                result.installAttempts
+                  ? ` y ${result.installAttempts} instalaciones`
+                  : ''
+              ),
+          };
         },
-      },
-      {
+      }, {
         id: 'kill', label: '✖️ Cerrar app',
         fields: [
           {
