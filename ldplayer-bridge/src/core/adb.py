@@ -17,6 +17,10 @@ Historial de este archivo:
       boot serial + android_id) para detectar alias ADB duplicados —
       el mismo problema que documentaste en el diagnóstico
       (127.0.0.1:5557 == emulator-5556 == mismo Android).
+- v4: logs de schedule/rutina ahora pasan por runtime_state.log() (solo
+      salen con debug ON); descubrimientos y errores usan
+      runtime_state.log_always() (siempre visibles). Se agrega prune()
+      para podar caches de índices que ya no existen.
 
 Requiere `psutil` para el descubrimiento por proceso. Si no está instalado,
 se usa un parser de `netstat -ano` como fallback (menos robusto pero sin
@@ -36,7 +40,7 @@ try:
 except ImportError:
     psutil = None
     _HAS_PSUTIL = False
-    
+
 BATTERY_HEALTH_MAP = {
     "1": "unknown",
     "2": "good",
@@ -159,7 +163,7 @@ class ADBController:
         try:
             identity = ADBController._get_device_identity(serial)
         except Exception as e:
-            print(f"[ADB] no se pudo calcular identidad para index={index}: {e}")
+            runtime_state.log_always(f"[ADB] no se pudo calcular identidad para index={index}: {e}")
             return
 
         if not identity or identity == "||":
@@ -168,7 +172,7 @@ class ADBController:
         previous_owner = ADBController._identity_to_index.get(identity)
 
         if previous_owner is not None and previous_owner != index:
-            print(
+            runtime_state.log_always(
                 f"[ADB] ALIAS DUPLICADO DETECTADO: index={index} y "
                 f"index={previous_owner} resuelven al MISMO Android "
                 f"(identity={identity}). Revisa la instancia en LDPlayer."
@@ -193,13 +197,13 @@ class ADBController:
             from core.ldplayer import LDConsole
             instances = LDConsole.list_instances()
         except Exception as e:
-            print(f"[ADB] no se pudo listar instancias LDPlayer: {e}")
+            runtime_state.log_always(f"[ADB] no se pudo listar instancias LDPlayer: {e}")
             return []
 
         info = next((i for i in instances if i["index"] == index), None)
 
         if not info:
-            print(f"[ADB] index={index} no aparece en `ldconsole list2`")
+            runtime_state.log(f"[ADB] index={index} no aparece en `ldconsole list2`")
             return []
 
         candidate_pids = [
@@ -220,7 +224,7 @@ class ADBController:
                 seen.add(port)
                 unique_ports.append(port)
 
-        print(f"[ADB] index={index} pids={candidate_pids} puertos_candidatos={unique_ports}")
+        runtime_state.log(f"[ADB] index={index} pids={candidate_pids} puertos_candidatos={unique_ports}")
 
         return unique_ports
 
@@ -327,7 +331,7 @@ class ADBController:
             serial = ADBController._try_port(port)
 
             if serial:
-                print(f"[ADB] index={index} -> {serial} (descubierto por proceso)")
+                runtime_state.log_always(f"[ADB] index={index} -> {serial} (descubierto por proceso)")
                 return serial
 
         return None
@@ -361,7 +365,7 @@ class ADBController:
 
             devices = ADBController._get_devices()
 
-            print(
+            runtime_state.log(
                 f"[ADB] resolve index={index} "
                 f"devices={devices}"
             )
@@ -384,7 +388,7 @@ class ADBController:
             # (p. ej. no hay psutil, o `list2` no devolvió pid válido).
             # --------------------------------------------------------
 
-            print(
+            runtime_state.log_always(
                 f"[ADB] index={index}: descubrimiento por proceso falló, "
                 f"cayendo a fórmula fija (NO CONFIABLE)"
             )
@@ -395,7 +399,7 @@ class ADBController:
                 ADBController._serial_cache[index] = emulator_serial
                 ADBController._register_identity(index, emulator_serial)
 
-                print(
+                runtime_state.log_always(
                     f"[ADB] index={index} -> "
                     f"{emulator_serial} (fórmula fija)"
                 )
@@ -420,7 +424,7 @@ class ADBController:
                 ADBController._serial_cache[index] = tcp_serial
                 ADBController._register_identity(index, tcp_serial)
 
-                print(
+                runtime_state.log_always(
                     f"[ADB] index={index} -> "
                     f"{tcp_serial} (fórmula fija TCP)"
                 )
@@ -447,7 +451,7 @@ class ADBController:
                 ADBController._identity_to_index.pop(identity, None)
 
             if serial_removed:
-                print(f"[ADB] cache invalidada para index={index} (era {serial_removed})")
+                runtime_state.log(f"[ADB] cache invalidada para index={index} (era {serial_removed})")
 
     # ================================================================
     # SHELL (con retry automático si el serial cambió)
@@ -468,7 +472,7 @@ class ADBController:
         if result.returncode == 0:
             return result.stdout
 
-        print(
+        runtime_state.log_always(
             f"[ADB] shell fallo index={index} "
             f"serial={serial}: {result.stderr.strip()}"
         )
@@ -531,7 +535,7 @@ class ADBController:
         if result.returncode == 0:
             return result
 
-        print(
+        runtime_state.log_always(
             f"[ADB] comando fallo index={index} "
             f"serial={serial}: {result.stderr.strip()}"
         )
@@ -563,6 +567,314 @@ class ADBController:
                 data["temperature_c"] = int(value) / 10.0
         return data
 
+    @staticmethod
+    def set_battery_level(index: int, level: int) -> str:
+        """Establece el nivel de batería simulado (0-100)."""
+        level = max(0, min(100, level))
+        return ADBController.shell(index, f"dumpsys battery set level {level}")
+
+    @staticmethod
+    def set_battery_status(index: int, status: str) -> str:
+        """status: 'charging'|'discharging'|'not_charging'|'full'|'unknown'"""
+        codes = {v: k for k, v in BATTERY_STATUS_MAP.items()}
+        code = codes.get(status, "2")
+        return ADBController.shell(index, f"dumpsys battery set status {code}")
+
+    @staticmethod
+    def reset_battery(index: int) -> str:
+        """Restaura la batería a su estado real (deshace los `set`)."""
+        return ADBController.shell(index, "dumpsys battery reset")
+
+    # ==================================================================
+    # Radios: bluetooth / wifi / datos móviles / modo avión
+    #
+    # NOTA IMPORTANTE (no tocar sin razón): bluetooth y wifi usan
+    # `settings put global` en vez de `svc bluetooth/wifi enable|disable`.
+    # `svc` invoca al manager service real vía Binder, y en LDPlayer
+    # (sin HAL de radio real detrás) ese service crashea al inicializar
+    # y se mata el proceso — es el "call killProcess callstack" que
+    # aparece en logs. Escribir el setting directo lo evita y coincide
+    # con lo que lee get_*_status().
+    #
+    # Datos móviles SÍ funciona con `svc data`, así que ese se deja como
+    # estaba (no lo cambies a settings put, ahí no anda).
+    # ==================================================================
+    @staticmethod
+    def set_bluetooth(index: int, enable: bool) -> str:
+        value = "1" if enable else "0"
+        return ADBController.shell(index, f"settings put global bluetooth_on {value}")
+
+    @staticmethod
+    def get_bluetooth_status(index: int) -> bool:
+        output = ADBController.shell(index, "settings get global bluetooth_on")
+        return output.strip() == "1"
+
+    @staticmethod
+    def set_wifi(index: int, enable: bool) -> str:
+        value = "1" if enable else "0"
+        return ADBController.shell(index, f"settings put global wifi_on {value}")
+
+    @staticmethod
+    def get_wifi_status(index: int) -> bool:
+        output = ADBController.shell(index, "settings get global wifi_on")
+        return output.strip() == "1"
+
+    @staticmethod
+    def toggle_mobile_data(index: int, enable: bool) -> str:
+        """Datos móviles: acá sí funciona `svc data` (a diferencia de
+        bluetooth/wifi). No migrar a settings put sin probar antes."""
+        state = "enable" if enable else "disable"
+        return ADBController.shell(index, f"svc data {state}")
+
+    @staticmethod
+    def set_airplane_mode(index: int, enable: bool) -> str:
+        value = "1" if enable else "0"
+        ADBController.shell(index, f"settings put global airplane_mode_on {value}")
+        return ADBController.shell(
+            index,
+            f"am broadcast -a android.intent.action.AIRPLANE_MODE --ez state {str(enable).lower()}",
+        )
+
+    # ------------------------------------------------------------------
+    # Ubicación / sensores
+    # ------------------------------------------------------------------
+    @staticmethod
+    def set_gps(index: int, enable: bool) -> str:
+        mode = "3" if enable else "0"  # 3 = alta precisión, 0 = apagado
+        return ADBController.shell(index, f"settings put secure location_mode {mode}")
+
+    @staticmethod
+    def simulate_gps_location(index: int, lat: float, lon: float) -> str:
+        """Requiere que la instancia tenga un mock location provider activo."""
+        return ADBController.shell(index, f"geo fix {lon} {lat}")
+
+    @staticmethod
+    def set_rotation_lock(index: int, locked: bool) -> str:
+        value = "0" if locked else "1"
+        return ADBController.shell(index, f"settings put system accelerometer_rotation {value}")
+
+    # ------------------------------------------------------------------
+    # Interfaz: pantalla, volumen, DND
+    # ------------------------------------------------------------------
+    @staticmethod
+    def set_screen_brightness(index: int, level: int) -> str:
+        """level: 0-255"""
+        level = max(0, min(255, level))
+        return ADBController.shell(index, f"settings put system screen_brightness {level}")
+
+    @staticmethod
+    def set_screen_timeout(index: int, ms: int) -> str:
+        return ADBController.shell(index, f"settings put system screen_off_timeout {ms}")
+
+    @staticmethod
+    def set_volume(index: int, stream: str, level: int) -> str:
+        """stream: 'music'|'ring'|'alarm'|'notification'|'system'|'voice_call'"""
+        sid = VOLUME_STREAMS.get(stream, 3)
+        return ADBController.shell(index, f"media volume --stream {sid} --set {level}")
+
+    @staticmethod
+    def set_do_not_disturb(index: int, enable: bool) -> str:
+        mode = "1" if enable else "0"
+        return ADBController.shell(index, f"settings put global zen_mode {mode}")
+
+    @staticmethod
+    def screen_on(index: int) -> str:
+        return ADBController.shell(index, "input keyevent 224")  # KEYCODE_WAKEUP
+
+    @staticmethod
+    def screen_off(index: int) -> str:
+        return ADBController.shell(index, "input keyevent 223")  # KEYCODE_SLEEP
+
+    @staticmethod
+    def is_screen_on(index: int) -> bool:
+        output = ADBController.shell(index, "dumpsys power")
+        match = re.search(r"mHoldingDisplaySuspendBlocker=(\w+)", output)
+        if match:
+            return match.group(1) == "true"
+        return "mWakefulness=Awake" in output
+
+    # ------------------------------------------------------------------
+    # Input: teclas, texto, gestos
+    # ------------------------------------------------------------------
+    @staticmethod
+    def press_key(index: int, keycode) -> str:
+        """keycode puede ser int o nombre presente en KEYEVENTS."""
+        code = KEYEVENTS.get(keycode, keycode) if isinstance(keycode, str) else keycode
+        return ADBController.shell(index, f"input keyevent {code}")
+
+    @staticmethod
+    def input_text(index: int, text: str) -> str:
+        escaped = text.replace(" ", "%s").replace("'", "\\'")
+        return ADBController.shell(index, f"input text '{escaped}'")
+
+    @staticmethod
+    def tap(index: int, x: int, y: int) -> str:
+        return ADBController.shell(index, f"input tap {x} {y}")
+
+    @staticmethod
+    def swipe(index: int, x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300) -> str:
+        return ADBController.shell(index, f"input swipe {x1} {y1} {x2} {y2} {duration_ms}")
+
+    @staticmethod
+    def long_press(index: int, x: int, y: int, duration_ms: int = 800) -> str:
+        return ADBController.shell(index, f"input swipe {x} {y} {x} {y} {duration_ms}")
+
+    # ------------------------------------------------------------------
+    # Apps: instalar, lanzar, forzar cierre, desinstalar
+    # ------------------------------------------------------------------
+    @staticmethod
+    def install_app(index: int, apk_path: str) -> str:
+        result = ADBController._run_adb_on_device(index, "install", "-r", apk_path)
+        return result.stdout or result.stderr
+
+    @staticmethod
+    def uninstall_app(index: int, package: str) -> str:
+        result = ADBController._run_adb_on_device(index, "uninstall", package)
+        return result.stdout or result.stderr
+
+    @staticmethod
+    def run_app(index: int, package: str, activity: Optional[str] = None) -> str:
+        if activity:
+            return ADBController.shell(index, f"am start -n {package}/{activity}")
+        return ADBController.shell(
+            index, f"monkey -p {package} -c android.intent.category.LAUNCHER 1"
+        )
+
+    @staticmethod
+    def force_stop(index: int, package: str) -> str:
+        return ADBController.shell(index, f"am force-stop {package}")
+
+    @staticmethod
+    def clear_app_data(index: int, package: str) -> str:
+        return ADBController.shell(index, f"pm clear {package}")
+
+    @staticmethod
+    def list_packages(index: int, only_third_party: bool = True) -> List[str]:
+        flag = "-3" if only_third_party else ""
+        output = ADBController.shell(index, f"pm list packages {flag}")
+        return [line.replace("package:", "").strip() for line in output.splitlines() if line.strip()]
+
+    @staticmethod
+    def get_current_app(index: int) -> Optional[str]:
+        output = ADBController.shell(index, "dumpsys window windows")
+        match = re.search(r"mCurrentFocus=.*?\s([\w.]+)/([\w.]+)", output)
+        if match:
+            return match.group(1)
+        return None
+
+    # ------------------------------------------------------------------
+    # Permisos / seguridad
+    # ------------------------------------------------------------------
+    @staticmethod
+    def set_play_protect(index: int, disable: bool) -> str:
+        """Desactiva (-1) o reactiva (1) la verificación de Play Protect."""
+        value = "-1" if disable else "1"
+        return ADBController.shell(
+            index, f"settings put global package_verifier_user_consent {value}"
+        )
+
+    @staticmethod
+    def grant_permission(index: int, package: str, permission: str) -> str:
+        return ADBController.shell(index, f"pm grant {package} {permission}")
+
+    @staticmethod
+    def revoke_permission(index: int, package: str, permission: str) -> str:
+        return ADBController.shell(index, f"pm revoke {package} {permission}")
+
+    # ------------------------------------------------------------------
+    # Sistema / diagnóstico
+    # ------------------------------------------------------------------
+    @staticmethod
+    def get_all_settings(index: int, namespace: str = "global") -> str:
+        """namespace: 'system'|'secure'|'global' — para debug/inspección"""
+        return ADBController.shell(index, f"settings list {namespace}")
+
+    @staticmethod
+    def get_prop(index: int, prop: str) -> str:
+        return ADBController.shell(index, f"getprop {prop}").strip()
+
+    @staticmethod
+    def reboot(index: int) -> str:
+        result = ADBController.shell(index, "reboot")
+        # El serial casi siempre cambia (o desaparece temporalmente) tras un reboot
+        ADBController.invalidate_serial(index)
+        return result
+
+    @staticmethod
+    def get_ip_address(index: int) -> Optional[str]:
+        output = ADBController.shell(index, "ip -f inet addr show wlan0")
+        match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", output)
+        return match.group(1) if match else None
+
+    # ------------------------------------------------------------------
+    # ROOT / DEPURACIÓN
+    # ------------------------------------------------------------------
+    @staticmethod
+    def is_root(index: int) -> bool:
+        """Comprueba si la instancia tiene acceso root efectivo."""
+        try:
+            output = ADBController.shell(index, "su -c id")
+            return "uid=0(root)" in output
+        except Exception:
+            return False
+
+    @staticmethod
+    def root_shell(index: int, command: str) -> str:
+        """Ejecuta un comando como root mediante `su -c`."""
+        escaped = command.replace("\\", "\\\\").replace('"', '\\"')
+        return ADBController.shell(index, f'su -c "{escaped}"')
+
+    @staticmethod
+    def ensure_root(index: int) -> bool:
+        """Valida que ROOT esté disponible y operativo."""
+        if ADBController.is_root(index):
+            runtime_state.log(f"[ADB] index={index} ROOT activo")
+            return True
+        runtime_state.log(
+            f"[ADB] index={index} ROOT NO disponible. "
+            f"Debe activarse en la configuración de LDPlayer."
+        )
+        return False
+
+    @staticmethod
+    def get_uid(index: int) -> str:
+        """Devuelve la identidad del shell ADB actual."""
+        return ADBController.shell(index, "id").strip()
+
+    @staticmethod
+    def get_root_uid(index: int) -> str:
+        """Devuelve la identidad ejecutando mediante su."""
+        return ADBController.root_shell(index, "id").strip()
+
+    @staticmethod
+    def test_debug_mode(index: int) -> Dict:
+        """Diagnóstico rápido de ADB + ROOT."""
+        serial = ADBController.resolve_serial(index)
+        shell_uid = ADBController.get_uid(index)
+        root_enabled = ADBController.is_root(index)
+        root_uid = None
+        if root_enabled:
+            root_uid = ADBController.get_root_uid(index)
+        result = {
+            "index": index,
+            "serial": serial,
+            "adb": True,
+            "shell_uid": shell_uid,
+            "root": root_enabled,
+            "root_uid": root_uid,
+        }
+        runtime_state.log(f"[ADB] debug status index={index}: {result}")
+        return result
+
+    @staticmethod
+    def enable_adb_debugging(index: int) -> str:
+        """Activa opciones de desarrollador y depuración ADB dentro del guest."""
+        ADBController.shell(index, "settings put global development_settings_enabled 1")
+        return ADBController.shell(index, "settings put global adb_enabled 1")
+
+    # ------------------------------------------------------------------
+    # Mantenimiento de caches
+    # ------------------------------------------------------------------
     @staticmethod
     def prune(active_indices: set) -> None:
         """Limpia serial cache / identity cache de índices que ya no
