@@ -435,6 +435,36 @@
       height: 15px;
     }
 
+    /* ---------- Paneles colapsables ---------- */
+    .panel-header {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .panel-header .chevron {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: .7rem;
+      transition: transform .15s ease;
+      flex: none;
+    }
+
+    .panel-header.open .chevron {
+      transform: rotate(90deg);
+    }
+
+    .panel-header:hover {
+      color: #8ff5e2;
+    }
+
+    .panel-body {
+      display: none;
+    }
+
+    .panel-body.open {
+      display: block;
+    }
+
     /* ---------- Toasts ---------- */
     .toast-stack {
       position: fixed;
@@ -660,8 +690,23 @@
       font-size: .78rem;
       margin-bottom: .9rem;
     }
+
+    /* ---------- Modal de ejecución (pipelines / cadenas) ---------- */
+    #execBox {
+      width: min(560px, 100%);
+    }
+
+    #execStatusText {
+      font-family: var(--mono);
+    }
+
+    #execConsole {
+      height: 280px;
+      max-height: 280px;
+    }
   </style>
 </head>
+
 <body>
 
   <header class="topbar">
@@ -684,181 +729,211 @@
   </header>
 
   <section class="panel">
-    <p class="panel-title">📱 Apps conocidas <span class="hint">— usadas en instalar / abrir / cerrar y en los pasos
-        del pipeline, sin escribir la ruta cada vez</span></p>
-    <div class="row">
-      <button class="teal" onclick="openAppFormModal()">+ Agregar app</button>
-      <span class="hint" id="appsSyncHint"></span>
-    </div>
-    <div class="table-scroll">
-      <table style="margin-top:.7rem;">
-        <thead>
-          <tr>
-            <th>Label</th>
-            <th>Ruta APK</th>
-            <th>Package</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="knownAppsBody"></tbody>
-      </table>
+    <p class="panel-title panel-header" id="panelApps-header" onclick="togglePanel('panelApps')">
+      <span class="chevron">▶</span>
+      📱 Apps conocidas <span class="hint">— usadas en instalar / abrir / cerrar y en los pasos
+        del pipeline, sin escribir la ruta cada vez</span>
+    </p>
+    <div class="panel-body" id="panelApps">
+      <div class="row">
+        <button class="teal" onclick="openAppFormModal()">+ Agregar app</button>
+        <span class="hint" id="appsSyncHint"></span>
+      </div>
+      <div class="table-scroll">
+        <table style="margin-top:.7rem;">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Ruta APK</th>
+              <th>Package</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="knownAppsBody"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
   <section class="panel">
-    <p class="panel-title">Selección <span class="hint">— aplica a todas las acciones en cadena de abajo</span></p>
-    <div class="row">
-      <button onclick="toggleSelectAll()">☑ Marcar / desmarcar todas</button>
-      <button class="danger" onclick="powerAllOff()">🔴 Apagar seleccionadas (en paralelo)</button>
-      <button onclick="killSelectedApps()">🗡️ Kill app en seleccionadas</button>
-      <span class="hint" style="font-size:.75rem;">Si no marcás ninguna, las acciones en cadena corren sobre
-        todas.</span>
+    <p class="panel-title panel-header" id="panelSeleccion-header" onclick="togglePanel('panelSeleccion')">
+      <span class="chevron">▶</span>
+      Selección <span class="hint">— aplica a todas las acciones en cadena de abajo</span>
+    </p>
+    <div class="panel-body" id="panelSeleccion">
+      <div class="row">
+        <button onclick="toggleSelectAll()">☑ Marcar / desmarcar todas</button>
+        <button class="danger" onclick="powerAllOff()">🔴 Apagar seleccionadas (en paralelo)</button>
+        <button onclick="killSelectedApps()">🗡️ Kill app en seleccionadas</button>
+        <span class="hint" style="font-size:.75rem;">Si no marcás ninguna, las acciones en cadena corren sobre
+          todas.</span>
+      </div>
     </div>
   </section>
 
   <section class="panel">
-    <p class="panel-title">Encendido en cadena <span class="hint">— una por una, esperando el boot antes de pasar a la
-        siguiente</span></p>
-    <div class="row">
-      <div class="field">
-        <label for="powerBootTimeoutSec">Timeout de boot</label>
-        <div class="row" style="gap:.3rem;"><input type="number" id="powerBootTimeoutSec" value="90" min="10" /><span
-            class="unit">seg</span></div>
+    <p class="panel-title panel-header" id="panelEncendido-header" onclick="togglePanel('panelEncendido')">
+      <span class="chevron">▶</span>
+      Encendido en cadena <span class="hint">— una por una, esperando el boot antes de pasar a la
+        siguiente</span>
+    </p>
+    <div class="panel-body" id="panelEncendido">
+      <div class="row">
+        <div class="field">
+          <label for="powerBootTimeoutSec">Timeout de boot</label>
+          <div class="row" style="gap:.3rem;"><input type="number" id="powerBootTimeoutSec" value="90" min="10" /><span
+              class="unit">seg</span></div>
+        </div>
+        <div class="field">
+          <label for="powerGapSec">Espera antes de la siguiente</label>
+          <div class="row" style="gap:.3rem;"><input type="number" id="powerGapSec" value="5" min="0" /><span
+              class="unit">seg</span></div>
+        </div>
+        <button id="powerChainBtn" class="primary" onclick="runPowerChain()">🟢 Encender todas (cadena)</button>
+        <button id="powerChainStopBtn" class="ghost" onclick="stopPowerChain()" disabled>■ Detener</button>
+        <span class="chain-status-pill" id="powerChainStatus">Inactivo</span>
       </div>
-      <div class="field">
-        <label for="powerGapSec">Espera antes de la siguiente</label>
-        <div class="row" style="gap:.3rem;"><input type="number" id="powerGapSec" value="5" min="0" /><span
-            class="unit">seg</span></div>
+      <div class="chain-flow">
+        <span class="step">launch</span><span class="arrow">→</span>
+        <span class="step">esperar boot</span><span class="arrow">→</span>
+        <span class="step">esperar delay</span><span class="arrow">→</span>
+        <span class="step">siguiente instancia</span>
       </div>
-      <button id="powerChainBtn" class="primary" onclick="runPowerChain()">🟢 Encender todas (cadena)</button>
-      <button id="powerChainStopBtn" class="ghost" onclick="stopPowerChain()" disabled>■ Detener</button>
-      <span class="chain-status-pill" id="powerChainStatus">Inactivo</span>
-    </div>
-    <div class="chain-flow">
-      <span class="step">launch</span><span class="arrow">→</span>
-      <span class="step">esperar boot</span><span class="arrow">→</span>
-      <span class="step">esperar delay</span><span class="arrow">→</span>
-      <span class="step">siguiente instancia</span>
-    </div>
-  </section>
-
-  <section class="panel">
-    <p class="panel-title">Cadena de instalación <span class="hint">— secuencial, con install de soks.apk +
-        earn.apk</span></p>
-    <div class="row">
-      <div class="field">
-        <label for="chainBootTimeoutSec">Timeout de boot</label>
-        <div class="row" style="gap:.3rem;"><input type="number" id="chainBootTimeoutSec" value="90" min="10" /><span
-            class="unit">seg</span></div>
-      </div>
-      <div class="field">
-        <label for="chainInstallDelaySec">Espera tras cada instalación (y antes de cerrar)</label>
-        <div class="row" style="gap:.3rem;"><input type="number" id="chainInstallDelaySec" value="10" min="0" /><span
-            class="unit">seg</span></div>
-      </div>
-      <div class="field">
-        <label for="chainDelaySec">Espera tras cerrar, antes de la siguiente</label>
-        <div class="row" style="gap:.3rem;"><input type="number" id="chainDelaySec" value="15" min="0" /><span
-            class="unit">seg</span></div>
-      </div>
-      <button id="chainStartBtn" class="primary" onclick="runChain()">▶ Ejecutar cadena</button>
-      <button id="chainStopBtn" class="ghost" onclick="stopChain()" disabled>■ Detener</button>
-      <span class="chain-status-pill" id="chainStatus">Inactivo</span>
-    </div>
-    <div class="chain-flow">
-      <span class="step">launch</span><span class="arrow">→</span>
-      <span class="step">esperar boot</span><span class="arrow">→</span>
-      <span class="step">instalar soks.apk</span><span class="arrow">→</span>
-      <span class="step">esperar delay</span><span class="arrow">→</span>
-      <span class="step">instalar earn.apk</span><span class="arrow">→</span>
-      <span class="step">esperar delay</span><span class="arrow">→</span>
-      <span class="step">quit</span><span class="arrow">→</span>
-      <span class="step">esperar delay</span><span class="arrow">→</span>
-      <span class="step">siguiente instancia</span>
     </div>
   </section>
 
   <section class="panel">
-    <p class="panel-title">Iniciar con monitor <span class="hint">— solo instala app-debug.apk (com.chataolutions.app),
-        la abre, espera y la cierra antes de continuar</span></p>
-    <div class="row">
-      <div class="field">
-        <label for="monitorBootTimeoutSec">Timeout de boot</label>
-        <div class="row" style="gap:.3rem;"><input type="number" id="monitorBootTimeoutSec" value="90" min="10" /><span
-            class="unit">seg</span></div>
+    <p class="panel-title panel-header" id="panelInstalacion-header" onclick="togglePanel('panelInstalacion')">
+      <span class="chevron">▶</span>
+      Cadena de instalación <span class="hint">— secuencial, con install de soks.apk +
+        earn.apk</span>
+    </p>
+    <div class="panel-body" id="panelInstalacion">
+      <div class="row">
+        <div class="field">
+          <label for="chainBootTimeoutSec">Timeout de boot</label>
+          <div class="row" style="gap:.3rem;"><input type="number" id="chainBootTimeoutSec" value="90" min="10" /><span
+              class="unit">seg</span></div>
+        </div>
+        <div class="field">
+          <label for="chainInstallDelaySec">Espera tras cada instalación (y antes de cerrar)</label>
+          <div class="row" style="gap:.3rem;"><input type="number" id="chainInstallDelaySec" value="10" min="0" /><span
+              class="unit">seg</span></div>
+        </div>
+        <div class="field">
+          <label for="chainDelaySec">Espera tras cerrar, antes de la siguiente</label>
+          <div class="row" style="gap:.3rem;"><input type="number" id="chainDelaySec" value="15" min="0" /><span
+              class="unit">seg</span></div>
+        </div>
+        <button id="chainStartBtn" class="primary" onclick="runChain()">▶ Ejecutar cadena</button>
+        <button id="chainStopBtn" class="ghost" onclick="stopChain()" disabled>■ Detener</button>
+        <span class="chain-status-pill" id="chainStatus">Inactivo</span>
       </div>
-      <div class="field">
-        <label for="monitorPreInstallDelaySec">Espera tras boot, antes de instalar</label>
-        <div class="row" style="gap:.3rem;"><input type="number" id="monitorPreInstallDelaySec" value="10"
-            min="0" /><span class="unit">seg</span></div>
+      <div class="chain-flow">
+        <span class="step">launch</span><span class="arrow">→</span>
+        <span class="step">esperar boot</span><span class="arrow">→</span>
+        <span class="step">instalar soks.apk</span><span class="arrow">→</span>
+        <span class="step">esperar delay</span><span class="arrow">→</span>
+        <span class="step">instalar earn.apk</span><span class="arrow">→</span>
+        <span class="step">esperar delay</span><span class="arrow">→</span>
+        <span class="step">quit</span><span class="arrow">→</span>
+        <span class="step">esperar delay</span><span class="arrow">→</span>
+        <span class="step">siguiente instancia</span>
       </div>
-      <div class="field">
-        <label for="monitorRunWaitSec">Espera con el monitor abierto</label>
-        <div class="row" style="gap:.3rem;"><input type="number" id="monitorRunWaitSec" value="10" min="0" /><span
-            class="unit">seg</span></div>
-      </div>
-      <div class="field">
-        <label for="monitorDelaySec">Espera tras cerrar, antes de la siguiente</label>
-        <div class="row" style="gap:.3rem;"><input type="number" id="monitorDelaySec" value="15" min="0" /><span
-            class="unit">seg</span></div>
-      </div>
-      <button id="monitorChainStartBtn" class="violet" onclick="runMonitorChain()">🖥️ Iniciar con monitor
-        (cadena)</button>
-      <button id="monitorChainStopBtn" class="ghost" onclick="stopMonitorChain()" disabled>■ Detener</button>
-      <span class="chain-status-pill" id="monitorChainStatus">Inactivo</span>
-    </div>
-    <div class="chain-flow">
-      <span class="step">launch</span><span class="arrow">→</span>
-      <span class="step">esperar boot (android listo)</span><span class="arrow">→</span>
-      <span class="step accent">esperar delay</span><span class="arrow">→</span>
-      <span class="step accent">instalar app-debug.apk (monitor)</span><span class="arrow">→</span>
-      <span class="step accent">abrir com.chataolutions.app</span><span class="arrow">→</span>
-      <span class="step accent">esperar</span><span class="arrow">→</span>
-      <span class="step accent">cerrar monitor</span><span class="arrow">→</span>
-      <span class="step">esperar delay</span><span class="arrow">→</span>
-      <span class="step">quit</span><span class="arrow">→</span>
-      <span class="step">esperar delay</span><span class="arrow">→</span>
-      <span class="step">siguiente instancia</span>
     </div>
   </section>
 
   <section class="panel">
-    <p class="panel-title">🧩 Pipeline runner <span class="hint">— armá una secuencia de pasos (abrir app, esperar,
-        comando ADB, cambiar/verificar config, etc.) y correla sobre las instancias seleccionadas</span></p>
-    <div class="row">
-      <div class="field">
-        <label for="pipelineNameInput">Nombre</label>
-        <input type="text" id="pipelineNameInput" value="Mi pipeline" style="width:220px"
-          oninput="currentPipeline.name = this.value" />
+    <p class="panel-title panel-header" id="panelMonitor-header" onclick="togglePanel('panelMonitor')">
+      <span class="chevron">▶</span>
+      Iniciar con monitor <span class="hint">— solo instala app-debug.apk (com.chataolutions.app),
+        la abre, espera y la cierra antes de continuar</span>
+    </p>
+    <div class="panel-body" id="panelMonitor">
+      <div class="row">
+        <div class="field">
+          <label for="monitorBootTimeoutSec">Timeout de boot</label>
+          <div class="row" style="gap:.3rem;"><input type="number" id="monitorBootTimeoutSec" value="90"
+              min="10" /><span class="unit">seg</span></div>
+        </div>
+        <div class="field">
+          <label for="monitorPreInstallDelaySec">Espera tras boot, antes de instalar</label>
+          <div class="row" style="gap:.3rem;"><input type="number" id="monitorPreInstallDelaySec" value="10"
+              min="0" /><span class="unit">seg</span></div>
+        </div>
+        <div class="field">
+          <label for="monitorRunWaitSec">Espera con el monitor abierto</label>
+          <div class="row" style="gap:.3rem;"><input type="number" id="monitorRunWaitSec" value="10" min="0" /><span
+              class="unit">seg</span></div>
+        </div>
+        <div class="field">
+          <label for="monitorDelaySec">Espera tras cerrar, antes de la siguiente</label>
+          <div class="row" style="gap:.3rem;"><input type="number" id="monitorDelaySec" value="15" min="0" /><span
+              class="unit">seg</span></div>
+        </div>
+        <button id="monitorChainStartBtn" class="violet" onclick="runMonitorChain()">🖥️ Iniciar con monitor
+          (cadena)</button>
+        <button id="monitorChainStopBtn" class="ghost" onclick="stopMonitorChain()" disabled>■ Detener</button>
+        <span class="chain-status-pill" id="monitorChainStatus">Inactivo</span>
       </div>
-      <button onclick="loadPreset('encendido')">Preset: Encendido</button>
-      <button onclick="loadPreset('instalacion')">Preset: Instalación</button>
-      <button onclick="loadPreset('monitor')">Preset: Con monitor</button>
-      <button onclick="loadPreset('setup_completo')">Preset: Setup completo (Root + Apps)</button>
-      <button onclick="loadPreset('setup_root_adb')">Preset: Root Inicial + ADB</button>
-      <button onclick="loadPreset('setup_apps')">Preset: Setup Apps (instalación)</button>
-      <button onclick="loadPresetRegistroHealth()">Preset: Registro Health (nombre + server)</button>
-      <button onclick="exportPipeline()">⬇ Exportar JSON</button>
-      <label class="small"
-        style="cursor:pointer; display:inline-flex; align-items:center; gap:.3rem; padding:.45rem .85rem; border-radius:6px; border:1px solid var(--line); background:var(--panel-2); font-size:.8rem; font-weight:600;">
-        ⬆ Importar JSON
-        <input type="file" accept="application/json" style="display:none" onchange="importPipelineFile(this)" />
-      </label>
+      <div class="chain-flow">
+        <span class="step">launch</span><span class="arrow">→</span>
+        <span class="step">esperar boot (android listo)</span><span class="arrow">→</span>
+        <span class="step accent">esperar delay</span><span class="arrow">→</span>
+        <span class="step accent">instalar app-debug.apk (monitor)</span><span class="arrow">→</span>
+        <span class="step accent">abrir com.chataolutions.app</span><span class="arrow">→</span>
+        <span class="step accent">esperar</span><span class="arrow">→</span>
+        <span class="step accent">cerrar monitor</span><span class="arrow">→</span>
+        <span class="step">esperar delay</span><span class="arrow">→</span>
+        <span class="step">quit</span><span class="arrow">→</span>
+        <span class="step">esperar delay</span><span class="arrow">→</span>
+        <span class="step">siguiente instancia</span>
+      </div>
     </div>
-    <div class="row" style="margin-top:.6rem;">
-      <label class="row" style="gap:.35rem;"><input type="checkbox" id="pipelineParallel" /> Ejecutar instancias en
-        paralelo</label>
-      <button id="pipelineRunBtn" class="primary" onclick="runPipeline()">▶ Ejecutar pipeline</button>
-      <button id="pipelineStopBtn" class="ghost" onclick="stopPipeline()" disabled>■ Detener</button>
-      <span class="chain-status-pill" id="pipelineStatus">Inactivo</span>
-    </div>
+  </section>
 
-    <div id="pipelineStepsList" style="margin-top: 1rem; display:flex; flex-direction:column; gap:.6rem;"></div>
+  <section class="panel">
+    <p class="panel-title panel-header" id="panelPipeline-header" onclick="togglePanel('panelPipeline')">
+      <span class="chevron">▶</span>
+      🧩 Pipeline runner <span class="hint">— armá una secuencia de pasos (abrir app, esperar,
+        comando ADB, cambiar/verificar config, etc.) y correla sobre las instancias seleccionadas</span>
+    </p>
+    <div class="panel-body" id="panelPipeline">
+      <div class="row">
+        <div class="field">
+          <label for="pipelineNameInput">Nombre</label>
+          <input type="text" id="pipelineNameInput" value="Mi pipeline" style="width:220px"
+            oninput="currentPipeline.name = this.value" />
+        </div>
+        <button onclick="loadPreset('encendido')">Preset: Encendido</button>
+        <button onclick="loadPreset('instalacion')">Preset: Instalación</button>
+        <button onclick="loadPreset('monitor')">Preset: Con monitor</button>
+        <button onclick="loadPreset('setup_completo')">Preset: Setup completo (Root + Apps)</button>
+        <button onclick="loadPreset('setup_root_adb')">Preset: Root Inicial + ADB</button>
+        <button onclick="loadPreset('setup_apps')">Preset: Setup Apps (instalación)</button>
+        <button onclick="loadPresetRegistroHealth()">Preset: Registro Health (nombre + server)</button>
+        <button onclick="exportPipeline()">⬇ Exportar JSON</button>
+        <label class="small"
+          style="cursor:pointer; display:inline-flex; align-items:center; gap:.3rem; padding:.45rem .85rem; border-radius:6px; border:1px solid var(--line); background:var(--panel-2); font-size:.8rem; font-weight:600;">
+          ⬆ Importar JSON
+          <input type="file" accept="application/json" style="display:none" onchange="importPipelineFile(this)" />
+        </label>
+      </div>
+      <div class="row" style="margin-top:.6rem;">
+        <label class="row" style="gap:.35rem;"><input type="checkbox" id="pipelineParallel" /> Ejecutar instancias en
+          paralelo</label>
+        <button id="pipelineRunBtn" class="primary" onclick="runPipeline()">▶ Ejecutar pipeline</button>
+        <button id="pipelineStopBtn" class="ghost" onclick="stopPipeline()" disabled>■ Detener</button>
+        <span class="chain-status-pill" id="pipelineStatus">Inactivo</span>
+      </div>
 
-    <div class="row" style="margin-top:.8rem;">
-      <select id="newStepTypeSelect"></select>
-      <button class="teal" onclick="addStep(document.getElementById('newStepTypeSelect').value)">+ Agregar
-        paso</button>
+      <div id="pipelineStepsList" style="margin-top: 1rem; display:flex; flex-direction:column; gap:.6rem;"></div>
+
+      <div class="row" style="margin-top:.8rem;">
+        <select id="newStepTypeSelect"></select>
+        <button class="teal" onclick="addStep(document.getElementById('newStepTypeSelect').value)">+ Agregar
+          paso</button>
+      </div>
     </div>
   </section>
 
@@ -902,6 +977,19 @@
     <div class="modal-box" id="modalBox"></div>
   </div>
 
+  <!-- Modal de ejecución (cadenas / pipeline): muestra estado + consola + botón de detener -->
+  <div class="modal-overlay" id="execOverlay">
+    <div class="modal-box" id="execBox">
+      <p class="modal-title" id="execTitle">Ejecutando...</p>
+      <p class="modal-sub" id="execStatusText">Estado: iniciando</p>
+      <div id="execConsole" class="modal-result show"></div>
+      <div class="modal-btns">
+        <button class="danger" id="execStopBtn">■ Detener</button>
+        <button class="ghost" id="execCloseBtn" style="display:none">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ---- Config fija de APKs para la cadena de instalación (orden: socks primero, earn después) ----
     const CHAIN_APKS = [
@@ -940,8 +1028,8 @@
     // con estos valores por defecto durante la sesión.
     // ==================================================================
     const DEFAULT_KNOWN_APPS = [
-      { id: 'socks', label: 'SOCKS proxy', apk_path: 'C:\\playeremulador\\apks\\soks.apk', package_name: '' },
-      { id: 'earn', label: 'Earn app', apk_path: 'C:\\playeremulador\\apks\\earn.apk', package_name: '' },
+      { id: 'socks', label: 'SOCKS proxy', apk_path: 'C:\\playeremulador\\apks\\soks.apk', package_name: 'net.typeblog.socks' },
+      { id: 'earn', label: 'Earn app', apk_path: 'C:\\playeremulador\\apks\\earn.apk', package_name: 'com.brd.earnrewards' },
       { id: 'monitor', label: 'Monitor (app-debug)', apk_path: 'C:\\playeremulador\\apks\\app-debug.apk', package_name: 'com.chataolutions.app' },
     ];
     let KNOWN_APPS = DEFAULT_KNOWN_APPS.map((a) => ({ ...a }));
@@ -951,6 +1039,7 @@
       const span = cls ? `<span class="${cls}">${line}</span>` : line;
       logEl.innerHTML += span + '\n';
       logEl.scrollTop = logEl.scrollHeight;
+      execLog(line, cls);
     }
     function clearLog() {
       logEl.innerHTML = '';
@@ -982,6 +1071,109 @@
       if (!obj || !path) return undefined;
       return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
     }
+
+    // ==================================================================
+    // PANELES COLAPSABLES — todos los modos/paneles arriba de "Instancias"
+    // y "Log" empiezan cerrados; se abren/cierran clickeando el título.
+    // ==================================================================
+    const COLLAPSIBLE_PANEL_IDS = [
+      'panelApps',
+      'panelSeleccion',
+      'panelEncendido',
+      'panelInstalacion',
+      'panelMonitor',
+      'panelPipeline',
+    ];
+
+    function togglePanel(id) {
+      const body = document.getElementById(id);
+      const header = document.getElementById(`${id}-header`);
+      if (!body || !header) return;
+      const isOpen = body.classList.toggle('open');
+      header.classList.toggle('open', isOpen);
+      const chevron = header.querySelector('.chevron');
+      if (chevron) chevron.textContent = isOpen ? '▼' : '▶';
+    }
+
+    function openPanel(id) {
+      const body = document.getElementById(id);
+      const header = document.getElementById(`${id}-header`);
+      if (!body || !header) return;
+      body.classList.add('open');
+      header.classList.add('open');
+      const chevron = header.querySelector('.chevron');
+      if (chevron) chevron.textContent = '▼';
+    }
+
+    function initCollapsiblePanels() {
+      // Cerrados por default: no hace falta tocar nada más que asegurarse
+      // de que el chevron arranque apuntando a la derecha (▶).
+      for (const id of COLLAPSIBLE_PANEL_IDS) {
+        const header = document.getElementById(`${id}-header`);
+        const chevron = header?.querySelector('.chevron');
+        if (chevron) chevron.textContent = '▶';
+      }
+    }
+
+    // ==================================================================
+    // MODAL DE EJECUCIÓN — usado por las cadenas (encendido / instalación
+    // / monitor / setup) y por el pipeline runner. Muestra el estado
+    // actual, un espejo de la consola/log mientras corre, y un único
+    // botón funcional: "Detener".
+    // ==================================================================
+    const execOverlay = document.getElementById('execOverlay');
+    const execConsoleEl = document.getElementById('execConsole');
+    const execStatusEl = document.getElementById('execStatusText');
+    const execTitleEl = document.getElementById('execTitle');
+    const execStopBtn = document.getElementById('execStopBtn');
+    const execCloseBtn = document.getElementById('execCloseBtn');
+    let execModalOpen = false;
+    let execStopHandler = null;
+
+    function openExecModal(title, stopFn) {
+      execTitleEl.textContent = title;
+      execStatusEl.textContent = 'Estado: corriendo';
+      execConsoleEl.innerHTML = '';
+      execStopHandler = stopFn || null;
+      execStopBtn.disabled = !execStopHandler;
+      execStopBtn.style.display = execStopHandler ? '' : 'none';
+      execCloseBtn.style.display = 'none';
+      execModalOpen = true;
+      execOverlay.classList.add('show');
+    }
+
+    function execLog(line, cls) {
+      if (!execModalOpen) return;
+      const span = cls ? `<span class="${cls}">${line}</span>` : line;
+      execConsoleEl.innerHTML += span + '\n';
+      execConsoleEl.scrollTop = execConsoleEl.scrollHeight;
+    }
+
+    function execSetStatus(text) {
+      if (execModalOpen) execStatusEl.textContent = text;
+    }
+
+    function finishExecModal(text) {
+      if (!execModalOpen) return;
+      execSetStatus(text || 'Estado: finalizado');
+      execStopBtn.style.display = 'none';
+      execCloseBtn.style.display = '';
+    }
+
+    function closeExecModal() {
+      execModalOpen = false;
+      execOverlay.classList.remove('show');
+      execStopHandler = null;
+    }
+
+    execStopBtn.addEventListener('click', () => {
+      if (execStopHandler) {
+        execStopHandler();
+        execStatusEl.textContent = 'Estado: deteniendo...';
+        execStopBtn.disabled = true;
+      }
+    });
+    execCloseBtn.addEventListener('click', closeExecModal);
 
     // ==================================================================
     // TOASTS — feedback rápido además del log
@@ -1772,6 +1964,7 @@
       document.getElementById('powerChainStopBtn').disabled = false;
       document.getElementById('powerChainStatus').textContent = `Corriendo (${indices.length})`;
       document.getElementById('powerChainStatus').classList.add('active');
+      openExecModal('🟢 Encendido en cadena', stopPowerChain);
 
       log(`[encendido] iniciando cadena sobre: ${indices.join(', ')}`, 'warn');
 
@@ -1807,6 +2000,7 @@
         document.getElementById('powerChainStatus').textContent = 'Inactivo';
         document.getElementById('powerChainStatus').classList.remove('active');
         log('[encendido] cadena finalizada', 'ok');
+        finishExecModal('Estado: finalizado');
       }
     }
 
@@ -1878,6 +2072,7 @@
       document.getElementById('chainStopBtn').disabled = false;
       document.getElementById('chainStatus').textContent = `Corriendo (${indices.length})`;
       document.getElementById('chainStatus').classList.add('active');
+      openExecModal('▶ Cadena de instalación', stopChain);
 
       log(`[cadena] iniciando sobre: ${indices.join(', ')}`, 'warn');
 
@@ -1904,6 +2099,7 @@
         document.getElementById('chainStatus').textContent = 'Inactivo';
         document.getElementById('chainStatus').classList.remove('active');
         log('[cadena] finalizada', 'ok');
+        finishExecModal('Estado: finalizado');
       }
     }
 
@@ -2023,6 +2219,7 @@
       const statusEl = document.getElementById('monitorChainStatus');
       statusEl.textContent = `Corriendo (${indices.length})`;
       statusEl.classList.add('active', 'violet-pill');
+      openExecModal('🖥️ Iniciar con monitor', stopMonitorChain);
 
       log(`[monitor] iniciando cadena con monitor sobre: ${indices.join(', ')}`, 'warn');
 
@@ -2049,6 +2246,7 @@
         statusEl.textContent = 'Inactivo';
         statusEl.classList.remove('active', 'violet-pill');
         log('[monitor] cadena finalizada', 'ok');
+        finishExecModal('Estado: finalizado');
       }
     }
 
@@ -2177,6 +2375,7 @@
       const statusEl = document.getElementById('setupChainStatus');
       statusEl.textContent = `Corriendo (${indices.length})`;
       statusEl.classList.add('active');
+      openExecModal('🌱 Setup completo (Root + Apps)', stopSetupChain);
 
       log(`[setup] iniciando setup completo (Root Inicial + apps) sobre: ${indices.join(', ')}`, 'warn');
 
@@ -2203,6 +2402,7 @@
         statusEl.textContent = 'Inactivo';
         statusEl.classList.remove('active');
         log('[setup] finalizado', 'ok');
+        finishExecModal('Estado: finalizado');
       }
     }
 
@@ -2229,6 +2429,162 @@
       return [{ value: '', label: '— manual —' }, ...KNOWN_APPS.map((a) => ({ value: a.id, label: a.label }))];
     }
 
+    // ==================================================================
+    // VERIFICACIÓN DE INSTALACIÓN POR ADB — reusa el mismo endpoint que
+    // ya tenía el tool "apps_list" (GET /api/instances/:i/apps), que
+    // devuelve un array de package names instalados, ej:
+    // ["net.typeblog.socks", "com.chataolutions.app", "com.brd.earnrewards"]
+    //
+    // Devuelve `null` cuando no se pudo consultar (sin ADB / instancia
+    // apagada / endpoint caído) para diferenciarlo de "no está instalada".
+    // ==================================================================
+    async function getInstalledPackages(index, onlyThirdParty = true) {
+      const { ok, payload } = await getJSON(`/api/instances/${index}/apps?only_third_party=${onlyThirdParty}`);
+      if (!ok || !Array.isArray(payload)) return null;
+      return payload;
+    }
+
+    async function isPackageInstalled(index, packageName, onlyThirdParty = true) {
+      const installed = await getInstalledPackages(index, onlyThirdParty);
+      if (installed === null) return null; // desconocido: no se pudo verificar
+      return installed.includes(packageName);
+    }
+
+    // ==================================================================
+    // LOCK "SOLO UNA INSTANCIA ENCENDIDA A LA VEZ" (pipeline runner)
+    // Se aplica únicamente cuando el pipeline corre SECUENCIAL (checkbox
+    // "en paralelo" destildado). El paso "launch" espera a que se libere
+    // el slot antes de encender; "quit" lo libera; y por las dudas
+    // también se libera solo al terminar todos los pasos de una
+    // instancia (por si el pipeline no tiene un "quit" explícito).
+    // ==================================================================
+    let activePoweredSlot = null;
+
+    async function acquirePowerSlot(index, ctx) {
+      if (ctx.parallel) return; // en modo paralelo no hay lock: se pidió explícitamente correr juntas
+      while (activePoweredSlot !== null && activePoweredSlot !== index) {
+        ctx.log(`esperando a que #${activePoweredSlot} se apague antes de encender esta instancia (solo una encendida a la vez)`);
+        await ctx.sleep(3000);
+      }
+      activePoweredSlot = index;
+    }
+
+    function releasePowerSlot(index) {
+      if (activePoweredSlot === index) activePoweredSlot = null;
+    }
+    async function waitForAppInstalled({
+      index,
+      packageName,
+      getApps,
+      maxRetries = 3,          // intentos por ciclo
+      delay = 5000,            // espera entre verificaciones
+      reinstallApp,
+      maxReinstalls = 2,       // máximo de reinstalaciones
+      reinstallDelay = 5000,   // espera después de reinstalar
+    }) {
+      let totalAttempts = 0;
+
+      for (
+        let reinstallAttempt = 0;
+        reinstallAttempt <= maxReinstalls;
+        reinstallAttempt++
+      ) {
+        const cycle = reinstallAttempt + 1;
+
+        console.log(
+          `[install] ${packageName} -> ciclo ${cycle}/${maxReinstalls + 1}` +
+          ` | reinstalaciones ${reinstallAttempt}/${maxReinstalls}`
+        );
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          totalAttempts++;
+
+          try {
+            const apps = await getApps();
+
+            const installed =
+              apps?.status === 200 &&
+              apps?.ok &&
+              Array.isArray(apps.payload) &&
+              apps.payload.includes(packageName);
+
+            console.log(
+              `[${attempt}/${maxRetries}] Buscando ${packageName}...`,
+              installed ? "ENCONTRADA" : "NO"
+            );
+
+            if (installed) {
+              return {
+                ok: true,
+                attempt,
+                totalAttempts,
+                reinstallAttempt,
+                apps,
+              };
+            }
+          } catch (e) {
+            console.error(
+              `Error verificando instalación (${attempt}/${maxRetries})`,
+              e
+            );
+          }
+
+          if (attempt < maxRetries) {
+            await sleep(delay);
+          }
+        }
+
+        // Ya agotamos todas las reinstalaciones permitidas
+        if (reinstallAttempt >= maxReinstalls) {
+          break;
+        }
+
+        if (typeof reinstallApp !== "function") {
+          return {
+            ok: false,
+            error: "No se definió reinstallApp.",
+          };
+        }
+
+        console.warn(
+          `[install] ${packageName} no encontrada después de ${maxRetries} intentos.` +
+          ` Reinstalando ${reinstallAttempt + 1}/${maxReinstalls}...`
+        );
+
+        try {
+          const reinstallResult = await reinstallApp();
+
+          if (!reinstallResult?.ok) {
+            console.error(
+              `[install] Error reinstalando ${packageName}:`,
+              reinstallResult?.payload?.error ||
+              `status ${reinstallResult?.status}`
+            );
+          } else {
+            console.log(
+              `[install] ${packageName} -> reinstalación enviada correctamente`
+            );
+          }
+        } catch (e) {
+          console.error(
+            `[install] Excepción reinstalando ${packageName}`,
+            e
+          );
+        }
+
+        await sleep(reinstallDelay);
+      }
+
+      return {
+        ok: false,
+        totalAttempts,
+        maxRetries,
+        maxReinstalls,
+        error:
+          `La aplicación ${packageName} no apareció después de ` +
+          `${totalAttempts} verificaciones y ${maxReinstalls} reinstalaciones.`,
+      };
+    }
     const PIPELINE_STEP_TYPES = [
       {
         id: 'note', label: '📝 Nota (solo log, no hace nada)',
@@ -2245,28 +2601,47 @@
         exec: async (index, v, ctx) => { await ctx.sleep(Number(v.seconds || 0) * 1000); return { ok: true }; },
       },
       {
-        id: 'launch', label: '🟢 Encender (launch) + esperar boot',
+        id: 'launch', label: '🟢 Encender (launch) + esperar a que Tools esté disponible',
         fields: [
           { id: 'bootTimeoutSec', label: 'Timeout de boot (seg)', type: 'number', value: 90, min: 10, required: true },
         ],
         exec: async (index, v, ctx) => {
+          // Respeta "solo una encendida a la vez" cuando el pipeline corre secuencial
+          await ctx.acquirePower(index);
           const r = await postJSON(`/api/instances/${index}/launch`);
-          if (!r.ok) return { ok: false, detail: `launch falló (status ${r.status})`, abort: true };
+          if (!r.ok) { ctx.releasePower(index); return { ok: false, detail: `launch falló (status ${r.status})`, abort: true }; }
+          try {
+            // Misma señal que habilita el botón "🛠️ Tools" en la tabla (android_started === true)
+            await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000);
+          } catch (e) {
+            ctx.releasePower(index);
+            return { ok: false, detail: e.message, abort: true };
+          }
+          return { ok: true, detail: 'Tools disponible' };
+        },
+      }, {
+        id: 'reboot', label: '🔁 Reboot + esperar a que Tools esté disponible',
+        fields: [
+          { id: 'bootTimeoutSec', label: 'Timeout de boot (seg)', type: 'number', value: 90, min: 10, required: true },
+        ],
+        exec: async (index, v, ctx) => {
+          const r = await postJSON(`/api/instances/${index}/reboot`);
+          if (!r.ok) return { ok: false, detail: `reboot falló (status ${r.status})`, abort: true };
           try {
             await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000);
           } catch (e) {
             return { ok: false, detail: e.message, abort: true };
           }
-          return { ok: true };
+          return { ok: true, detail: 'Tools disponible' };
         },
       },
       {
-        id: 'reboot', label: '🔁 Reboot', fields: [],
-        exec: async (index) => { const r = await postJSON(`/api/instances/${index}/reboot`); return { ok: r.ok, detail: `status ${r.status}` }; },
-      },
-      {
         id: 'quit', label: '🔴 Apagar (quit)', fields: [],
-        exec: async (index) => { const r = await postJSON(`/api/instances/${index}/quit`); return { ok: r.ok, detail: `status ${r.status}` }; },
+        exec: async (index, v, ctx) => {
+          const r = await postJSON(`/api/instances/${index}/quit`);
+          ctx.releasePower(index); // libera el slot para que la siguiente instancia pueda encender
+          return { ok: r.ok, detail: `status ${r.status}` };
+        },
       },
       {
         id: 'initial_root', label: '🌱 Perfil: Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)',
@@ -2319,10 +2694,76 @@
           { id: 'apk_path', label: 'Ruta del APK (o manual)', type: 'text', placeholder: 'C:\\playeremulador\\apks\\app.apk' },
         ],
         exec: async (index, v) => {
-          if (!v.apk_path) return { ok: false, detail: 'sin ruta de APK' };
-          const r = await postJSON(`/api/instances/${index}/install`, { apk_path: v.apk_path });
-          return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
-        },
+          if (!v.apk_path) {
+            return { ok: false, detail: "sin ruta de APK" };
+          }
+
+          const r = await postJSON(
+            `/api/instances/${index}/install`,
+            { apk_path: v.apk_path }
+          );
+
+          if (!r.ok) {
+            return {
+              ok: false,
+              detail: r.payload?.error || `status ${r.status}`,
+            };
+          }
+
+          // Si no es una app conocida, termina aquí.
+          if (!v.known_app) {
+            return {
+              ok: true,
+              detail: "APK enviada para instalar",
+            };
+          }
+
+          const appk = KNOWN_APPS.find(a => a.id === v.known_app);
+
+          if (!appk) {
+            return {
+              ok: false,
+              detail: "No se encontró la app conocida.",
+            };
+          }
+
+          const action = TOOL_ACTIONS.find(a => a.id === "apps_list");
+          const qs = "?only_third_party=true";
+          const result = await waitForAppInstalled({
+            index,
+            packageName: appk.package_name,
+
+            maxRetries: 3,
+            delay: 5000,
+
+            maxReinstalls: 2,
+            reinstallDelay: 5000,
+
+            getApps: () =>
+              getJSON(`${action.path(index)}${qs}`),
+
+            reinstallApp: () =>
+              postJSON(
+                `/api/instances/${index}/install`,
+                { apk_path: v.apk_path }
+              ),
+          });
+
+
+          console.log(result);
+
+          if (!result.ok) {
+            return {
+              ok: false,
+              detail: result.error,
+            };
+          }
+
+          return {
+            ok: true,
+            detail: `Aplicación instalada correctamente(${appk.package_name})`,
+          };
+        }
       },
       {
         id: 'run', label: '▶️ Abrir app',
@@ -2375,6 +2816,8 @@
           if (action.method === 'get') {
             const qs = action.query ? action.query(v) : '';
             res = await getJSON(`${action.path(index)}${qs}`);
+            console.log(res);
+
           } else {
             res = await postJSON(action.path(index), action.body ? action.body(v) : {});
           }
@@ -2404,7 +2847,7 @@
           const matches = String(actual) === String(v.expect_value);
           return {
             ok: matches,
-            detail: `esperado="${v.expect_value}" obtenido="${actual}"`,
+            detail: `esperado = "${v.expect_value}" obtenido = "${actual}"`,
             abort: !matches && v.on_mismatch === 'abort',
           };
         },
@@ -2678,9 +3121,9 @@
         currentPipeline = {
           name: 'Cadena de instalación', steps: [
             { type: 'launch', values: { bootTimeoutSec: 90 } },
-            { type: 'install', values: { known_app: socks?.id || '', apk_path: socks?.apk_path || '' } },
+            { type: 'install', values: { known_app: socks?.id || '', apk_path: socks?.apk_path || '', package_name: socks?.package_name || '', verifyDelaySec: 8, maxRetries: 2, on_fail: 'continue' } },
             { type: 'wait', values: { seconds: 10 } },
-            { type: 'install', values: { known_app: earn?.id || '', apk_path: earn?.apk_path || '' } },
+            { type: 'install', values: { known_app: earn?.id || '', apk_path: earn?.apk_path || '', package_name: earn?.package_name || '', verifyDelaySec: 8, maxRetries: 2, on_fail: 'continue' } },
             { type: 'wait', values: { seconds: 10 } },
             { type: 'quit', values: {} },
             { type: 'wait', values: { seconds: 15 } },
@@ -2691,7 +3134,7 @@
           name: 'Iniciar con monitor', steps: [
             { type: 'launch', values: { bootTimeoutSec: 90 } },
             { type: 'wait', values: { seconds: 10 } },
-            { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '' } },
+            { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '', package_name: monitor?.package_name || '', verifyDelaySec: 8, maxRetries: 2, on_fail: 'continue' } },
             { type: 'wait', values: { seconds: 10 } },
             { type: 'run', values: { known_app: monitor?.id || '', package_name: monitor?.package_name || '' } },
             { type: 'wait', values: { seconds: 10 } },
@@ -2713,11 +3156,11 @@
             { type: 'wait', values: { seconds: 2 } },
             { type: 'tool', values: { tool_action: 'play_protect', disable: 'true' } },
             { type: 'wait', values: { seconds: 2 } },
-            { type: 'install', values: { known_app: socks?.id || '', apk_path: socks?.apk_path || '' } },
+            { type: 'install', values: { known_app: socks?.id || '', apk_path: socks?.apk_path || '', package_name: socks?.package_name || '', verifyDelaySec: 8, maxRetries: 2, on_fail: 'continue' } },
             { type: 'wait', values: { seconds: 3 } },
-            { type: 'install', values: { known_app: earn?.id || '', apk_path: earn?.apk_path || '' } },
+            { type: 'install', values: { known_app: earn?.id || '', apk_path: earn?.apk_path || '', package_name: earn?.package_name || '', verifyDelaySec: 8, maxRetries: 2, on_fail: 'continue' } },
             { type: 'wait', values: { seconds: 3 } },
-            { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '' } },
+            { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '', package_name: monitor?.package_name || '', verifyDelaySec: 8, maxRetries: 2, on_fail: 'continue' } },
           ],
         };
       } else if (name === 'setup_root_adb') {
@@ -2748,11 +3191,11 @@
             { type: 'wait', values: { seconds: 2 } },
             { type: 'tool', values: { tool_action: 'play_protect', disable: 'true' } },
             { type: 'wait', values: { seconds: 10 } },
-            { type: 'install', values: { known_app: socks?.id || '', apk_path: socks?.apk_path || '' } },
+            { type: 'install', values: { known_app: socks?.id || '', apk_path: socks?.apk_path || '', package_name: socks?.package_name || '', verifyDelaySec: 8, maxRetries: 2, on_fail: 'continue' } },
             { type: 'wait', values: { seconds: 10 } },
-            { type: 'install', values: { known_app: earn?.id || '', apk_path: earn?.apk_path || '' } },
+            { type: 'install', values: { known_app: earn?.id || '', apk_path: earn?.apk_path || '', package_name: earn?.package_name || '', verifyDelaySec: 8, maxRetries: 2, on_fail: 'continue' } },
             { type: 'wait', values: { seconds: 10 } },
-            { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '' } },
+            { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '', package_name: monitor?.package_name || '', verifyDelaySec: 8, maxRetries: 2, on_fail: 'continue' } },
             { type: 'wait', values: { seconds: 10 } },
             { type: 'quit', values: {} },
           ],
@@ -2795,7 +3238,7 @@
           { type: 'tool', values: { tool_action: 'input_key', keycode: 'D' } },
           { type: 'wait', values: { seconds: 2 } },
           // {index} se reemplaza automáticamente por el index de cada instancia al correr
-          { type: 'tool', values: { tool_action: 'input_text', text: `${result.name_prefix}{index}` } },
+          { type: 'tool', values: { tool_action: 'input_text', text: `${result.name_prefix}{ index }` } },
           { type: 'wait', values: { seconds: 2 } },
           { type: 'tool', values: { tool_action: 'input_key', keycode: 'TAB' } },
           { type: 'wait', values: { seconds: 2 } },
@@ -2819,7 +3262,7 @@
       };
       renderPipelineBuilder();
       toast(`Preset "${currentPipeline.name}" cargado`, 'ok');
-      log(`[pipeline] preset "registro_health" cargado (server=${result.server_url})`, 'ok');
+      log(`[pipeline] preset "registro_health" cargado(server = ${result.server_url})`, 'ok');
     }
 
     function exportPipeline() {
@@ -2846,8 +3289,8 @@
           toast('Pipeline importado', 'ok');
           log('[pipeline] importado correctamente', 'ok');
         } catch (e) {
-          toast(`Error importando: ${e.message}`, 'bad');
-          log(`[pipeline] error importando: ${e.message}`, 'bad');
+          toast(`Error importando: ${e.message} `, 'bad');
+          log(`[pipeline] error importando: ${e.message} `, 'bad');
         }
       };
       reader.readAsText(file);
@@ -2884,38 +3327,47 @@
       return resolved;
     }
 
-    async function runPipelineStepsForInstance(index, steps) {
-      for (let i = 0; i < steps.length; i++) {
-        if (pipelineCancelled) throw new Error('cancelado');
-        const step = steps[i];
-        const stepType = PIPELINE_STEP_TYPES.find((t) => t.id === step.type);
-        if (!stepType) {
-          log(`[pipeline] #${index} paso ${i + 1}: tipo desconocido "${step.type}"`, 'bad');
-          continue;
-        }
-        log(`[pipeline] #${index} paso ${i + 1}/${steps.length}: ${stepType.label}`);
-        const ctx = {
-          log: (m) => log(`[pipeline] #${index} · ${m}`),
-          sleep: pipelineSleep,
-          waitForBoot: (idx, ms) => waitForAndroidReady(idx, ms, () => pipelineCancelled),
-        };
-        try {
-          const values = resolveStepValues(step.values || {}, index);
-          const result = await stepType.exec(index, values, ctx);
-          if (result?.ok) {
-            log(`[pipeline] #${index} paso ${i + 1} OK ${result.detail ? '- ' + result.detail : ''}`, 'ok');
-          } else {
-            log(`[pipeline] #${index} paso ${i + 1} FALLÓ ${result?.detail ? '- ' + result.detail : ''}`, 'bad');
-            if (result?.abort) throw new Error('abortado_por_verificacion');
+    async function runPipelineStepsForInstance(index, steps, parallel) {
+      try {
+        for (let i = 0; i < steps.length; i++) {
+          if (pipelineCancelled) throw new Error('cancelado');
+          const step = steps[i];
+          const stepType = PIPELINE_STEP_TYPES.find((t) => t.id === step.type);
+          if (!stepType) {
+            log(`[pipeline] #${index} paso ${i + 1}: tipo desconocido "${step.type}"`, 'bad');
+            continue;
           }
-        } catch (e) {
-          if (e.message === 'cancelado') throw e;
-          if (e.message === 'abortado_por_verificacion') {
-            log(`[pipeline] #${index} pipeline abortado para esta instancia (paso ${i + 1})`, 'bad');
-            return;
+          log(`[pipeline] #${index} paso ${i + 1}/${steps.length}: ${stepType.label}`);
+          const ctx = {
+            log: (m) => log(`[pipeline] #${index} · ${m}`),
+            sleep: pipelineSleep,
+            waitForBoot: (idx, ms) => waitForAndroidReady(idx, ms, () => pipelineCancelled),
+            parallel: !!parallel,
+            acquirePower: (idx) => acquirePowerSlot(idx, { parallel: !!parallel, log: (m) => log(`[pipeline] #${idx} · ${m}`), sleep: pipelineSleep }),
+            releasePower: (idx) => releasePowerSlot(idx),
+          };
+          try {
+            const values = resolveStepValues(step.values || {}, index);
+            const result = await stepType.exec(index, values, ctx);
+            if (result?.ok) {
+              log(`[pipeline] #${index} paso ${i + 1} OK ${result.detail ? '- ' + result.detail : ''}`, 'ok');
+            } else {
+              log(`[pipeline] #${index} paso ${i + 1} FALLÓ ${result?.detail ? '- ' + result.detail : ''}`, 'bad');
+              if (result?.abort) throw new Error('abortado_por_verificacion');
+            }
+          } catch (e) {
+            if (e.message === 'cancelado') throw e;
+            if (e.message === 'abortado_por_verificacion') {
+              log(`[pipeline] #${index} pipeline abortado para esta instancia (paso ${i + 1})`, 'bad');
+              return;
+            }
+            log(`[pipeline] #${index} paso ${i + 1} error: ${e.message}`, 'bad');
           }
-          log(`[pipeline] #${index} paso ${i + 1} error: ${e.message}`, 'bad');
         }
+      } finally {
+        // Por si el pipeline termina (ok, error o cancelado) sin un paso "quit"
+        // explícito: liberamos el lock para no trabar a la siguiente instancia.
+        releasePowerSlot(index);
       }
     }
 
@@ -2932,6 +3384,7 @@
       const statusEl = document.getElementById('pipelineStatus');
       statusEl.textContent = `Corriendo (${indices.length})`;
       statusEl.classList.add('active');
+      openExecModal(`🧩 ${currentPipeline.name || 'Pipeline'}`, stopPipeline);
 
       const parallel = document.getElementById('pipelineParallel').checked;
       log(`[pipeline] "${currentPipeline.name || 'sin nombre'}" iniciando sobre: ${indices.join(', ')} (${parallel ? 'en paralelo' : 'secuencial'})`, 'warn');
@@ -2961,6 +3414,7 @@
         statusEl.textContent = 'Inactivo';
         statusEl.classList.remove('active');
         log('[pipeline] finalizado', 'ok');
+        finishExecModal('Estado: finalizado');
       }
     }
 
@@ -3042,6 +3496,7 @@
     loadKnownApps();
     initStepTypeSelect();
     renderPipelineBuilder();
+    initCollapsiblePanels();
 
     // Tiempo real vía SSE
     const es = new EventSource('/events');

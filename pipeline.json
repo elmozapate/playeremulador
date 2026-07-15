@@ -1,0 +1,286 @@
+{
+    "name": "Setup Root (Root + Apps)ss",
+    "steps": [
+        {
+            "type": "initial_root",
+            "values": {}
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 7
+            }
+        },
+        {
+            "type": "reboot",
+            "values": {}
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 5
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "play_protect",
+                "disable": "true"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "bluetooth_set",
+                "enable": "false"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "mobile_data",
+                "enable": "false"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "install",
+            "values": {
+                "known_app": "socks",
+                "apk_path": "C:\\playeremulador\\apks\\soks.apk"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "install",
+            "values": {
+                "known_app": "earn",
+                "apk_path": "C:\\playeremulador\\apks\\earn.apk"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "install",
+            "values": {
+                "known_app": "monitor",
+                "apk_path": "C:\\playeremulador\\apks\\app-debug.apk"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 5
+            }
+        },
+        {
+            "type": "run",
+            "values": {
+                "known_app": "monitor",
+                "package_name": "com.chataolutions.app"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 5
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "D"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "122 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_text",
+                "text": "LDPlayer-00{index}"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "TAB"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "ENTER"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "ESCAPE"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "S"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_text",
+                "text": "https://1fd2-168-119-5-188.ngrok-free.app"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "TAB"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "ENTER"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "ESCAPE"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "kill",
+            "values": {
+                "known_app": "monitor",
+                "package_name": "com.chataolutions.app"
+            }
+        },
+        {
+            "type": "quit",
+            "values": {}
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 5
+            }
+        },
+        {
+            "type": "make_ready",
+            "values": {}
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 5
+            }
+        }
+    ]
+}
