@@ -835,8 +835,10 @@
       <button onclick="loadPreset('encendido')">Preset: Encendido</button>
       <button onclick="loadPreset('instalacion')">Preset: Instalación</button>
       <button onclick="loadPreset('monitor')">Preset: Con monitor</button>
+      <button onclick="loadPreset('setup_completo')">Preset: Setup completo (Root + Apps)</button>
       <button onclick="exportPipeline()">⬇ Exportar JSON</button>
-      <label class="small" style="cursor:pointer; display:inline-flex; align-items:center; gap:.3rem; padding:.45rem .85rem; border-radius:6px; border:1px solid var(--line); background:var(--panel-2); font-size:.8rem; font-weight:600;">
+      <label class="small"
+        style="cursor:pointer; display:inline-flex; align-items:center; gap:.3rem; padding:.45rem .85rem; border-radius:6px; border:1px solid var(--line); background:var(--panel-2); font-size:.8rem; font-weight:600;">
         ⬆ Importar JSON
         <input type="file" accept="application/json" style="display:none" onchange="importPipelineFile(this)" />
       </label>
@@ -914,6 +916,13 @@
         runAfterInstall: true,
         packageName: 'com.chataolutions.app',
       },
+    ];
+
+    // ---- Config fija para "Root Inicial + Setup de apps" (orden: socks -> earn -> monitor) ----
+    const SETUP_CHAIN_APKS = [
+      { label: 'socks', apk_path: 'C:\\playeremulador\\apks\\soks.apk' },
+      { label: 'earn', apk_path: 'C:\\playeremulador\\apks\\earn.apk' },
+      { label: 'monitor (app-debug)', apk_path: 'C:\\playeremulador\\apks\\app-debug.apk' },
     ];
 
     // ==================================================================
@@ -2042,6 +2051,160 @@
     }
 
     // ==================================================================
+    // CADENA 4: Root Inicial + Setup de apps
+    // initial-root -> esperar reinicio + ADB listo -> bluetooth off ->
+    // datos móviles off -> Play Protect off -> instalar socks -> earn ->
+    // monitor (en ese orden) -> delay -> siguiente instancia
+    //
+    // OJO: waitForRootReady pega a GET /api/instances/:index/root/status
+    // y busca campos adb_ready/ready/online/connected/status/state.
+    // Ajustalo si tu backend de Python devuelve otra forma.
+    // También asume que "initial-root" ya se encarga de reiniciar la
+    // instancia por su cuenta; si tu backend NO reinicia solo, avisame y
+    // agregamos un "quit" + "launch" explícito antes de esperar el ADB.
+    // ==================================================================
+    let setupChainCancelled = false;
+    let setupChainRunning = false;
+
+    function stopSetupChain() {
+      setupChainCancelled = true;
+      log('[setup] deteniendo tras la instancia actual...', 'warn');
+      document.getElementById('setupChainStopBtn').disabled = true;
+    }
+
+    async function waitForRootReady(index, timeoutMs, pollMs, graceMs, isCancelledFn) {
+      await sleep(graceMs);
+      const deadline = Date.now() + timeoutMs;
+      let lastErr = null;
+      while (Date.now() < deadline) {
+        if (isCancelledFn()) throw new Error('cancelado');
+        try {
+          const { ok, payload } = await getJSON(`/api/instances/${index}/root/status`);
+          if (ok) {
+            const ready = payload?.adb_ready ?? payload?.ready ?? payload?.online ?? payload?.connected;
+            if (ready === true || payload?.status === 'ready' || payload?.state === 'ready') {
+              return payload;
+            }
+          }
+        } catch (e) {
+          lastErr = e;
+        }
+        await sleep(pollMs);
+      }
+      throw new Error(`timeout esperando ADB listo en #${index}${lastErr ? ' - ' + lastErr.message : ''}`);
+    }
+
+    async function runSetupChainForInstance(index, opts) {
+      const { adbTimeoutMs, pollMs, graceMs, stepDelayMs, installDelayMs, postDelayMs } = opts;
+
+      log(`[setup] #${index} -> initial-root`, 'warn');
+      const rootRes = await postJSON(`/api/instances/${index}/initial-root`);
+      if (!rootRes.ok) {
+        log(`[setup] #${index} initial-root falló (${rootRes.status}) ${rootRes.payload?.error ?? ''}, salto a la siguiente`, 'bad');
+        return;
+      }
+
+      log(`[setup] #${index} -> esperando reinicio y ADB listo...`);
+      try {
+        await waitForRootReady(index, adbTimeoutMs, pollMs, graceMs, () => setupChainCancelled);
+      } catch (e) {
+        if (e.message === 'cancelado') throw e;
+        log(`[setup] #${index} ${e.message}`, 'bad');
+        return; // no seguimos tocando radios/apps si el ADB nunca volvió
+      }
+      log(`[setup] #${index} -> ADB listo`, 'ok');
+
+      if (setupChainCancelled) throw new Error('cancelado');
+      await sleep(stepDelayMs);
+
+      log(`[setup] #${index} -> bluetooth off`);
+      const btRes = await postJSON(`/api/instances/${index}/bluetooth`, { enable: false });
+      log(`[setup] #${index} -> bluetooth ${btRes.ok ? 'OK' : `FALLÓ (${btRes.status})`}`, btRes.ok ? 'ok' : 'bad');
+      await sleep(stepDelayMs);
+
+      if (setupChainCancelled) throw new Error('cancelado');
+      log(`[setup] #${index} -> datos móviles off`);
+      const dataRes = await postJSON(`/api/instances/${index}/mobile-data`, { enable: false });
+      log(`[setup] #${index} -> datos móviles ${dataRes.ok ? 'OK' : `FALLÓ (${dataRes.status})`}`, dataRes.ok ? 'ok' : 'bad');
+      await sleep(stepDelayMs);
+
+      if (setupChainCancelled) throw new Error('cancelado');
+      log(`[setup] #${index} -> quitar Play Protect`);
+      const ppRes = await postJSON(`/api/instances/${index}/apps/play-protect`, { disable: true });
+      log(`[setup] #${index} -> Play Protect ${ppRes.ok ? 'OK' : `FALLÓ (${ppRes.status})`}`, ppRes.ok ? 'ok' : 'bad');
+      await sleep(stepDelayMs);
+
+      for (let i = 0; i < SETUP_CHAIN_APKS.length; i++) {
+        if (setupChainCancelled) throw new Error('cancelado');
+        const { label, apk_path } = SETUP_CHAIN_APKS[i];
+        log(`[setup] #${index} -> instalando ${label} (${apk_path})`);
+        const { status, ok, payload } = await postJSON(`/api/instances/${index}/install`, { apk_path });
+        if (ok) {
+          log(`[setup] #${index} -> ${label} instalado OK`, 'ok');
+        } else {
+          log(`[setup] #${index} -> ${label} FALLÓ (${status}) ${payload?.error ?? ''}`, 'bad');
+        }
+        await sleep(installDelayMs);
+      }
+
+      log(`[setup] #${index} -> esperando ${postDelayMs / 1000}s antes de la siguiente instancia`);
+      await sleep(postDelayMs);
+    }
+
+    async function runSetupChain() {
+      if (setupChainRunning) return;
+      const indices = getSelectedIndices();
+      if (indices.length === 0) {
+        log('[setup] no hay instancias para procesar', 'warn');
+        return;
+      }
+
+      const opts = {
+        adbTimeoutMs: secInput('setupAdbTimeoutSec', 120) * 1000,
+        pollMs: secInput('setupPollSec', 3) * 1000,
+        graceMs: secInput('setupGraceSec', 5) * 1000,
+        stepDelayMs: secInput('setupStepDelaySec', 2) * 1000,
+        installDelayMs: secInput('setupInstallDelaySec', 3) * 1000,
+        postDelayMs: secInput('setupPostDelaySec', 10) * 1000,
+      };
+
+      setupChainRunning = true;
+      setupChainCancelled = false;
+      document.getElementById('setupChainStartBtn').disabled = true;
+      document.getElementById('setupChainStopBtn').disabled = false;
+      const statusEl = document.getElementById('setupChainStatus');
+      statusEl.textContent = `Corriendo (${indices.length})`;
+      statusEl.classList.add('active');
+
+      log(`[setup] iniciando setup completo (Root Inicial + apps) sobre: ${indices.join(', ')}`, 'warn');
+
+      try {
+        for (const index of indices) {
+          if (setupChainCancelled) {
+            log('[setup] detenida por el usuario', 'warn');
+            break;
+          }
+          try {
+            await runSetupChainForInstance(index, opts);
+          } catch (e) {
+            if (e.message === 'cancelado') {
+              log('[setup] detenida por el usuario', 'warn');
+              break;
+            }
+            log(`[setup] #${index} error inesperado: ${e.message}`, 'bad');
+          }
+        }
+      } finally {
+        setupChainRunning = false;
+        document.getElementById('setupChainStartBtn').disabled = false;
+        document.getElementById('setupChainStopBtn').disabled = true;
+        statusEl.textContent = 'Inactivo';
+        statusEl.classList.remove('active');
+        log('[setup] finalizado', 'ok');
+      }
+    }
+
+    // ==================================================================
     // PIPELINE RUNNER — motor genérico de pasos
     //
     // Un pipeline es: { name, steps: [ { type, values }, ... ] }
@@ -2102,6 +2265,28 @@
         exec: async (index) => {
           const r = await postJSON(`/api/instances/${index}/initial-root`);
           return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
+        },
+      },
+      {
+        id: 'wait_root_ready', label: '🌱 Esperar a que el ADB esté listo (tras Root Inicial / reinicio)',
+        fields: [
+          { id: 'timeoutSec', label: 'Timeout (seg)', type: 'number', value: 120, min: 10, required: true },
+          { id: 'pollSec', label: 'Intervalo de consulta (seg)', type: 'number', value: 3, min: 1, required: true },
+          { id: 'graceSec', label: 'Espera inicial antes de preguntar (seg)', type: 'number', value: 5, min: 0 },
+        ],
+        exec: async (index, v, ctx) => {
+          try {
+            await waitForRootReady(
+              index,
+              Number(v.timeoutSec || 120) * 1000,
+              Number(v.pollSec || 3) * 1000,
+              Number(v.graceSec || 5) * 1000,
+              () => false, // la cancelación del pipeline la maneja ctx.sleep dentro de waitForRootReady vía pollMs
+            );
+            return { ok: true, detail: 'ADB listo' };
+          } catch (e) {
+            return { ok: false, detail: e.message, abort: true };
+          }
         },
       },
       {
@@ -2505,6 +2690,25 @@
             { type: 'wait', values: { seconds: 15 } },
             { type: 'quit', values: {} },
             { type: 'wait', values: { seconds: 15 } },
+          ],
+        };
+      } else if (name === 'setup_completo') {
+        currentPipeline = {
+          name: 'Setup completo (Root + Apps)', steps: [
+            { type: 'initial_root', values: {} },
+            { type: 'wait_root_ready', values: { timeoutSec: 120, pollSec: 3, graceSec: 5 } },
+            { type: 'wait', values: { seconds: 5 } },
+            { type: 'tool', values: { tool_action: 'bluetooth_set', enable: 'false' } },
+            { type: 'wait', values: { seconds: 2 } },
+            { type: 'tool', values: { tool_action: 'mobile_data', enable: 'false' } },
+            { type: 'wait', values: { seconds: 2 } },
+            { type: 'tool', values: { tool_action: 'play_protect', disable: 'true' } },
+            { type: 'wait', values: { seconds: 2 } },
+            { type: 'install', values: { known_app: socks?.id || '', apk_path: socks?.apk_path || '' } },
+            { type: 'wait', values: { seconds: 3 } },
+            { type: 'install', values: { known_app: earn?.id || '', apk_path: earn?.apk_path || '' } },
+            { type: 'wait', values: { seconds: 3 } },
+            { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '' } },
           ],
         };
       } else {

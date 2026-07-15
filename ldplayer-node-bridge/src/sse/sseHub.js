@@ -20,6 +20,8 @@ class SseHub {
       'agent:continue:index',
       'agent:continue',
       'agent:register',
+      'pipeline:step', 
+      'pipeline:batch',
     ].forEach((event) => {
       eventBus.on(event, forward(event));
     });

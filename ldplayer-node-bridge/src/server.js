@@ -4,6 +4,7 @@ const cors = require('cors');
 const config = require('./config');
 const { LDPlayerClient } = require('./services/ldplayerClient');
 const StatusPoller = require('./services/statusPoller');
+const buildPipelineRouter = require('./routes/pipeline.js');
 const buildInstancesRouter = require('./routes/instances');
 const buildSystemRouter = require('./routes/system');
 const buildStatusRouter = require('./routes/status');
@@ -36,6 +37,8 @@ function createServer({ manager } = {}) {
   app.use('/api/status', buildStatusRouter(client, poller));
   app.use('/api/agent', buildAgentRouter());
   app.use('/events', buildEventsRouter());
+  app.use('/api/pipeline', buildPipelineRouter(client));
+
   if (manager) {
     app.use('/api/service', buildServiceRouter(manager));
   }
