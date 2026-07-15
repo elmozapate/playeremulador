@@ -835,6 +835,9 @@
       <button onclick="loadPreset('instalacion')">Preset: Instalación</button>
       <button onclick="loadPreset('monitor')">Preset: Con monitor</button>
       <button onclick="loadPreset('setup_completo')">Preset: Setup completo (Root + Apps)</button>
+      <button onclick="loadPreset('setup_root_adb')">Preset: Root Inicial + ADB</button>
+      <button onclick="loadPreset('setup_apps')">Preset: Setup Apps (instalación)</button>
+      <button onclick="loadPresetRegistroHealth()">Preset: Registro Health (nombre + server)</button>
       <button onclick="exportPipeline()">⬇ Exportar JSON</button>
       <label class="small"
         style="cursor:pointer; display:inline-flex; align-items:center; gap:.3rem; padding:.45rem .85rem; border-radius:6px; border:1px solid var(--line); background:var(--panel-2); font-size:.8rem; font-weight:600;">
@@ -2214,6 +2217,13 @@
     // la opción), respetando esperas (wait) e inputs (tap/swipe/texto via
     // el paso "tool"), y puede abortar solo esa instancia si un "launch"
     // no bootea o una "verify" falla con "abortar".
+    //
+    // NOTA sobre {index}: cualquier valor de texto de cualquier paso puede
+    // incluir el placeholder "{index}", que se reemplaza automáticamente
+    // por el index real de la instancia justo antes de ejecutar ese paso
+    // (ver runPipelineStepsForInstance). Útil, por ejemplo, para nombres
+    // de dispositivo tipo "LDPlayer-00{index}" en el preset de Registro
+    // Health.
     // ==================================================================
     function appSelectOptions() {
       return [{ value: '', label: '— manual —' }, ...KNOWN_APPS.map((a) => ({ value: a.id, label: a.label }))];
@@ -2710,12 +2720,106 @@
             { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '' } },
           ],
         };
+      } else if (name === 'setup_root_adb') {
+        // Preset "Root Inicial + ADB": SOLO habilita root + depuración ADB
+        // (6 núcleos + 8192MB + 540x960). No toca radios ni instala apps —
+        // para eso está el preset "Setup Apps" de abajo.
+        currentPipeline = {
+          name: 'Root Inicial + ADB', steps: [
+            { type: 'launch', values: { bootTimeoutSec: 90 } },
+            { type: 'wait', values: { seconds: 5 } },
+            { type: 'initial_root', values: {} },
+            { type: 'wait_root_ready', values: { timeoutSec: 120, pollSec: 3, graceSec: 5 } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'quit', values: {} },
+          ],
+        };
+      } else if (name === 'setup_apps') {
+        // Preset "Setup Apps": desactiva bluetooth/datos/Play Protect e
+        // instala socks -> earn -> monitor. Espera 10s tras quitar Play
+        // Protect (antes de instalar) y espera 10s antes de apagar al final.
+        currentPipeline = {
+          name: 'Setup Apps (instalación)', steps: [
+            { type: 'launch', values: { bootTimeoutSec: 90 } },
+            { type: 'wait', values: { seconds: 5 } },
+            { type: 'tool', values: { tool_action: 'bluetooth_set', enable: 'false' } },
+            { type: 'wait', values: { seconds: 2 } },
+            { type: 'tool', values: { tool_action: 'mobile_data', enable: 'false' } },
+            { type: 'wait', values: { seconds: 2 } },
+            { type: 'tool', values: { tool_action: 'play_protect', disable: 'true' } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'install', values: { known_app: socks?.id || '', apk_path: socks?.apk_path || '' } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'install', values: { known_app: earn?.id || '', apk_path: earn?.apk_path || '' } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'install', values: { known_app: monitor?.id || '', apk_path: monitor?.apk_path || '' } },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'quit', values: {} },
+          ],
+        };
       } else {
         return;
       }
       renderPipelineBuilder();
       toast(`Preset "${currentPipeline.name}" cargado`, 'ok');
       log(`[pipeline] preset "${name}" cargado`, 'ok');
+    }
+
+    // ==================================================================
+    // Preset "Registro Health" — pide la URL del servidor antes de armar
+    // el pipeline (por eso va aparte de loadPreset, que es sincrónico).
+    // Abre el Monitor, escribe el nombre de dispositivo (con {index} para
+    // que cada instancia use su propio número) y la URL del server con la
+    // secuencia de teclas/pantallas indicada, y cierra todo al final.
+    // ==================================================================
+    async function loadPresetRegistroHealth() {
+      const monitor = KNOWN_APPS.find((a) => a.id === 'monitor');
+      const result = await showModal({
+        title: 'Registro Health — datos del servidor',
+        subtitle: 'Se usa para escribir el nombre del dispositivo y la URL del server dentro de la app Monitor. El nombre de cada instancia usa su propio número automáticamente.',
+        confirmLabel: 'Cargar preset',
+        fields: [
+          { id: 'server_url', label: 'URL del servidor', type: 'text', placeholder: 'http://192.168.1.50:3000', required: true },
+          { id: 'name_prefix', label: 'Prefijo de nombre de dispositivo', type: 'text', value: 'LDPlayer-00', required: true },
+        ],
+      });
+      if (!result) return;
+
+      currentPipeline = {
+        name: 'Registro Health (nombre + server)',
+        steps: [
+          { type: 'launch', values: { bootTimeoutSec: 90 } },
+          { type: 'wait', values: { seconds: 10 } },
+          { type: 'run', values: { known_app: monitor?.id || '', package_name: monitor?.package_name || '' } },
+          { type: 'wait', values: { seconds: 10 } },
+          { type: 'tool', values: { tool_action: 'input_key', keycode: 'D' } },
+          { type: 'wait', values: { seconds: 2 } },
+          // {index} se reemplaza automáticamente por el index de cada instancia al correr
+          { type: 'tool', values: { tool_action: 'input_text', text: `${result.name_prefix}{index}` } },
+          { type: 'wait', values: { seconds: 2 } },
+          { type: 'tool', values: { tool_action: 'input_key', keycode: 'TAB' } },
+          { type: 'wait', values: { seconds: 2 } },
+          { type: 'tool', values: { tool_action: 'input_key', keycode: 'ENTER' } },
+          { type: 'wait', values: { seconds: 2 } },
+          { type: 'tool', values: { tool_action: 'input_key', keycode: 'ESCAPE' } },
+          { type: 'wait', values: { seconds: 2 } },
+          { type: 'tool', values: { tool_action: 'input_key', keycode: 'S' } },
+          { type: 'wait', values: { seconds: 2 } },
+          { type: 'tool', values: { tool_action: 'input_text', text: result.server_url } },
+          { type: 'wait', values: { seconds: 2 } },
+          { type: 'tool', values: { tool_action: 'input_key', keycode: 'TAB' } },
+          { type: 'wait', values: { seconds: 2 } },
+          { type: 'tool', values: { tool_action: 'input_key', keycode: 'ENTER' } },
+          { type: 'wait', values: { seconds: 2 } },
+          { type: 'tool', values: { tool_action: 'input_key', keycode: 'ESCAPE' } },
+          { type: 'wait', values: { seconds: 5 } },
+          { type: 'kill', values: { known_app: monitor?.id || '', package_name: monitor?.package_name || '' } },
+          { type: 'quit', values: {} },
+        ],
+      };
+      renderPipelineBuilder();
+      toast(`Preset "${currentPipeline.name}" cargado`, 'ok');
+      log(`[pipeline] preset "registro_health" cargado (server=${result.server_url})`, 'ok');
     }
 
     function exportPipeline() {
@@ -2770,6 +2874,16 @@
       }
     }
 
+    // Reemplaza el placeholder {index} por el número real de la instancia
+    // en todos los valores de texto de un paso (no toca números/booleans).
+    function resolveStepValues(rawValues, index) {
+      const resolved = {};
+      for (const [k, v] of Object.entries(rawValues || {})) {
+        resolved[k] = typeof v === 'string' ? v.replaceAll('{index}', String(index)) : v;
+      }
+      return resolved;
+    }
+
     async function runPipelineStepsForInstance(index, steps) {
       for (let i = 0; i < steps.length; i++) {
         if (pipelineCancelled) throw new Error('cancelado');
@@ -2786,7 +2900,8 @@
           waitForBoot: (idx, ms) => waitForAndroidReady(idx, ms, () => pipelineCancelled),
         };
         try {
-          const result = await stepType.exec(index, step.values || {}, ctx);
+          const values = resolveStepValues(step.values || {}, index);
+          const result = await stepType.exec(index, values, ctx);
           if (result?.ok) {
             log(`[pipeline] #${index} paso ${i + 1} OK ${result.detail ? '- ' + result.detail : ''}`, 'ok');
           } else {
