@@ -99,7 +99,7 @@ class LDConsole:
         if len(args) == 3:
             raise ValueError("modify requiere al menos un parámetro (cpu, memory, resolution o root)")
         LDConsole._run(args)
-        
+
     @staticmethod
     def _config_path(index: int) -> str:
         """
@@ -128,7 +128,7 @@ class LDConsole:
     def set_dev_mode(
         index: int,
         root: bool = True,
-        adb_debug: int = 1,
+        adb_debug: int = 2,
     ) -> None:
         """
         Configura ROOT y ADB Debug de LDPlayer.
@@ -149,7 +149,7 @@ class LDConsole:
         with open(config_path, "r", encoding="utf-8-sig") as file:
             config = json.load(file)
 
-        config["basicSettings.rootMode"] = 1 if root else 0
+        config["basicSettings.rootMode"] = 2 if root else 0
         config["basicSettings.adbDebug"] = adb_debug
 
         temp_path = f"{config_path}.tmp"
@@ -179,7 +179,7 @@ class LDConsole:
         LDConsole.set_dev_mode(
             index=index,
             root=True,
-            adb_debug=1,
+            adb_debug=2,
         )
 
     @staticmethod
