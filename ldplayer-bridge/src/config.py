@@ -6,7 +6,7 @@ class Settings:
 
     API_HOST: str = os.getenv("PYTHON_HOST", os.getenv("API_HOST", "0.0.0.0"))
     API_PORT: int = int(os.getenv("PYTHON_PORT", os.getenv("API_PORT", "8000")))
-
+    API_KEY: str = os.getenv("PYTHON_API_KEY", "")
     # Valor inicial del intervalo del monitor. Una vez arrancado el proceso
     # el valor "vivo" vive en runtime_state.monitor_interval (persistido en
     # disco, configurable en caliente vía POST /api/v1/debug/monitor-interval).

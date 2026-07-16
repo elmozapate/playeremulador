@@ -24,7 +24,7 @@ async function main() {
       console.error('[manager] seguimos igual: podés levantarlo manualmente con POST /api/service/start');
     }
   }
-  
+
   pythonBridgeSocket.connect();
 
   poller.start();
@@ -38,9 +38,14 @@ async function main() {
     console.log(`\n[node] recibido ${signal}, apagando...`);
     healthScheduler.stop();
     poller.stop();
-   pythonBridgeSocket.close();
- try {
+    pythonBridgeSocket.close();
+    try {
       await fetch(`${config.python.rootUrl}/api/v1/debug/system/shutdown-snapshot`, { method: 'POST' });
+      await fetch(`${config.python.rootUrl}/api/v1/debug/system/shutdown-snapshot`, {
+        method: 'POST',
+        headers: { 'x-api-key': process.env.PYTHON_API_KEY || 'tu-clave-secreta-cambia-esto' },
+      });
+
     } catch (e) { console.warn('[node] no se pudo pedir snapshot final a Python:', e.message); }
     server.close();
     if (manager) {

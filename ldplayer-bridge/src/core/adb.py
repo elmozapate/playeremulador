@@ -204,6 +204,18 @@ class ADBController:
                 f"index={previous_owner} resuelven al MISMO Android "
                 f"(identity={identity}). Revisa la instancia en LDPlayer."
             )
+            try:
+                from services.ws_bridge import bridge  # import perezoso: evita ciclo con services/__init__
+                bridge.broadcast_threadsafe(
+                    "instance-event",
+                    {
+                        "index": index,
+                        "event": "adb-alias-duplicate",
+                        "detail": f"comparte identidad con index={previous_owner}",
+                    },
+                )
+            except Exception:
+                pass  # best-effort: nunca debe romper la resolución de serial por esto
 
         ADBController._identity_cache[index] = identity
         ADBController._identity_to_index[identity] = index

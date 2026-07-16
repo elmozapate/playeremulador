@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 
 import uvicorn
 from fastapi import FastAPI
@@ -6,12 +7,13 @@ from fastapi import FastAPI
 from api import router as api_router
 from config import settings
 from services.monitor import monitor
-
+from services.ws_bridge import router as ws_bridge_router, bridge as ws_bridge
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from services.instance_record_store import instance_record_store
     instance_record_store.clear_orphan_locks()
+    ws_bridge.bind_loop(asyncio.get_running_loop())
     await monitor.start()
     yield
     await monitor.stop()
@@ -19,7 +21,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="LDPlayer Service Manager", version="2.0", lifespan=lifespan)
 app.include_router(api_router, prefix="/api/v1")
-
+app.include_router(ws_bridge_router)  # /ws/bridge — fuera de /api/v1 a propósito, mismo path que espera Node
 
 @app.get("/")
 async def root():

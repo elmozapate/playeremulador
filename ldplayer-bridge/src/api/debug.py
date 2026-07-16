@@ -4,16 +4,15 @@ import os
 import json
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel, Field
+from config import settings
 from core.runtime_state import runtime_state
 from core.data_store import data_store
 from services.instance_service import instance_service
 
 router = APIRouter()
 
-# --- Seguridad básica (¡IMPORTANTE!) ---
-API_KEY = "tu-clave-secreta-cambia-esto"
 async def verify_api_key(x_api_key: str = Header(...)):
-    if x_api_key != API_KEY:
+    if not settings.API_KEY or x_api_key != settings.API_KEY:
         raise HTTPException(status_code=403, detail="Invalid API Key")
     return x_api_key
 

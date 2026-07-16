@@ -19,6 +19,7 @@ from core.data_store import data_store
 from core.runtime_state import runtime_state
 from services.instance_service import instance_service
 from services.instance_record_store import instance_record_store
+from services.ws_bridge import notify_instance_event
 
 # Se ignoran a propósito window_handle/bound_handle: cambian en cada
 # reboot/relaunch sin que eso sea relevante para "salud" del dispositivo.
@@ -121,6 +122,14 @@ class InstanceMonitor:
                 diff = self._diff_instance(prev, entry)
                 if diff:
                     changes.append(f"index={idx} -> {diff}")
+                    if "android_started" in diff:
+                        started_now = diff["android_started"]["ahora"]
+                        await notify_instance_event(
+                            idx,
+                            "power-on" if started_now else "power-off",
+                            f"android_started {diff['android_started']['antes']} -> {started_now}",
+                        )
+
         for key in self._last_snapshot:
             if key not in snapshot:
                 changes.append(f"index={key} -> instancia ya no existe (cerrada o eliminada)")

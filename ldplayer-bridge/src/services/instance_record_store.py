@@ -122,6 +122,7 @@ class InstanceRecordStore:
             "profile": {},
             "installed_apps": {},
             "agent": {},
+            "instance_model": None,
             "schedule": {
                 "next_check_at": None,
                 "last_reboot_at": None,
@@ -232,6 +233,14 @@ class InstanceRecordStore:
             r["agent"] = {**agent_info, "updated_at": time.time()}
         self.update(index, _fn)
 
+    def record_instance_model(self, index: int, model: Dict[str, Any]) -> None:
+        """Guarda la última vista de instanceModelStore.js (Node): el
+        "documento único" de la instancia (power, agent, monitor, root,
+        apps, tasks, checks) tal como lo ve Node en tiempo real, recibido
+        por el WS bridge en vez de tener que reconstruirlo acá."""
+        def _fn(r):
+            r["instance_model"] = model
+        self.update(index, _fn)
     def record_permission(self, index: int, package_name: str, permission: str, granted: bool) -> None:
         def _fn(r):
             pkg = r["permissions"].setdefault(package_name, {})

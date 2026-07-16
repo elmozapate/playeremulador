@@ -10,6 +10,7 @@ from core.adb import ADBController
 from core.data_store import data_store
 from core.runtime_state import runtime_state
 from services.instance_record_store import instance_record_store
+from services.ws_bridge import notify_root_status
 
 
 
@@ -364,6 +365,8 @@ class InstanceService:
         except Exception as e:
             result["root_active"] = False
             result["root_error"] = str(e)
+        await notify_root_status(index, bool(result.get("root_active")))
+
         await asyncio.to_thread(
             instance_record_store.add_event, index, "profile", "Perfil aplicado: initial-root (cpu=4 mem=8192)"
         )
