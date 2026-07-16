@@ -8,7 +8,7 @@ const HealthScheduler = require('./services/healthScheduler');
 const { attachSocketIO } = require('./sockets');
 const eventBus = require('./utils/eventBus');
 const pythonBridgeSocket = require('./services/pythonBridgeSocket');
-const { warmupBeforeJob } = require('./services/pipelines/jobRunner');  // ← IMPORTAR
+const { warmupBeforeJob } = require('./services/pipelines/jobRunner');
 
 async function main() {
   const manager = config.pythonProcess.manage ? new PythonServiceManager() : null;
@@ -31,7 +31,7 @@ async function main() {
 
   pythonBridgeSocket.connect();
   poller.start();
-  healthScheduler.start();
+  // healthScheduler.start() se llama después del warmup (dentro del setTimeout)
 
   const server = app.listen(config.node.port, config.node.host, () => {
     console.log(`[node] bridge escuchando en http://${config.node.host}:${config.node.port}`);
@@ -42,10 +42,19 @@ async function main() {
   });
   attachSocketIO(server);
 
-  setTimeout(() => {
-    warmupBeforeJob(client, [0, 1, 2]).catch((err) => {
+  // Calentamiento asíncrono: espera a que termine (o falle) y luego inicia el health scheduler
+  setTimeout(async () => {
+    try {
+      console.log('🔥 Iniciando calentamiento de instancias...');
+      await warmupBeforeJob(client, [0, 1, 2]);
+      console.log('✅ Calentamiento completado.');
+    } catch (err) {
       console.error('[warmup] error inesperado:', err.message);
-    });
+    } finally {
+      // El health scheduler se inicia siempre, haya funcionado o no el warmup
+      healthScheduler.start();
+      console.log('[health] scheduler iniciado después del warmup');
+    }
   }, 5000);
 
   const shutdown = async (signal) => {

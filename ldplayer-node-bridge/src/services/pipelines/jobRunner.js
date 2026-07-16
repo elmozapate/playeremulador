@@ -65,20 +65,27 @@ function buildCtx(client, job, index) {
   };
 }
 
-// ✅ Ahora recibe el cliente como parámetro
-async function warmupBeforeJob(client, indices = [0, 1, 2]) {
-  console.log('🔥 Calentando instancias... (puede tomar 2 minutos)');
-  try {
-    const result = await client._request('POST', '/system/warmup', {
-      body: { indices, timeout_sec: 120 },
-      timeoutMs: 180000,
-    });
-    console.log('✅ Calentamiento completado:', result.results);
-    return true;
-  } catch (err) {
-    console.error('❌ Falló el calentamiento:', err.message);
-    return false;
+// En jobRunner.js
+async function warmupBeforeJob(client, indices = [0,1,2]) {
+  console.log('🔥 Calentando instancias una por una...');
+  for (const index of indices) {
+    try {
+      // 1. Lanzar la instancia
+      await client.launch(index);
+      // 2. Esperar a que el sistema esté realmente listo (ADB + app current)
+      await waitForAndroidReady(client, index, {
+        timeoutMs: 120000,
+        pollMs: 2000,
+        graceMs: 5000,
+        runningTimeoutMs: 30000,
+      });
+      console.log(`✅ Instancia ${index} lista.`);
+    } catch (err) {
+      console.error(`❌ Falló el calentamiento de la instancia ${index}: ${err.message}`);
+      // Puedes decidir si abortar o continuar con la siguiente
+    }
   }
+  console.log('✅ Calentamiento completado.');
 }
 
 async function runInstance(client, job, index) {

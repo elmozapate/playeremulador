@@ -111,11 +111,12 @@ async def set_sleep_mode(body: SleepModeRequest):
     runtime_state.log_always(f"[sleep] modo {'reposo' if body.enable else 'activo'}")
     return {"sleep_mode": runtime_state.sleep_mode}
 
-# --- SNAPSHOT ATOMICO (único archivo) ---
-def _perform_snapshot():
+# --- SNAPSHOT ATOMICO (único archivo) ---# ... resto de imports ...
+
+async def _perform_snapshot():
     """Lógica interna reutilizable para guardar el estado completo."""
     try:
-        instances = instance_service.list_instances()
+        instances = await instance_service.list_instances()   # ← AWAIT aquí
         snapshot_data = {
             "last_shutdown_at": time.time(),
             "instance_count": len(instances),
@@ -127,21 +128,28 @@ def _perform_snapshot():
                 "sleep_mode": runtime_state.sleep_mode,
             }
         }
-        # Guardamos en un SOLO archivo (atomicidad)
         with open(data_store.snapshot_path, "w", encoding="utf-8") as f:
             json.dump(snapshot_data, f, indent=2)
         runtime_state.log_always(f"[snapshot] guardado exitoso ({len(instances)} instancias)")
         return snapshot_data
     except Exception as e:
         runtime_state.log_always(f"[snapshot] ERROR CRÍTICO: {e}")
-        # Devolvemos un estado parcial o relanzamos
         raise HTTPException(status_code=500, detail=f"Error guardando snapshot: {str(e)}")
 
 @router.post("/system/shutdown-snapshot", dependencies=[Depends(verify_api_key)])
 async def shutdown_snapshot():
     """Guarda el estado completo justo antes de apagar."""
-    _perform_snapshot()
+    await _perform_snapshot()   # ← AWAIT aquí
     return {"ok": True}
+
+@router.on_event("shutdown")
+async def auto_shutdown_snapshot():
+    """Se ejecuta SOLO cuando FastAPI se detiene limpiamente."""
+    runtime_state.log_always("[shutdown] Ejecutando snapshot automático...")
+    try:
+        await _perform_snapshot()   # ← AWAIT aquí
+    except Exception as e:
+        runtime_state.log_always(f"[shutdown] Falló snapshot automático: {e}")
 
 @router.get("/system/last-session", dependencies=[Depends(verify_api_key)])
 async def last_session():
@@ -154,13 +162,3 @@ async def last_session():
         return {"error": "No hay snapshot previo"}
     except json.JSONDecodeError:
         return {"error": "Snapshot corrupto"}
-
-# --- ¡NUEVO! Snapshot automático al apagar el servicio ---
-@router.on_event("shutdown")
-async def auto_shutdown_snapshot():
-    """Se ejecuta SOLO cuando FastAPI se detiene limpiamente."""
-    runtime_state.log_always("[shutdown] Ejecutando snapshot automático...")
-    try:
-        _perform_snapshot()
-    except Exception as e:
-        runtime_state.log_always(f"[shutdown] Falló snapshot automático: {e}")
