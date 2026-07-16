@@ -2,8 +2,8 @@
 const express = require('express');
 const sseHub = require('../sse/sseHub');
 const deviceRegistry = require('../services/deviceRegistry');
-
-let heartbeatInstanceIndex = null;
+const { consoleLog } = require('../clienteCommonJS');
+ let heartbeatInstanceIndex = null;
 
 function buildAgentRouter() {
   const router = express.Router();
@@ -20,8 +20,8 @@ function buildAgentRouter() {
       meta,
       requestedInstanceIndex: instanceIndex,
     });
-    console.log(
-      `[agent] 🆕 REGISTER deviceId=${device.deviceId} instance=${device.instanceIndex ?? '?'} appVersion=${appVersion ?? '?'}`
+    consoleLog((
+      `[agent] 🆕 REGISTER deviceId=${device.deviceId} instance=${device.instanceIndex ?? '?'} appVersion=${appVersion ?? '?'}`)
     );
     // (el broadcast por SSE ya lo hace deviceRegistry vía eventBus -> sseHub)
     return res.status(201).json({
@@ -45,6 +45,8 @@ function buildAgentRouter() {
       ua,
       meta,
     } = req.body || {};
+    consoleLog((req?.body));
+
     if (!deviceId) {
       return res.status(400).json({
         error: 'deviceId requerido (registrate primero con POST /api/agent/register)',
@@ -64,15 +66,15 @@ function buildAgentRouter() {
     });
     const tag = '[agent]';
     if (event === 'boot') {
-      console.log(
-        `${tag} 🟢 BOOT deviceId=${deviceId} instance=${agent.instanceIndex ?? '?'} appVersion=${appVersion ?? '?'} @ ${new Date(agent.lastSeen).toLocaleTimeString()}`
+      consoleLog((
+        `${tag} 🟢 BOOT deviceId=${deviceId} instance=${agent.instanceIndex ?? '?'} appVersion=${appVersion ?? '?'} @ ${new Date(agent.lastSeen).toLocaleTimeString()}`)
       );
     } else if (event === 'closing') {
-      console.log(`${tag} 🔴 CLOSING deviceId=${deviceId} instance=${agent.instanceIndex ?? '?'}`);
+      consoleLog((`${tag} 🔴 CLOSING deviceId=${deviceId} instance=${agent.instanceIndex ?? '?'}`));
     } else {
-      console.log(
+      consoleLog((
         `${tag} · tick deviceId=${deviceId.slice(0, 8)} instance=${agent.instanceIndex ?? '?'} status=${status}`
-      );
+      ));
     }
     sseHub.broadcast('agent:heartbeat', agent);
     return res.json({ ok: true });
@@ -88,7 +90,7 @@ function buildAgentRouter() {
       return res.status(400).json({ error: 'instance_index inválido' });
     }
     heartbeatInstanceIndex = index;
-    console.log(`[continue:index] 💾 index autorizado=${heartbeatInstanceIndex}`);
+    consoleLog((`[continue:index] 💾 index autorizado=${heartbeatInstanceIndex}`));
     return res.status(200).json({ ok: true, instance_index: heartbeatInstanceIndex });
   });
 
@@ -98,12 +100,12 @@ function buildAgentRouter() {
       return res.status(400).json({ error: 'instance_index requerido' });
     }
     const requestedIndex = Number(instance_index);
-    console.log(`[continue] solicitado=${requestedIndex} autorizado=${heartbeatInstanceIndex}`);
+    consoleLog((`[continue] solicitado=${requestedIndex} autorizado=${heartbeatInstanceIndex}`));
     if (requestedIndex !== heartbeatInstanceIndex) {
-      console.log(`[continue] ⛔ index no coincide requested=${requestedIndex} autorizado=${heartbeatInstanceIndex}`);
+      consoleLog((`[continue] ⛔ index no coincide requested=${requestedIndex} autorizado=${heartbeatInstanceIndex}`));
       return res.status(200).json({ action: 'wait' });
     }
-    console.log(`[continue] ✅ index coincide=${requestedIndex}`);
+    consoleLog((`[continue] ✅ index coincide=${requestedIndex}`));
     // FIX: acá se emitía "payload", una variable que no existía en ningún lado
     // (ReferenceError seguro). Mandamos algo con sentido en su lugar.
     sseHub.broadcast('agent:continue', { instance_index: requestedIndex });
