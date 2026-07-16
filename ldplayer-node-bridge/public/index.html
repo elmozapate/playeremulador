@@ -3538,7 +3538,9 @@
               values: {
                 package_names: 'net.typeblog.socks, com.brd.earnrewards, com.chataolutions.app'
               }
-            }
+            },
+            { type: 'wait', values: { seconds: 10 } },
+            { type: 'quit', values: {} },
           ]
         };
         renderPipelineBuilder();
