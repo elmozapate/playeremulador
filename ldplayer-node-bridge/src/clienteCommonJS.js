@@ -3,7 +3,7 @@
 const http = require("http");
 const https = require("https");
 
-const DEFAULT_URL = process.env.LOG_SERVER_URL || "http://localhost3025/log";
+const DEFAULT_URL = process.env.LOG_SERVER_URL || "http://localhost:3025/log";
 const DEFAULT_TIMEOUT = 2000;
 
 const httpAgent = new http.Agent({
