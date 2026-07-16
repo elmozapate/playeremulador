@@ -26,9 +26,6 @@ const config = {
       ADB_PATH: process.env.ADB_PATH || '',
       MONITOR_INTERVAL: process.env.PY_MONITOR_INTERVAL || '',
       HEALTH_CACHE_TTL: process.env.PY_HEALTH_CACHE_TTL || '',
-      // Se propaga al proceso Python para que ambos apunten SIEMPRE a la
-      // misma carpeta de datos compartida, sin depender de que los dos
-      // calculen el mismo default por separado.
       LDPLAYER_DATA_DIR: process.env.LDPLAYER_DATA_DIR || '',
     },
     autoStart: bool(process.env.PYTHON_AUTOSTART, true),
@@ -39,23 +36,16 @@ const config = {
     logBufferSize: parseInt(process.env.PYTHON_LOG_BUFFER_SIZE || '500', 10),
   },
   polling: {
-    // Ya NO es un intervalo de peticiones HTTP a Python: es cada cuánto
-    // este bridge relee el snapshot desde el archivo compartido
-    // (dataDir/status/all.json). El intervalo con el que Python
-    // efectivamente ACTUALIZA ese archivo se configura del lado Python
-    // (runtime_state.monitor_interval / POST /api/debug/monitor-interval).
     intervalMs: parseInt(process.env.STATUS_POLL_INTERVAL_MS || '3000', 10),
   },
-  // Carpeta compartida en disco con Python (status/health/logs/config
-  // runtime). DEBE apuntar al mismo lugar que LDPLAYER_DATA_DIR del lado
-  // Python. Por default: hermana de este proyecto y del bridge Python
-  // (ambos junto a /apks en la raíz), ej:
-  //
-  //   raiz/
-  //     emu-bridge/        <- este proyecto (src/config.js vive acá)
-  //     ldplayer-bridge/   <- proyecto Python
-  //     apks/
-  //     ldplayer-data/     <- dataDir
+  healthCheck: {
+    enabled: bool(process.env.HEALTH_CHECK_ENABLED, true),
+    // 10 minutos por defecto
+    intervalMs: parseInt(process.env.HEALTH_CHECK_INTERVAL_MS || '600000', 10),
+    // vacío = usa KNOWN_APPS.monitor (com.chataolutions.app) del preset
+    packageName: process.env.HEALTH_CHECK_PACKAGE || '',
+    apkPath: process.env.HEALTH_CHECK_APK_PATH || '',
+  },
   dataDir: process.env.LDPLAYER_DATA_DIR || path.resolve(__dirname, '..', '..', 'ldplayer-data'),
 };
 module.exports = config;

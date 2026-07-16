@@ -1,20 +1,20 @@
 'use strict';
 const express = require('express');
 const cors = require('cors');
-const config = require('./config');
-const { LDPlayerClient } = require('./services/ldplayerClient');
-const StatusPoller = require('./services/statusPoller');
+const config = require('./config.js');
+const { LDPlayerClient } = require('./services/ldplayerClient.js');
+const StatusPoller = require('./services/statusPoller.js');
 const buildPipelineRouter = require('./routes/pipeline.js');
-const buildInstancesRouter = require('./routes/instances');
-const buildSystemRouter = require('./routes/system');
-const buildStatusRouter = require('./routes/status');
-const buildServiceRouter = require('./routes/service');
-const buildEventsRouter = require('./routes/events');
-const buildDebugRouter = require('./routes/debug');
-const buildAppsConfigRouter = require('./routes/appsConfig');
-const buildAgentRouter = require('./routes/agent');
-const buildTasksRouter = require('./routes/tasks');
-const deviceRegistry = require('./services/deviceRegistry');
+const buildInstancesRouter = require('./routes/instances.js');
+const buildSystemRouter = require('./routes/system.js');
+const buildStatusRouter = require('./routes/status.js');
+const buildServiceRouter = require('./routes/service.js');
+const buildEventsRouter = require('./routes/events.js');
+const buildDebugRouter = require('./routes/debug.js');
+const buildAppsConfigRouter = require('./routes/appsConfig.js');
+const buildAgentRouter = require('./routes/agent.js');
+const buildTasksRouter = require('./routes/tasks.js');
+const deviceRegistry = require('./services/deviceRegistry.js');
 const corsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

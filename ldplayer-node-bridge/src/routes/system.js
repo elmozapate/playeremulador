@@ -274,13 +274,7 @@ function buildSystemRouter(client, poller) {
   // ========================================================================
   // run_app confiable (fallback ADB si ldconsole runapp no confirma)
   // ========================================================================
-  router.post('/:index/apps/run-reliable', handle(async (req) => {
-    const packageName = requireBody(req, 'package_name');
-    const { activity, timeout_s: timeoutS } = req.body || {};
-    const result = await client.runAppReliable(idx(req), packageName, { activity, timeoutS });
-    emitAction('apps:run-reliable', idx(req), result);
-    return result;
-  }));
+ 
   router.post('/:index/apps/run-reliable', handle(async (req) => {
     const packageName = requireBody(req, 'package_name');
     const { activity, timeout_s: timeoutS } = req.body || {};

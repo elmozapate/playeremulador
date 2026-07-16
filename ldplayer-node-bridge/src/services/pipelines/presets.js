@@ -1,12 +1,9 @@
 'use strict';
-
-// Ajustá acá las rutas/packages reales si cambian.
 const KNOWN_APPS = {
   socks: { id: 'socks', label: 'SOCKS proxy', apk_path: 'C:\\playeremulador\\apks\\soks.apk', package_name: 'net.typeblog.socks' },
   earn: { id: 'earn', label: 'Earn app', apk_path: 'C:\\playeremulador\\apks\\earn.apk', package_name: 'com.brd.earnrewards' },
   monitor: { id: 'monitor', label: 'Monitor (app-debug)', apk_path: 'C:\\playeremulador\\apks\\app-debug.apk', package_name: 'com.chataolutions.app' },
 };
-
 function installStep(app, extra = {}) {
   return { type: 'install', values: { apk_path: app.apk_path, package_name: app.package_name, ...extra } };
 }
@@ -16,7 +13,6 @@ function runStep(app, extra = {}) {
 function killStep(app) {
   return { type: 'kill', values: { package_name: app.package_name } };
 }
-
 const PRESETS = {
   encendido: () => ({
     name: 'Encendido en cadena',
@@ -25,7 +21,6 @@ const PRESETS = {
       { type: 'wait', values: { seconds: 5 } },
     ],
   }),
-
   instalacion: () => ({
     name: 'Cadena de instalación',
     steps: [
@@ -38,7 +33,6 @@ const PRESETS = {
       { type: 'wait', values: { seconds: 15 } },
     ],
   }),
-
   monitor: () => ({
     name: 'Iniciar con monitor',
     steps: [
@@ -54,7 +48,37 @@ const PRESETS = {
       { type: 'wait', values: { seconds: 15 } },
     ],
   }),
-
+  // ------------------------------------------------------------------
+  // NUEVO: chequeo de salud periódico por instancia. Diseñado para
+  // correr en cadena (parallel:false) sobre instancias YA encendidas.
+  //
+  // Revisa:   estado root/ADB, batería, bluetooth, app en primer plano.
+  // Compara:  root debe seguir activo; bluetooth debe seguir apagado
+  //           (lo apaga el setup); la app objetivo debe estar en
+  //           foreground.
+  // Corrige:  el step 'run' ya relanza (y reinstala si hace falta) la
+  //           app objetivo si no está en primer plano — no hace falta
+  //           lógica condicional extra, waitForAppForeground ya hace
+  //           el check+fix en un solo step.
+  // ------------------------------------------------------------------
+  health: ({ package_name, apk_path } = {}) => {
+    const target = {
+      package_name: package_name || KNOWN_APPS.monitor.package_name,
+      apk_path: apk_path || KNOWN_APPS.monitor.apk_path,
+    };
+    return {
+      name: 'Chequeo de salud',
+      steps: [
+        { type: 'tool', values: { tool_action: 'root_status' } },
+        { type: 'verify', values: { tool_action: 'root_check', expect_path: 'root', expect_value: true } },
+        { type: 'tool', values: { tool_action: 'battery_get' } },
+        { type: 'verify', values: { tool_action: 'bluetooth_get', expect_path: 'enabled', expect_value: false } },
+        { type: 'tool', values: { tool_action: 'apps_current' } },
+        runStep(target),
+        { type: 'note', values: { text: `Chequeo de salud completo (${target.package_name})` } },
+      ],
+    };
+  },
   setup_completo: () => ({
     name: 'Setup completo (Root + Apps)',
     steps: [
@@ -74,7 +98,6 @@ const PRESETS = {
       installStep(KNOWN_APPS.monitor),
     ],
   }),
-
   setup_root_adb: () => ({
     name: 'Root Inicial + ADB',
     steps: [
@@ -86,7 +109,6 @@ const PRESETS = {
       { type: 'quit', values: {} },
     ],
   }),
-
   setup_apps: () => ({
     name: 'Setup Apps (instalación)',
     steps: [
@@ -107,8 +129,6 @@ const PRESETS = {
       { type: 'quit', values: {} },
     ],
   }),
-
-  // params: { server_url, name_prefix }
   registro_health: ({ server_url, name_prefix } = {}) => ({
     name: 'Registro Health (nombre + server)',
     steps: [
@@ -141,15 +161,12 @@ const PRESETS = {
     ],
   }),
 };
-
 function listPresets() {
   return Object.keys(PRESETS).map((id) => ({ id, name: PRESETS[id]().name }));
 }
-
 function buildPreset(id, params) {
   const factory = PRESETS[id];
   if (!factory) return null;
   return factory(params || {});
 }
-
 module.exports = { KNOWN_APPS, PRESETS, listPresets, buildPreset };
