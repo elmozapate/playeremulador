@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 import re
 import subprocess
 import time
@@ -12,7 +13,6 @@ from core.runtime_state import runtime_state
 from services.instance_record_store import instance_record_store
 from services.ws_bridge import notify_root_status
 from services.window_service import window_service
-
 
 
 class InstanceNotFoundError(Exception):
@@ -384,61 +384,111 @@ class InstanceService:
     # Perfiles de configuración: initial-root / ready
     # ==================================================================
     async def initial_root(self, index: int) -> Dict:
-        """
-        Perfil de desarrollo: root + depuración ADB + máximos recursos
-        (4 núcleos / 8192 MB) + resolución tipo mobile (540x960).
-        Espera a que el dispositivo esté completamente arrancado antes de continuar,
-        con reintento automático en caso de timeout.
-        """
-        await asyncio.to_thread(
-            LDConsole.modify, index, 4, 8192, "540,960,240", None
-        )
-        await asyncio.to_thread(
-            LDConsole.restart_with_dev_mode,
-            index,
-        )
-        data_store.delete_health(index)
-        ADBController.invalidate_serial(index)
-        # esperar a que el dispositivo esté listo (con kill retry)
-        await self._wait_for_device_ready_with_kill_retry(index)
-        # restart_with_dev_mode relanza por fuera de self.launch(), así
-        # que hay que vincular la ventana acá también.
-        asyncio.create_task(self._register_window_safe(index))
+    last_error = None
 
-        result = {
-            "index": index,
-            "cpu": 4,
-            "memory": 8192,
-            "resolution": "540,960,240",
-            "root_requested": True,
-        }
+    for attempt in range(1, 4):
         try:
-            await asyncio.to_thread(ADBController.enable_adb_debugging, index)
-            result["adb_debugging"] = True
-        except Exception as e:
-            result["adb_debugging"] = False
-            result["adb_debugging_error"] = str(e)
-        try:
-            result["root_active"] = await asyncio.to_thread(ADBController.ensure_root, index)
-        except Exception as e:
-            result["root_active"] = False
-            result["root_error"] = str(e)
-        await notify_root_status(index, bool(result.get("root_active")))
+            runtime_state.log(
+                f"[INITIAL_ROOT] [{index}] Iniciando intento {attempt}/3..."
+            )
 
-        await asyncio.to_thread(
-            instance_record_store.add_event, index, "profile", "Perfil aplicado: initial-root (cpu=4 mem=8192)"
-        )
-        await asyncio.to_thread(
-            instance_record_store.record_profile, index,
-            {
+            await asyncio.to_thread(
+                LDConsole.modify,
+                index,
+                4,
+                8192,
+                "540,960,240",
+                None,
+            )
+
+            await asyncio.to_thread(
+                LDConsole.restart_with_dev_mode,
+                index,
+            )
+
+            data_store.delete_health(index)
+            ADBController.invalidate_serial(index)
+
+            await self._wait_for_device_ready_with_kill_retry(index)
+
+            asyncio.create_task(self._register_window_safe(index))
+
+            result = {
+                "index": index,
                 "cpu": 4,
                 "memory": 8192,
                 "resolution": "540,960,240",
-                "root": result.get("root_active"),
-                "adb_debug": 2 if result.get("adb_debugging") else None,
-            },
-        )
-        return result
+                "root_requested": True,
+            }
+
+            try:
+                await asyncio.to_thread(
+                    ADBController.enable_adb_debugging,
+                    index,
+                )
+                result["adb_debugging"] = True
+            except Exception as e:
+                result["adb_debugging"] = False
+                result["adb_debugging_error"] = str(e)
+
+            try:
+                result["root_active"] = await asyncio.to_thread(
+                    ADBController.ensure_root,
+                    index,
+                )
+            except Exception as e:
+                result["root_active"] = False
+                result["root_error"] = str(e)
+
+            await notify_root_status(index, bool(result.get("root_active")))
+
+            await asyncio.to_thread(
+                instance_record_store.add_event,
+                index,
+                "profile",
+                "Perfil aplicado: initial-root (cpu=4 mem=8192)",
+            )
+
+            await asyncio.to_thread(
+                instance_record_store.record_profile,
+                index,
+                {
+                    "cpu": 4,
+                    "memory": 8192,
+                    "resolution": "540,960,240",
+                    "root": result.get("root_active"),
+                    "adb_debug": 2 if result.get("adb_debugging") else None,
+                },
+            )
+
+            runtime_state.log(
+                f"[INITIAL_ROOT] [{index}] Finalizado correctamente."
+            )
+
+            return result
+
+        except Exception as e:
+            last_error = e
+
+            runtime_state.log(
+                f"[INITIAL_ROOT] [{index}] ERROR intento {attempt}/3\n"
+                f"{type(e).__name__}: {e}\n"
+                f"{traceback.format_exc()}"
+            )
+
+            if attempt < 3:
+                runtime_state.log(
+                    f"[INITIAL_ROOT] [{index}] "
+                    "Reintentando en 15 segundos..."
+                )
+                await asyncio.sleep(15)
+
+    runtime_state.log(
+        f"[INITIAL_ROOT] [{index}] "
+        f"Falló definitivamente después de 3 intentos.\n{last_error}"
+    )
+
+    raise last_error
 
     async def make_ready(self, index: int) -> Dict:
         await asyncio.to_thread(LDConsole.modify, index, 3, 3072, None, None)

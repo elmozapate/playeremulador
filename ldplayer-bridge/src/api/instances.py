@@ -143,6 +143,7 @@ async def initial_root(index: int):
         return {"success": True, "message": "Instancia configurada como initial-root", **result}
     except Exception as e:
         _raise_for(e)
+        
 @router.post("/{index}/ready")
 async def make_ready(index: int):
     """Perfil normal: 3 núcleos / 3072 MB (sin tocar resolución ni root)."""
