@@ -94,8 +94,8 @@ class RuntimeState:
                 "sleep_mode": self._sleep_mode,
                 "window_work_mode": self._window_work_mode,
             }
-        data_store.write_runtime_config(data)        data_store.write_runtime_config(data)
-
+        data_store.write_runtime_config(data)
+        
     @staticmethod
     def _timestamp() -> str:
         return time.strftime("%Y-%m-%d %H:%M:%S")
