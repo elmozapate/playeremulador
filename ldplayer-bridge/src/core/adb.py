@@ -304,7 +304,7 @@ class ADBController:
         """Fallback sin psutil: parsea `netstat -ano` (Windows)."""
         try:
             result = subprocess.run(
-                ["netstat", "-ano"], capture_output=True, text=True
+                ["netstat", "-ano"], capture_output=True, text=True, timeout=10
             )
         except Exception:
             return []

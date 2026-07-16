@@ -62,6 +62,7 @@ async def get_debug_status():
         "health_cache_ttl": runtime_state.health_ttl,
         "monitor_interval": runtime_state.monitor_interval,
         "sleep_mode": runtime_state.sleep_mode,
+        "window_work_mode": runtime_state.window_work_mode,
     }
 
 @router.post("/toggle", dependencies=[Depends(verify_api_key)])

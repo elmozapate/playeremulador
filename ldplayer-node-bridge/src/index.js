@@ -1,4 +1,4 @@
-/* ===== src\index.js ===== */
+// ===== src/index.js =====
 
 'use strict';
 const config = require('./config');
@@ -8,13 +8,17 @@ const HealthScheduler = require('./services/healthScheduler');
 const { attachSocketIO } = require('./sockets');
 const eventBus = require('./utils/eventBus');
 const pythonBridgeSocket = require('./services/pythonBridgeSocket');
+const { warmupBeforeJob } = require('./services/pipelines/jobRunner');  // ← IMPORTAR
+
 async function main() {
   const manager = config.pythonProcess.manage ? new PythonServiceManager() : null;
   const { app, client, poller } = createServer({ manager });
   const healthScheduler = new HealthScheduler(client, poller);
+
   eventBus.on('python:state', ({ state }) => console.log(`[python] estado -> ${state}`));
   eventBus.on('python:log', ({ stream, line }) => console.log(`[python:${stream}] ${line}`));
   eventBus.on('status:error', ({ message }) => console.warn(`[status-poller] ${message}`));
+
   if (manager && config.pythonProcess.autoStart) {
     try {
       await manager.start();
@@ -26,26 +30,34 @@ async function main() {
   }
 
   pythonBridgeSocket.connect();
-
   poller.start();
   healthScheduler.start();
+
   const server = app.listen(config.node.port, config.node.host, () => {
     console.log(`[node] bridge escuchando en http://${config.node.host}:${config.node.port}`);
     console.log(`[node] SSE en /events, Socket.IO en /socket.io, API en /api/instances, /api/status, /api/service, /api/tasks`);
   });
+
   attachSocketIO(server);
+
+  // 🔥 WARMUP AUTOMÁTICO EN SEGUNDO PLANO (no bloquea el arranque)
+  // Se ejecuta después de que el servidor esté listo y el poller haya empezado
+  setTimeout(() => {
+    warmupBeforeJob([0, 1, 2]).catch((err) => {
+      console.error('[warmup] error inesperado:', err.message);
+    });
+  }, 5000); // espera 5s para dar tiempo a que todo esté estable
+
   const shutdown = async (signal) => {
     console.log(`\n[node] recibido ${signal}, apagando...`);
     healthScheduler.stop();
     poller.stop();
     pythonBridgeSocket.close();
     try {
-      await fetch(`${config.python.rootUrl}/api/v1/debug/system/shutdown-snapshot`, { method: 'POST' });
       await fetch(`${config.python.rootUrl}/api/v1/debug/system/shutdown-snapshot`, {
         method: 'POST',
         headers: { 'x-api-key': process.env.PYTHON_API_KEY || 'tu-clave-secreta-cambia-esto' },
       });
-
     } catch (e) { console.warn('[node] no se pudo pedir snapshot final a Python:', e.message); }
     server.close();
     if (manager) {
@@ -53,9 +65,11 @@ async function main() {
     }
     process.exit(0);
   };
+
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
+
 main().catch((err) => {
   console.error('[node] error fatal en el arranque:', err);
   process.exit(1);

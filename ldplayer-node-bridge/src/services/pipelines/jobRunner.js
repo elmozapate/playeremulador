@@ -3,6 +3,8 @@ const eventBus = require('../../utils/eventBus');
 const { STEP_TYPES } = require('./stepTypes');
 const { waitForAndroidReady, cancelableSleep } = require('./waitHelpers');
 const jobStore = require('./jobStore');
+const { LDPlayerClient } = require('../LDPlayerClient');
+const client = new LDPlayerClient({ timeoutMs: 180000 }); // Timeout alto para warmup
 
 // Mutex simple: "una encendida a la vez" entre TODOS los jobs
 class Mutex {
@@ -64,6 +66,22 @@ function buildCtx(client, job, index) {
     },
   };
 }
+
+async function warmupBeforeJob(indices = [0, 1, 2]) {
+  console.log('🔥 Calentando instancias... (puede tomar 2 minutos)');
+  try {
+    const result = await client._request('POST', '/system/warmup', {
+      body: { indices, timeout_sec: 120 },
+      timeoutMs: 180000,
+    });
+    console.log('✅ Calentamiento completado:', result.results);
+    return true;
+  } catch (err) {
+    console.error('❌ Falló el calentamiento:', err.message);
+    return false;
+  }
+}
+
 
 async function runInstance(client, job, index) {
   const inst = job.instances[index];
@@ -145,4 +163,4 @@ function cancelJob(jobId) {
   return job;
 }
 
-module.exports = { runJob, cancelJob };
+module.exports = { runJob, cancelJob, warmupBeforeJob };  // ← añade warmupBeforeJob

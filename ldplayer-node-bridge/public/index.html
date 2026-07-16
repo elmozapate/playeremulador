@@ -2628,6 +2628,7 @@
         id: 'initial_root', label: '🌱 Perfil: Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)',
         fields: [],
         exec: async (index) => {
+          await sleep(15000)
           const r = await postJSON(`/api/instances/${index}/initial-root`);
           return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
         },
@@ -3186,7 +3187,7 @@
       } else if (name === 'setup_completo') {
         currentPipeline = {
           name: 'Setup completo (Root + Apps)', steps: [
-            { type: 'initial_root', values: {"timeoutSec": 30} },
+            { type: 'initial_root', values: {} },
             { type: 'wait_root_ready', values: { timeoutSec: 120, pollSec: 3, graceSec: 5 } },
             { type: 'wait', values: { seconds: 5 } },
             { type: 'tool', values: { tool_action: 'bluetooth_set', enable: 'false' } },
@@ -3207,7 +3208,7 @@
           name: 'Root Inicial + ADB', steps: [
             { type: 'launch', values: { bootTimeoutSec: 90 } },
             { type: 'wait', values: { seconds: 5 } },
-            { type: 'initial_root', values: {"timeoutSec": 30} },
+            { type: 'initial_root', values: {} },
             { type: 'wait_root_ready', values: { timeoutSec: 120, pollSec: 3, graceSec: 5 } },
             { type: 'wait', values: { seconds: 10 } },
             { type: 'quit', values: {} },

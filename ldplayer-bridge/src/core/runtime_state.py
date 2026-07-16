@@ -25,6 +25,8 @@ class RuntimeState:
         self._monitor_interval = persisted.get("monitor_interval", initial_monitor_interval)
         # Modo reposo – se persiste junto con el resto de la config
         self._sleep_mode = persisted.get("sleep_mode", False)
+        # Modo trabajo de ventanas – idem
+        self._window_work_mode = persisted.get("window_work_mode", False)
 
     @property
     def debug(self) -> bool:
@@ -71,16 +73,28 @@ class RuntimeState:
             self._sleep_mode = value
         self._persist_config()
     # ----------------------------------------
-
+# ----------------------------------------
+    # ---------- NUEVO: modo trabajo de ventanas ----------
+    @property
+    def window_work_mode(self) -> bool:
+        with self._lock:
+            return self._window_work_mode
+    @window_work_mode.setter
+    def window_work_mode(self, value: bool) -> None:
+        with self._lock:
+            self._window_work_mode = value
+        self._persist_config()
+    # ------------------------------------------------------
     def _persist_config(self) -> None:
         with self._lock:
             data = {
                 "debug": self._debug,
                 "health_cache_ttl": self._health_ttl,
                 "monitor_interval": self._monitor_interval,
-                "sleep_mode": self._sleep_mode,   # incluimos el nuevo campo
+                "sleep_mode": self._sleep_mode,
+                "window_work_mode": self._window_work_mode,
             }
-        data_store.write_runtime_config(data)
+        data_store.write_runtime_config(data)        data_store.write_runtime_config(data)
 
     @staticmethod
     def _timestamp() -> str:

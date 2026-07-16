@@ -1,8 +1,11 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, List 
 
 from pydantic import BaseModel, Field
 
-
+class WarmupRequest(BaseModel):
+    indices: List[int] = [0, 1, 2]
+    timeout_sec: int = 120
+    
 class ActionResponse(BaseModel):
     success: bool
     message: str
@@ -126,3 +129,10 @@ class RunAppReliableRequest(BaseModel):
 
 class RootShellRequest(BaseModel):
     command: str
+class MoveWindowRequest(BaseModel):
+    x: int
+    y: int
+    width: int = Field(..., gt=0)
+    height: int = Field(..., gt=0)
+class WorkModeRequest(BaseModel):
+    also_screen_off: bool = False

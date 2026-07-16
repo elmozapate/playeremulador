@@ -1,8 +1,6 @@
 import asyncio
 from typing import Dict, List
-
 from fastapi import APIRouter, HTTPException
-
 from core.ldplayer import LDConsole, LDConsoleError
 from models.schemas import (
     ActionResponse,
@@ -15,17 +13,19 @@ from models.schemas import (
 from services.instance_service import InstanceNotFoundError, instance_service
 from services.monitor import monitor
 from services.task_queue import task_queue
-
 router = APIRouter()
-
-
+# NOTA: acá vivía un /system/warmup duplicado y roto (usaba ADBController
+# sin importarlo). La versión funcional quedó en api/endpoints/system.py,
+# montada con este mismo prefix desde api/__init__.py
+# (path final igual: /api/v1/instances/system/warmup).
 def _raise_for(e: Exception):
     if isinstance(e, InstanceNotFoundError):
         raise HTTPException(status_code=404, detail=str(e)) from e
+    if isinstance(e, TimeoutError):
+        raise HTTPException(status_code=504, detail=str(e)) from e
     if isinstance(e, (LDConsoleError, ValueError)):
         raise HTTPException(status_code=400, detail=str(e)) from e
     raise HTTPException(status_code=500, detail=str(e)) from e
-
 
 @router.get("", response_model=List[Dict])
 async def list_instances():

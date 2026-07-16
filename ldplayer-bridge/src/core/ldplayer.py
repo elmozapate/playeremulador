@@ -11,6 +11,9 @@ class LDConsoleError(RuntimeError):
     """Error al ejecutar un comando de ldconsole.exe."""
 
 
+class LDConsoleError(RuntimeError):
+    """Error al ejecutar un comando de ldconsole.exe."""
+LDCONSOLE_TIMEOUT_S = 30
 class LDConsole:
     @staticmethod
     def _binary() -> str:
@@ -18,11 +21,17 @@ class LDConsole:
         if not os.path.exists(path):
             raise LDConsoleError(f"No se encontró ldconsole.exe en: {path}")
         return path
-
     @staticmethod
-    def _run(args: List[str], check: bool = True) -> subprocess.CompletedProcess:
+    def _run(args: List[str], check: bool = True, timeout: float = LDCONSOLE_TIMEOUT_S) -> subprocess.CompletedProcess:
         cmd = [LDConsole._binary()] + args
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+        try:
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, encoding="utf-8", timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise LDConsoleError(
+                f"Comando {cmd} no respondió en {timeout}s (¿ldconsole.exe colgado?)"
+            ) from e
         if check and result.returncode != 0:
             raise LDConsoleError(f"Comando falló {cmd}: {result.stderr.strip()}")
         return result

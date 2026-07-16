@@ -11,6 +11,7 @@ from core.data_store import data_store
 from core.runtime_state import runtime_state
 from services.instance_record_store import instance_record_store
 from services.ws_bridge import notify_root_status
+from services.window_service import window_service
 
 
 
@@ -45,20 +46,31 @@ class InstanceService:
         await asyncio.to_thread(LDConsole.launch, index)
         ADBController.invalidate_serial(index)
         await asyncio.to_thread(instance_record_store.record_launch, index)
-
+        # Vincula la ventana host recién creada con este index. Se dispara
+        # en background (no se espera acá): LDPlayer puede tardar unos
+        # segundos en crear la ventana y no queremos que el endpoint de
+        # /launch (un fetch del cliente) quede colgado esperando eso.
+        asyncio.create_task(self._register_window_safe(index))
+    async def _register_window_safe(self, index: int) -> None:
+        """Best-effort: si falla la vinculación de ventana, solo se
+        loguea; nunca debe tumbar el flujo de arranque de la instancia."""
+        try:
+            await window_service.register_for_instance(index)
+        except Exception as e:
+            runtime_state.log_always(f"[INSTANCE] index={index}: no se pudo vincular ventana: {e}")
     async def reboot(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.reboot, index)
         data_store.delete_health(index)
         ADBController.invalidate_serial(index)
         await asyncio.to_thread(instance_record_store.record_reboot, index)
-        # 👇 NUEVO: esperar a que el dispositivo esté listo después de reiniciar
+        # esperar a que el dispositivo esté listo después de reiniciar
         await self._wait_for_device_ready_with_kill_retry(index)
-
     async def quit(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.quit, index)
         data_store.delete_health(index)
         ADBController.invalidate_serial(index)
         await asyncio.to_thread(instance_record_store.record_quit, index)
+        await window_service.unregister_for_instance(index)
 
     @staticmethod
     def _extract_package_name(apk_path: str) -> Optional[str]:
@@ -330,28 +342,28 @@ class InstanceService:
     # ==================================================================
     # HELPERS PARA ESPERA DE DISPOSITIVO LISTO (NUEVOS)
     # ==================================================================
+    async def wait_for_device_ready(self, index: int, timeout: float = 60) -> None:
+        """API pública: espera a que ADB responda, con reintento
+        kill+launch si el dispositivo no arranca a tiempo."""
+        await self._wait_for_device_ready_with_kill_retry(index, timeout)
+    
     async def _wait_for_device_ready(self, index: int, timeout: float = 60) -> None:
-        """
-        Espera hasta que ADB responda correctamente en la instancia indicada.
-        Utiliza una consulta simple de batería como prueba de conectividad.
-        """
+        """Espera 'pura' (sin kill-retry): reintenta pegarle a ADB hasta
+        `timeout`s. Lanza TimeoutError si nunca respondió."""
         deadline = time.time() + timeout
         while time.time() < deadline:
             try:
-                # Cualquier operación que requiera ADB funcionando sirve
                 await asyncio.to_thread(ADBController.get_battery_health, index)
                 return
             except Exception:
                 await asyncio.sleep(1)
         raise TimeoutError(f"El dispositivo {index} no respondió después de {timeout}s")
-
     async def _wait_for_device_ready_with_kill_retry(self, index: int, timeout: float = 60) -> None:
         """
         Espera a que el dispositivo esté listo.
         Si tarda más de `timeout` segundos, lo mata y lo vuelve a encender una sola vez.
         Si después de ese segundo intento sigue sin responder, lanza RuntimeError.
         """
-        # Primer intento: esperar al arranque actual
         try:
             await self._wait_for_device_ready(index, timeout)
             return
@@ -360,8 +372,6 @@ class InstanceService:
                 f"[INSTANCE] El dispositivo {index} no respondió en {timeout}s. "
                 "Se procede a matarlo y reiniciarlo."
             )
-
-        # Segundo intento: kill + launch
         try:
             await self.quit(index)
             await self.launch(index)
@@ -370,7 +380,6 @@ class InstanceService:
             raise RuntimeError(
                 f"El dispositivo {index} sigue sin estar listo después de kill+launch. Marcado como fail."
             )
-
     # ==================================================================
     # Perfiles de configuración: initial-root / ready
     # ==================================================================
@@ -390,9 +399,11 @@ class InstanceService:
         )
         data_store.delete_health(index)
         ADBController.invalidate_serial(index)
-
-        # 👇 NUEVO: esperar a que el dispositivo esté listo (con kill retry)
+        # esperar a que el dispositivo esté listo (con kill retry)
         await self._wait_for_device_ready_with_kill_retry(index)
+        # restart_with_dev_mode relanza por fuera de self.launch(), así
+        # que hay que vincular la ventana acá también.
+        asyncio.create_task(self._register_window_safe(index))
 
         result = {
             "index": index,

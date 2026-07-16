@@ -19,6 +19,7 @@ from core.data_store import data_store
 from core.runtime_state import runtime_state
 from services.instance_service import instance_service
 from services.instance_record_store import instance_record_store
+from services.window_service import window_service
 from services.ws_bridge import notify_instance_event
 
 # Se ignoran a propósito window_handle/bound_handle: cambian en cada
@@ -137,6 +138,7 @@ class InstanceMonitor:
         instance_service.prune_health_cache(active_indices)
         ADBController.prune(active_indices)
         await asyncio.to_thread(instance_record_store.prune, active_indices)
+        window_service.prune(active_indices)
         if not self._initialized:
             runtime_state.log_always(f"[monitor] iniciado: {len(instances)} instancia(s) detectada(s)")
             self._initialized = True

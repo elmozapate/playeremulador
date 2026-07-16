@@ -315,8 +315,12 @@ class InstanceRecordStore:
         """Borra locks cuyo proceso dueño ya no existe.
         Llamar una sola vez al arrancar el servicio (desde lifespan).
         """
-        import psutil
-
+        try:
+            import psutil
+        except ImportError:
+            # Sin psutil no podemos verificar el pid dueño; mejor no
+            # borrar nada a ciegas que tumbar el arranque del servicio.
+            return
         try:
             files = os.listdir(self.dir)
         except OSError:

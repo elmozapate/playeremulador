@@ -126,3 +126,6 @@ async def notify_instance_event(index: int, event: str, detail: str = "") -> Non
 
 async def notify_root_status(index: int, ready: bool, uid: Optional[str] = None) -> None:
     await bridge.broadcast("root-status", {"index": index, "ready": ready, "uid": uid})
+async def notify_window_event(hwnd: int, event: str, detail: Optional[Dict[str, Any]] = None) -> None:
+    """event: 'window_created' | 'window_closed' | 'window_state_changed'"""
+    await bridge.broadcast("window-event", {"hwnd": hwnd, "event": event, **(detail or {})})

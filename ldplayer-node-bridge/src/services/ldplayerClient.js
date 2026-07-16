@@ -16,11 +16,13 @@ class LDPlayerClient {
     this.rootUrl = (rootUrl || config.python.rootUrl).replace(/\/+$/, '');
     this.timeoutMs = timeoutMs || config.python.requestTimeoutMs;
   }
-  async _request(method, path, { body, baseUrl } = {}) {
+  async _request(method, path, { body, baseUrl, timeoutMs } = {}) {
     const base = baseUrl || this.apiBaseUrl;
     const url = `${base}${path}`;
+    const timeout = timeoutMs ?? this.timeoutMs; // Usa el específico o el global
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timer = setTimeout(() => controller.abort(), timeout);
+
     let res;
     try {
       res = await fetch(url, {
@@ -28,7 +30,7 @@ class LDPlayerClient {
         headers: {
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(config.python.apiKey ? { 'x-api-key': config.python.apiKey } : {}),
-        },        body: body !== undefined ? JSON.stringify(body) : undefined,
+        }, body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       });
     } catch (err) {
@@ -255,11 +257,17 @@ class LDPlayerClient {
     });
   }
   initialRoot(index) {
+    return this._request('POST', `/instances/${index}/initial-root`, { timeoutMs: 120000 });
     return this._request('POST', `/instances/${index}/initial-root`);
   }
   makeReady(index) {
     return this._request('POST', `/instances/${index}/ready`);
   }
+  warmup(indices = [0, 1, 2], timeoutSec = 120) {
+  return this._request('POST', '/system/warmup', {
+    body: { indices, timeout_sec: timeoutSec },
+  });
+}
   // ====================================================================
   // Debug / configuración runtime del servicio Python (modo verbose,
   // TTL del health cache, intervalo del monitor). Todo se persiste en

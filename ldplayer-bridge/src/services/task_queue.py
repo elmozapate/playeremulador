@@ -45,12 +45,25 @@ class TaskQueue:
             finally:
                 queue.task_done()
 
-    async def enqueue(self, index: int, func: Callable, *args, **kwargs) -> Any:
-        """Encola una tarea (sync o async) para esa instancia y espera el resultado."""
+    async def enqueue(self, index: int, func: Callable, *args, timeout: Optional[float] = None, **kwargs) -> Any:
+        """Encola una tarea (sync o async) para esa instancia y espera el
+        resultado. `timeout`, si se pasa, acota cuánto espera EL LLAMADOR
+        (ej. el endpoint HTTP) -- la tarea sigue corriendo en el worker
+        (no se cancela a mitad de un comando real de ldconsole/adb, eso
+        podría dejar cosas a medias); esto solo evita que un fetch del
+        cliente quede colgado para siempre si algo se traba."""
         queue = await self._get_queue(index)
         future = asyncio.get_running_loop().create_future()
         await queue.put((func, args, kwargs, future))
-        return await future
+        if timeout is None:
+            return await future
+        try:
+            return await asyncio.wait_for(asyncio.shield(future), timeout=timeout)
+        except asyncio.TimeoutError as e:
+            raise TimeoutError(
+                f"La operación en index={index} no respondió en {timeout}s "
+                f"(sigue ejecutándose en segundo plano)"
+            ) from e
 
     async def shutdown(self, index: int) -> None:
         async with self._lock:

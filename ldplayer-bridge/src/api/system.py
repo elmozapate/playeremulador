@@ -1,10 +1,12 @@
 from typing import List
 from models import RootShellRequest
+import asyncio
 
 from fastapi import APIRouter, HTTPException
 
 from core.ldplayer import LDConsoleError
 from models.schemas import (
+    WarmupRequest,
     ActionResponse,
     BatteryLevelRequest,
     BatteryStatusRequest,
@@ -33,6 +35,8 @@ router = APIRouter()
 def _raise_for(e: Exception):
     if isinstance(e, InstanceNotFoundError):
         raise HTTPException(status_code=404, detail=str(e)) from e
+    if isinstance(e, TimeoutError):
+        raise HTTPException(status_code=504, detail=str(e)) from e
     if isinstance(e, (LDConsoleError, ValueError)):
         raise HTTPException(status_code=400, detail=str(e)) from e
     raise HTTPException(status_code=500, detail=str(e)) from e
@@ -447,8 +451,11 @@ async def root_shell(index: int, body: RootShellRequest):
     tenga root habilitado en la config de LDPlayer.
     """
     try:
+        # timeout defensivo: es la única ruta donde el usuario controla
+        # el comando que se ejecuta (`su -c ...`), así que acotamos
+        # cuánto puede colgar el fetch del cliente si el comando se traba.
         output = await task_queue.enqueue(
-            index, instance_service.root_shell, index, body.command
+            index, instance_service.root_shell, index, body.command, timeout=30,
         )
         return ActionResponse(success=True, message=output.strip() or "OK", index=index)
     except Exception as e:
