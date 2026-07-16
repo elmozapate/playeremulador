@@ -10,9 +10,10 @@ const buildSystemRouter = require('./routes/system');
 const buildStatusRouter = require('./routes/status');
 const buildServiceRouter = require('./routes/service');
 const buildEventsRouter = require('./routes/events');
-const buildAgentRouter = require('./routes/agent');
 const buildDebugRouter = require('./routes/debug');
 const buildAppsConfigRouter = require('./routes/appsConfig');
+const buildAgentRouter = require('./routes/agent');
+const buildTasksRouter = require('./routes/tasks');
 const deviceRegistry = require('./services/deviceRegistry');
 const corsOptions = {
   origin: '*',
@@ -42,6 +43,7 @@ function createServer({ manager } = {}) {
   app.use('/api/agent', buildAgentRouter());
   app.use('/events', buildEventsRouter());
   app.use('/api/pipeline', buildPipelineRouter(client));
+  app.use('/api/tasks', buildTasksRouter(client));
   if (manager) {
     app.use('/api/service', buildServiceRouter(manager));
   }

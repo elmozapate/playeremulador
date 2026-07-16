@@ -20,9 +20,19 @@ src/
     status.js                      # Proxy REST -> status (sirve desde cache del poller)
     service.js                      # start/stop/restart/logs/status del proceso Python
     events.js                        # Endpoint SSE (/events)
-  sse/sseHub.js                       # Broadcast a clientes SSE conectados
-  utils/eventBus.js                    # EventEmitter interno que conecta todo
-public/index.html                      # Demo mínima: tabla de instancias + acciones + log en vivo
+    tasks.js                          # Task Manager: crear/listar/cancelar jobs, presets, step-types
+  services/pipelines/
+    deviceSetupPipeline.js              # Pipeline legacy (setup batch simple, sigue vivo)
+    stepTypes.js                          # Catálogo de steps ejecutables (launch, install, tool, verify...)
+    toolActions.js                         # Mapa tool_action -> método de ldplayerClient (batería, wifi, input...)
+    waitHelpers.js                          # Esperas cancelables: root ready, boot ready, app instalada/foreground
+    jobStore.js                              # Registro en memoria de jobs (TTL 30min tras terminar)
+    jobRunner.js                              # Motor que corre los steps de un job, mutex de "una encendida a la vez"
+    presets.js                                 # Recetas predefinidas (encendido, setup_completo, registro_health...)
+  sockets/index.js                              # Socket.IO: reemite eventos de job:* en tiempo real
+  sse/sseHub.js                                  # Broadcast a clientes SSE conectados
+  utils/eventBus.js                               # EventEmitter interno que conecta todo
+public/index.html                                 # Demo mínima: tabla de instancias + acciones + log en vivo
 ```
 
 ## Cómo se acopla al backend Python
@@ -95,3 +105,16 @@ serví estático desde la raíz) para ver la demo con tabla de instancias en viv
   espere el próximo tick.
 - `pythonServiceManager` reintenta levantar el proceso Python con backoff si
   se cae inesperadamente (`PYTHON_AUTORESTART=true`), hasta `PYTHON_MAX_RESTARTS`.
+- El Task Manager (`/api/tasks`) corre 100% en el server: reemplaza la lógica
+  que antes vivía en el HTML (`PIPELINE_STEP_TYPES`, `waitForAndroidReady`,
+  `waitForAppForeground`, `waitForAppInstalled`, el slot de "una encendida a
+  la vez", los presets). Un job es una secuencia de `steps` corrida sobre uno
+  o más `indices`, en serie o en paralelo (`parallel:true`). El progreso se
+  puede seguir por SSE (`pipeline:step`/`pipeline:batch`, legacy) o por
+  Socket.IO (`job:*`, recomendado para la UI nueva). Los jobs quedan en
+  memoria 30 min después de terminar (`jobStore` TTL) para poder consultarlos
+  vía `GET /api/tasks/:id`.
+- `waitForAndroidReady` en `waitHelpers.js` usa una heurística sobre
+  `GET /instances/:index/health` (`tools_available`/`ready`/`online`/`status
+  === 'ok'`) — falta confirmar el campo exacto contra la respuesta real del
+  backend Python.

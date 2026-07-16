@@ -3,6 +3,7 @@
 const config = require('./config');
 const createServer = require('./server');
 const { PythonServiceManager } = require('./services/pythonServiceManager');
+const { attachSocketIO } = require('./sockets');
 const eventBus = require('./utils/eventBus');
 
 async function main() {
@@ -29,8 +30,9 @@ async function main() {
 
   const server = app.listen(config.node.port, config.node.host, () => {
     console.log(`[node] bridge escuchando en http://${config.node.host}:${config.node.port}`);
-    console.log(`[node] SSE en /events, API en /api/instances, /api/status, /api/service`);
+    console.log(`[node] SSE en /events, Socket.IO en /socket.io, API en /api/instances, /api/status, /api/service, /api/tasks`);
   });
+  attachSocketIO(server);
 
   const shutdown = async (signal) => {
     console.log(`\n[node] recibido ${signal}, apagando...`);
