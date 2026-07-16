@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>instance-console // ldplayer-bridge</title>
+<style>
+  :root{
+    --bg: #0A0D10;
+    --panel: #12171C;
+    --panel-alt: #171D23;
+    --border: #232B33;
+    --text: #DCE4EA;
+    --dim: #7C8791;
+    --dimmer: #4B545C;
+    --live: #34D399;
+    --warn: #F5A623;
+    --off: #F0576B;
+    --info: #5EC8D8;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  ::selection { background: var(--info); color: #06171A; }
+
+  /* ---------- top bar ---------- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-right: auto;
+  }
+  .brand .mark { color: var(--info); font-weight: 700; letter-spacing: 0.02em; }
+  .brand .sub { color: var(--dim); font-size: 11px; }
+
+  .field { display: flex; align-items: center; gap: 6px; }
+  .field label { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .field input {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    width: 220px;
+    outline: none;
+  }
+  .field input:focus { border-color: var(--info); }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    background: var(--panel-alt);
+    white-space: nowrap;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dimmer); flex-shrink: 0; }
+  .dot.live { background: var(--live); box-shadow: 0 0 0 0 rgba(52,211,153,0.6); animation: pulse 1.8s infinite; }
+  .dot.off { background: var(--off); }
+  .dot.warn { background: var(--warn); }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.55); }
+    70%  { box-shadow: 0 0 0 6px rgba(52,211,153,0); }
+    100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot.live { animation: none; }
+  }
+
+  button {
+    font-family: var(--mono);
+    cursor: pointer;
+  }
+
+  .btn {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .btn:hover { border-color: var(--info); color: var(--info); }
+  .btn:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+
+  .btn.small { padding: 4px 9px; font-size: 11px; }
+
+  /* ---------- main / table ---------- */
+  main { padding: 20px; }
+
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+    color: var(--dim);
+    font-size: 11px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  thead th {
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--dim);
+    font-weight: 600;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-alt);
+  }
+
+  tbody td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(94, 200, 216, 0.04); }
+
+  .idx { color: var(--info); font-weight: 700; }
+  .name { color: var(--text); }
+  .name .none { color: var(--dimmer); font-style: italic; }
+  .ts { color: var(--dimmer); font-size: 11px; }
+
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--dim);
+  }
+  .empty-state .glyph { font-size: 22px; color: var(--dimmer); margin-bottom: 8px; }
+
+  /* ---------- drawer ---------- */
+  .scrim {
+    position: fixed; inset: 0;
+    background: rgba(4,6,8,0.55);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 20;
+  }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+
+  .drawer {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(460px, 92vw);
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform 0.18s ease;
+    z-index: 21;
+    display: flex;
+    flex-direction: column;
+  }
+  .drawer.open { transform: translateX(0); }
+
+  .drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-alt);
+  }
+  .drawer-head h2 { margin: 0; font-size: 14px; }
+  .drawer-head .close { background: transparent; border: none; color: var(--dim); font-size: 16px; }
+  .drawer-head .close:hover { color: var(--off); }
+
+  .drawer-body { overflow-y: auto; padding: 16px 18px 40px; flex: 1; }
+
+  .section { margin-bottom: 18px; }
+  .section h3 {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--info);
+    margin: 0 0 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  .kv { display: grid; grid-template-columns: 42% 58%; gap: 4px 8px; font-size: 12px; }
+  .kv .k { color: var(--dim); }
+  .kv .v { color: var(--text); word-break: break-word; }
+
+  .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+  .log-item {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  .log-item .t { color: var(--dimmer); margin-right: 6px; }
+
+  .raw-toggle { margin-top: 4px; }
+  pre.raw {
+    background: #06090B;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 11px;
+    max-height: 280px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: none;
+  }
+  pre.raw.open { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="mark">instance-console</span>
+    <span class="sub">ldplayer-bridge</span>
+  </div>
+  <span class="pill" id="bridgePill"><span class="dot" id="bridgeDot"></span><span id="bridgeLabel">bridge python: ---</span></span>
+  <div class="field">
+    <label for="baseUrlInput">node</label>
+    <input id="baseUrlInput" type="text" value="http://localhost:4000" spellcheck="false" />
+  </div>
+  <button class="btn small" id="refreshBtn">refrescar</button>
+</header>
+
+<main>
+  <div class="meta-row">
+    <span id="countLabel">0 instancias</span>
+    <span id="lastPoll">—</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>idx</th>
+        <th>nombre</th>
+        <th>poder</th>
+        <th>agente</th>
+        <th>monitor</th>
+        <th>root</th>
+        <th>actualizado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr><td colspan="8"><div class="empty-state"><div class="glyph">···</div>cargando instancias</div></td></tr>
+    </tbody>
+  </table>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <h2 id="drawerTitle">instancia</h2>
+    <button class="close" id="closeDrawer" aria-label="cerrar">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<script>
+(() => {
+  const $ = (sel) => document.querySelector(sel);
+  const tbody = $('#tbody');
+  const countLabel = $('#countLabel');
+  const lastPoll = $('#lastPoll');
+  const baseUrlInput = $('#baseUrlInput');
+  const bridgeDot = $('#bridgeDot');
+  const bridgeLabel = $('#bridgeLabel');
+  const scrim = $('#scrim');
+  const drawer = $('#drawer');
+  const drawerTitle = $('#drawerTitle');
+  const drawerBody = $('#drawerBody');
+
+  let baseUrl = baseUrlInput.value.replace(/\/+$/, '');
+  let models = [];
+  let pollTimer = null;
+
+  baseUrlInput.addEventListener('change', () => {
+    baseUrl = baseUrlInput.value.replace(/\/+$/, '');
+    loadAll();
+  });
+  $('#refreshBtn').addEventListener('click', loadAll);
+
+  // -------------------- formatting helpers --------------------
+  function relTime(ts) {
+    if (!ts) return '—';
+    const diff = Date.now() - ts;
+    if (diff < 0) return 'ahora';
+    const s = Math.floor(diff / 1000);
+    if (s < 60) return `hace ${s}s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `hace ${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `hace ${h}h`;
+    return `hace ${Math.floor(h / 24)}d`;
+  }
+
+  function absTime(ts) {
+    if (!ts) return '—';
+    try { return new Date(ts).toLocaleString('es-AR'); } catch (_) { return String(ts); }
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function powerPill(model) {
+    const p = model.power || {};
+    if (p.status === 'on') {
+      return `<span class="pill"><span class="dot live"></span>encendida</span>`;
+    }
+    if (p.status === 'off') {
+      const cause = model.monitor?.lastOffCause;
+      if (cause === 'expected') return `<span class="pill"><span class="dot"></span>apagada</span>`;
+      if (cause === 'crashed') return `<span class="pill"><span class="dot off"></span>caída</span>`;
+      if (cause === 'never-started') return `<span class="pill"><span class="dot"></span>sin iniciar</span>`;
+      return `<span class="pill"><span class="dot warn"></span>apagada</span>`;
+    }
+    return `<span class="pill"><span class="dot"></span>desconocido</span>`;
+  }
+
+  function agentCell(model) {
+    const a = model.agent || {};
+    if (!a.deviceId) return `<span class="pill"><span class="dot"></span>sin agente</span>`;
+    const cls = a.alive ? 'live' : '';
+    return `<span class="pill"><span class="dot ${cls}"></span>${a.alive ? 'activo' : 'inactivo'} · ${esc(relTime(a.lastSeen))}</span>`;
+  }
+
+  function monitorCell(model) {
+    const m = model.monitor || {};
+    if (m.running) return `<span class="pill"><span class="dot live"></span>abierto</span>`;
+    return `<span class="pill"><span class="dot"></span>cerrado</span>`;
+  }
+
+  function rootCell(model) {
+    const r = model.root || {};
+    if (r.ready === true) return `<span class="pill"><span class="dot live"></span>listo</span>`;
+    if (r.ready === false) return `<span class="pill"><span class="dot off"></span>no listo</span>`;
+    return `<span class="pill"><span class="dot"></span>?</span>`;
+  }
+
+  // -------------------- render table --------------------
+  function renderTable() {
+    if (!models.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="glyph">∅</div>no hay instancias registradas todavía</div></td></tr>`;
+      countLabel.textContent = '0 instancias';
+      return;
+    }
+    countLabel.textContent = `${models.length} instancia${models.length === 1 ? '' : 's'}`;
+    tbody.innerHTML = models.map((m) => `
+      <tr>
+        <td class="idx">#${esc(m.index)}</td>
+        <td class="name">${m.name ? esc(m.name) : '<span class="none">sin nombre</span>'}</td>
+        <td>${powerPill(m)}</td>
+        <td>${agentCell(m)}</td>
+        <td>${monitorCell(m)}</td>
+        <td>${rootCell(m)}</td>
+        <td class="ts">${esc(relTime(m.updatedAt))}</td>
+        <td><button class="btn small" data-info="${esc(m.index)}">info</button></td>
+      </tr>
+    `).join('');
+
+    tbody.querySelectorAll('[data-info]').forEach((btn) => {
+      btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-info')));
+    });
+  }
+
+  // -------------------- drawer --------------------
+  function kv(pairs) {
+    return `<div class="kv">${pairs.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${v}</div>`).join('')}</div>`;
+  }
+
+  function openDrawer(index) {
+    const m = models.find((x) => String(x.index) === String(index));
+    if (!m) return;
+    drawerTitle.textContent = `instancia #${m.index}${m.name ? ' — ' + m.name : ''}`;
+
+    const p = m.power || {};
+    const a = m.agent || {};
+    const mon = m.monitor || {};
+    const r = m.root || {};
+    const apps = Object.entries(m.apps || {});
+    const tasks = (m.tasks || []).slice(-8).reverse();
+    const checks = (m.checks || []).slice(-8).reverse();
+    const events = (m.events || []).slice(-10).reverse();
+
+    drawerBody.innerHTML = `
+      <div class="section">
+        <h3>poder</h3>
+        ${kv([
+          ['estado', esc(p.status || '—')],
+          ['fuente', esc(p.source || '—')],
+          ['apagado esperado', p.expectedOff ? 'sí' : 'no'],
+          ['nunca encendida', p.neverSeenOn ? 'sí' : 'no'],
+          ['último launch', esc(absTime(p.lastLaunchAt))],
+          ['último quit', esc(absTime(p.lastQuitAt))],
+          ['actualizado', esc(absTime(p.updatedAt))],
+        ])}
+      </div>
+
+      <div class="section">
+        <h3>agente (heartbeat)</h3>
+        ${kv([
+          ['deviceId', esc(a.deviceId || '—')],
+          ['alive', a.alive ? 'sí' : 'no'],
+          ['status', esc(a.status || '—')],
+          ['app version', esc(a.appVersion || '—')],
+          ['último evento', esc(a.event || '—')],
+          ['visto', esc(relTime(a.lastSeen))],
+          ['apks activos', esc((a.activeApks || []).join(', ') || '—')],
+        ])}
+      </div>
+
+      <div class="section">
+        <h3>monitor (apk)</h3>
+        ${kv([
+          ['package', esc(mon.packageName || '—')],
+          ['corriendo', mon.running ? 'sí' : 'no'],
+          ['instalado', mon.installed === null || mon.installed === undefined ? '?' : (mon.installed ? 'sí' : 'no')],
+          ['última apertura', esc(absTime(mon.lastOpenedAt))],
+          ['última señal viva', esc(absTime(mon.lastSeenAliveAt))],
+          ['causa último off', esc(mon.lastOffCause || '—')],
+        ])}
+      </div>
+
+      <div class="section">
+        <h3>root</h3>
+        ${kv([
+          ['root inicial hecho', r.initialRootDone === null ? '?' : (r.initialRootDone ? 'sí' : 'no')],
+          ['adb listo', r.ready === null ? '?' : (r.ready ? 'sí' : 'no')],
+          ['uid', esc(r.uid || '—')],
+          ['chequeado', esc(absTime(r.checkedAt))],
+        ])}
+      </div>
+
+      <div class="section">
+        <h3>apps (${apps.length})</h3>
+        ${apps.length
+          ? kv(apps.map(([pkg, info]) => [pkg, esc(info.installed ? 'instalada' : 'no instalada') + (info.lastSeen ? ' · ' + esc(relTime(info.lastSeen)) : '')]))
+          : '<div class="kv"><div class="k">—</div><div class="v">sin apps registradas</div></div>'}
+      </div>
+
+      <div class="section">
+        <h3>tareas recientes (${tasks.length})</h3>
+        <div class="log-list">
+          ${tasks.length ? tasks.map((t) => `<div class="log-item">${esc(t.name || t.type || 'tarea')} — ${esc(t.status || '?')}</div>`).join('') : '<div class="log-item">sin tareas</div>'}
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>chequeos recientes (${checks.length})</h3>
+        <div class="log-list">
+          ${checks.length ? checks.map((c) => `<div class="log-item"><span class="t">${esc(absTime(c.ts))}</span>${esc(c.step || '?')} → ${esc(c.status || '?')}</div>`).join('') : '<div class="log-item">sin chequeos</div>'}
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>eventos recientes (${events.length})</h3>
+        <div class="log-list">
+          ${events.length ? events.map((e) => `<div class="log-item"><span class="t">${esc(absTime(e.ts))}</span>[${esc(e.type || '?')}] ${esc(e.message || '')}</div>`).join('') : '<div class="log-item">sin eventos</div>'}
+        </div>
+      </div>
+
+      <div class="section">
+        <button class="btn small raw-toggle" id="toggleRaw">ver json crudo</button>
+        <pre class="raw" id="rawJson">${esc(JSON.stringify(m, null, 2))}</pre>
+      </div>
+    `;
+
+    $('#toggleRaw').addEventListener('click', () => {
+      $('#rawJson').classList.toggle('open');
+    });
+
+    scrim.classList.add('open');
+    drawer.classList.add('open');
+    drawer.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeDrawer() {
+    scrim.classList.remove('open');
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+  }
+  $('#closeDrawer').addEventListener('click', closeDrawer);
+  scrim.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+  // -------------------- fetch --------------------
+  async function loadModels() {
+    try {
+      const res = await fetch(`${baseUrl}/api/instance-model/`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      models = await res.json();
+      models.sort((a, b) => a.index - b.index);
+      renderTable();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="glyph">⚠</div>no se pudo conectar con ${esc(baseUrl)}<br/><span style="font-size:11px">${esc(err.message)}</span></div></td></tr>`;
+      countLabel.textContent = '0 instancias';
+    }
+  }
+
+  async function loadBridge() {
+    try {
+      const res = await fetch(`${baseUrl}/api/instance-model/bridge/status`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      bridgeDot.className = 'dot ' + (data.connected ? 'live' : 'off');
+      bridgeLabel.textContent = `bridge python: ${data.connected ? 'conectado' : 'desconectado'}`;
+    } catch (_) {
+      bridgeDot.className = 'dot off';
+      bridgeLabel.textContent = 'bridge python: sin datos';
+    }
+  }
+
+  async function loadAll() {
+    await Promise.all([loadModels(), loadBridge()]);
+    lastPoll.textContent = `última actualización: ${new Date().toLocaleTimeString('es-AR')}`;
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(loadAll, 4000);
+  }
+
+  loadAll();
+  startPolling();
+})();
+</script>
+
+</body>
+</html>

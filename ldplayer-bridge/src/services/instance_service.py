@@ -51,6 +51,8 @@ class InstanceService:
         data_store.delete_health(index)
         ADBController.invalidate_serial(index)
         await asyncio.to_thread(instance_record_store.record_reboot, index)
+        # 👇 NUEVO: esperar a que el dispositivo esté listo después de reiniciar
+        await self._wait_for_device_ready_with_kill_retry(index)
 
     async def quit(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.quit, index)
@@ -79,6 +81,7 @@ class InstanceService:
         except Exception:
             pass
         return None
+
     async def install_app(self, index: int, apk_path: str) -> None:
         await asyncio.to_thread(LDConsole.install_app, index, apk_path)
         package_name = await asyncio.to_thread(self._extract_package_name, apk_path)
@@ -89,6 +92,7 @@ class InstanceService:
         await asyncio.to_thread(
             instance_record_store.record_apk, index, apk_key, "installed", apk_path
         )
+
     async def run_app(self, index: int, package_name: str) -> None:
         await asyncio.to_thread(LDConsole.run_app, index, package_name)
 
@@ -106,12 +110,6 @@ class InstanceService:
         await asyncio.to_thread(LDConsole.kill_app, index, package_name)
 
     async def get_health(self, index: int, use_cache: bool = True) -> Dict:
-        """
-        v2: el "cache" de health ya no es un dict en memoria (self._health_cache /
-        self._health_ts) — ahora es un archivo en DATA_DIR/health/<index>.json
-        (ver core.data_store). El TTL se sigue evaluando igual, comparando el
-        timestamp guardado en el archivo contra runtime_state.health_ttl.
-        """
         now = time.time()
         ttl = runtime_state.health_ttl
 
@@ -240,13 +238,12 @@ class InstanceService:
         status = "uninstalled" if "Success" in result else "uninstall_failed"
         await asyncio.to_thread(instance_record_store.record_apk, index, package_name, status)
         return result
+
     async def force_stop_app(self, index: int, package_name: str) -> str:
-        # `am force-stop` no devuelve texto de éxito/error, así que no hay
-        # forma barata de verificarlo sin una consulta extra (dumpsys); se
-        # registra como intento, no como confirmación.
         result = await asyncio.to_thread(ADBController.force_stop, index, package_name)
         await asyncio.to_thread(instance_record_store.record_apk, index, package_name, "force_stopped")
         return result
+
     async def clear_app_data(self, index: int, package_name: str) -> str:
         result = await asyncio.to_thread(ADBController.clear_app_data, index, package_name)
         status = "data_cleared" if "Success" in result else "data_clear_failed"
@@ -331,12 +328,58 @@ class InstanceService:
         return await asyncio.to_thread(ADBController.test_debug_mode, index)
 
     # ==================================================================
+    # HELPERS PARA ESPERA DE DISPOSITIVO LISTO (NUEVOS)
+    # ==================================================================
+    async def _wait_for_device_ready(self, index: int, timeout: float = 60) -> None:
+        """
+        Espera hasta que ADB responda correctamente en la instancia indicada.
+        Utiliza una consulta simple de batería como prueba de conectividad.
+        """
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                # Cualquier operación que requiera ADB funcionando sirve
+                await asyncio.to_thread(ADBController.get_battery_health, index)
+                return
+            except Exception:
+                await asyncio.sleep(1)
+        raise TimeoutError(f"El dispositivo {index} no respondió después de {timeout}s")
+
+    async def _wait_for_device_ready_with_kill_retry(self, index: int, timeout: float = 60) -> None:
+        """
+        Espera a que el dispositivo esté listo.
+        Si tarda más de `timeout` segundos, lo mata y lo vuelve a encender una sola vez.
+        Si después de ese segundo intento sigue sin responder, lanza RuntimeError.
+        """
+        # Primer intento: esperar al arranque actual
+        try:
+            await self._wait_for_device_ready(index, timeout)
+            return
+        except TimeoutError:
+            runtime_state.log(
+                f"[INSTANCE] El dispositivo {index} no respondió en {timeout}s. "
+                "Se procede a matarlo y reiniciarlo."
+            )
+
+        # Segundo intento: kill + launch
+        try:
+            await self.quit(index)
+            await self.launch(index)
+            await self._wait_for_device_ready(index, timeout)
+        except TimeoutError:
+            raise RuntimeError(
+                f"El dispositivo {index} sigue sin estar listo después de kill+launch. Marcado como fail."
+            )
+
+    # ==================================================================
     # Perfiles de configuración: initial-root / ready
     # ==================================================================
     async def initial_root(self, index: int) -> Dict:
         """
         Perfil de desarrollo: root + depuración ADB + máximos recursos
-        (6 núcleos / 8192 MB) + resolución tipo mobile (540x960).
+        (4 núcleos / 8192 MB) + resolución tipo mobile (540x960).
+        Espera a que el dispositivo esté completamente arrancado antes de continuar,
+        con reintento automático en caso de timeout.
         """
         await asyncio.to_thread(
             LDConsole.modify, index, 4, 8192, "540,960,240", None
@@ -347,6 +390,10 @@ class InstanceService:
         )
         data_store.delete_health(index)
         ADBController.invalidate_serial(index)
+
+        # 👇 NUEVO: esperar a que el dispositivo esté listo (con kill retry)
+        await self._wait_for_device_ready_with_kill_retry(index)
+
         result = {
             "index": index,
             "cpu": 4,
@@ -381,6 +428,7 @@ class InstanceService:
             },
         )
         return result
+
     async def make_ready(self, index: int) -> Dict:
         await asyncio.to_thread(LDConsole.modify, index, 3, 3072, None, None)
         data_store.delete_health(index)
@@ -391,6 +439,7 @@ class InstanceService:
             instance_record_store.record_profile, index, {"cpu": 3, "memory": 3072}
         )
         return {"index": index, "cpu": 3, "memory": 3072}
+
 
 # Instancia única (singleton)
 instance_service = InstanceService()
