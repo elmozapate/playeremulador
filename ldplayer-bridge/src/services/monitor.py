@@ -20,6 +20,7 @@ from core.adb import ADBController
 from core.data_store import data_store
 from core.runtime_state import runtime_state
 from services.instance_service import instance_service
+from services.instance_record_store import instance_record_store
 
 # Se ignoran a propósito window_handle/bound_handle: cambian en cada
 # reboot/relaunch sin que eso sea relevante para "salud" del dispositivo.
@@ -91,7 +92,9 @@ class InstanceMonitor:
             health = await instance_service.get_health(idx, use_cache=True)
             entry = {**inst, "battery": health.get("battery")}
             snapshot[key] = entry
-
+            await asyncio.to_thread(
+                instance_record_store.schedule_next_check, idx, runtime_state.monitor_interval
+            )
             prev = self._last_snapshot.get(key)
             if prev is None:
                 if self._initialized:
@@ -108,6 +111,7 @@ class InstanceMonitor:
         data_store.write_status_snapshot(snapshot)
         instance_service.prune_health_cache(active_indices)
         ADBController.prune(active_indices)
+        await asyncio.to_thread(instance_record_store.prune, active_indices)
 
         if not self._initialized:
             runtime_state.log_always(f"[monitor] iniciado: {len(instances)} instancia(s) detectada(s)")

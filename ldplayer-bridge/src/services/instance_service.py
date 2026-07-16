@@ -1,11 +1,14 @@
 import asyncio
 import time
+import os
 from typing import Dict, List, Optional
 from config import settings
 from core.ldplayer import LDConsole
 from core.adb import ADBController
 from core.data_store import data_store
 from core.runtime_state import runtime_state
+from services.instance_record_store import instance_record_store
+
 
 
 class InstanceNotFoundError(Exception):
@@ -38,20 +41,24 @@ class InstanceService:
     async def launch(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.launch, index)
         ADBController.invalidate_serial(index)
+        await asyncio.to_thread(instance_record_store.record_launch, index)
 
     async def reboot(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.reboot, index)
         data_store.delete_health(index)
         ADBController.invalidate_serial(index)
+        await asyncio.to_thread(instance_record_store.record_reboot, index)
 
     async def quit(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.quit, index)
         data_store.delete_health(index)
         ADBController.invalidate_serial(index)
+        await asyncio.to_thread(instance_record_store.record_quit, index)
 
     async def install_app(self, index: int, apk_path: str) -> None:
         await asyncio.to_thread(LDConsole.install_app, index, apk_path)
-
+        apk_id = os.path.splitext(os.path.basename(apk_path))[0]
+        await asyncio.to_thread(instance_record_store.record_apk, index, apk_id, "installed", apk_path)
     async def run_app(self, index: int, package_name: str) -> None:
         await asyncio.to_thread(LDConsole.run_app, index, package_name)
 
@@ -96,6 +103,7 @@ class InstanceService:
                 health["battery_error"] = str(e)
 
         data_store.write_health(index, health)
+        await asyncio.to_thread(instance_record_store.record_health, index, inst["name"], health)
         return health
 
     def prune_health_cache(self, active_indices: set) -> None:
@@ -196,13 +204,19 @@ class InstanceService:
     # Apps: extras que no cubre ldconsole
     # ==================================================================
     async def uninstall_app(self, index: int, package_name: str) -> str:
-        return await asyncio.to_thread(ADBController.uninstall_app, index, package_name)
+        result = await asyncio.to_thread(ADBController.uninstall_app, index, package_name)
+        await asyncio.to_thread(instance_record_store.record_apk, index, package_name, "uninstalled")
+        return result
 
     async def force_stop_app(self, index: int, package_name: str) -> str:
-        return await asyncio.to_thread(ADBController.force_stop, index, package_name)
+        result = await asyncio.to_thread(ADBController.force_stop, index, package_name)
+        await asyncio.to_thread(instance_record_store.record_apk, index, package_name, "force_stopped")
+        return result
 
     async def clear_app_data(self, index: int, package_name: str) -> str:
-        return await asyncio.to_thread(ADBController.clear_app_data, index, package_name)
+        result = await asyncio.to_thread(ADBController.clear_app_data, index, package_name)
+        await asyncio.to_thread(instance_record_store.record_apk, index, package_name, "data_cleared")
+        return result
 
     async def list_apps(self, index: int, only_third_party: bool = True) -> List[str]:
         return await asyncio.to_thread(ADBController.list_packages, index, only_third_party)
@@ -211,14 +225,18 @@ class InstanceService:
         return await asyncio.to_thread(ADBController.get_current_app, index)
 
     async def grant_permission(self, index: int, package_name: str, permission: str) -> str:
-        return await asyncio.to_thread(
+        result = await asyncio.to_thread(
             ADBController.grant_permission, index, package_name, permission
         )
+        await asyncio.to_thread(instance_record_store.record_permission, index, package_name, permission, True)
+        return result
 
     async def revoke_permission(self, index: int, package_name: str, permission: str) -> str:
-        return await asyncio.to_thread(
+        result = await asyncio.to_thread(
             ADBController.revoke_permission, index, package_name, permission
         )
+        await asyncio.to_thread(instance_record_store.record_permission, index, package_name, permission, False)
+        return result
 
     async def set_play_protect(self, index: int, disable: bool) -> str:
         return await asyncio.to_thread(ADBController.set_play_protect, index, disable)
@@ -312,17 +330,18 @@ class InstanceService:
         except Exception as e:
             result["root_active"] = False
             result["root_error"] = str(e)
+        await asyncio.to_thread(
+            instance_record_store.add_event, index, "profile", "Perfil aplicado: initial-root (cpu=4 mem=8192)"
+        )
         return result
 
     async def make_ready(self, index: int) -> Dict:
-        """
-        Perfil 'ready': recursos estándar de uso (3 núcleos / 3072 MB).
-        No toca resolución ni root — solo ajusta CPU/RAM.
-        """
         await asyncio.to_thread(LDConsole.modify, index, 3, 3072, None, None)
         data_store.delete_health(index)
+        await asyncio.to_thread(
+            instance_record_store.add_event, index, "profile", "Perfil aplicado: ready (cpu=3 mem=3072)"
+        )
         return {"index": index, "cpu": 3, "memory": 3072}
-
 
 # Instancia única (singleton)
 instance_service = InstanceService()

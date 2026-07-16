@@ -1,6 +1,7 @@
 'use strict';
 const eventBus = require('../../utils/eventBus');
 const appsConfigStore = require('../appsConfigStore');
+const { instanceRecordStore } = require('../instanceRecordStore');
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -44,21 +45,39 @@ async function waitForAdbReady(client, index, opts) {
         (lastErr ? ` - último error: ${lastErr.message}` : '')
     );
 }
+
 async function runSetupForInstance(client, index, options) {
-    // apps: si no viene explícito en `options`, se toma la config
-    // persistida (o los defaults si nunca se editó nada).
     const opts = { ...DEFAULT_OPTIONS, apps: appsConfigStore.readApps(), ...options };
     const results = { index, steps: [], ok: true, error: null };
+    let recordTaskId = null;
+    try {
+        recordTaskId = await instanceRecordStore.addTask(index, 'pipeline:setup', { steps: [] });
+    } catch (err) {
+        emitStep(index, 'record-store', 'error', { error: err.message });
+    }
+    const syncRecord = async (status) => {
+        if (!recordTaskId) return;
+        try {
+            await instanceRecordStore.updateTask(index, recordTaskId, status, {
+                steps: results.steps,
+                error: results.error,
+            });
+        } catch (err) {
+            emitStep(index, 'record-store', 'error', { error: err.message });
+        }
+    };
     const step = async (name, fn) => {
         emitStep(index, name, 'start');
         try {
             const data = await fn();
             results.steps.push({ name, ok: true });
             emitStep(index, name, 'ok', { data });
+            await syncRecord('running');
             return data;
         } catch (err) {
             results.steps.push({ name, ok: false, error: err.message });
             emitStep(index, name, 'error', { error: err.message });
+            await syncRecord('running');
             throw err;
         }
     };
@@ -85,8 +104,10 @@ async function runSetupForInstance(client, index, options) {
         results.error = err.message;
         emitStep(index, 'pipeline', 'failed', { error: err.message });
     }
+    await syncRecord(results.ok ? 'done' : 'failed');
     return results;
 }
+
 async function runSetupPipeline(client, indices, options = {}) {
     const list = Array.isArray(indices) ? indices : [indices];
     const opts = { ...DEFAULT_OPTIONS, apps: appsConfigStore.readApps(), ...options };
