@@ -7,6 +7,7 @@ const { PythonServiceManager } = require('./services/pythonServiceManager');
 const HealthScheduler = require('./services/healthScheduler');
 const { attachSocketIO } = require('./sockets');
 const eventBus = require('./utils/eventBus');
+const pythonBridgeSocket = require('./services/pythonBridgeSocket');
 async function main() {
   const manager = config.pythonProcess.manage ? new PythonServiceManager() : null;
   const { app, client, poller } = createServer({ manager });
@@ -23,6 +24,9 @@ async function main() {
       console.error('[manager] seguimos igual: podés levantarlo manualmente con POST /api/service/start');
     }
   }
+  
+  pythonBridgeSocket.connect();
+
   poller.start();
   healthScheduler.start();
   const server = app.listen(config.node.port, config.node.host, () => {
@@ -34,7 +38,8 @@ async function main() {
     console.log(`\n[node] recibido ${signal}, apagando...`);
     healthScheduler.stop();
     poller.stop();
-    try {
+   pythonBridgeSocket.close();
+ try {
       await fetch(`${config.python.rootUrl}/api/v1/debug/system/shutdown-snapshot`, { method: 'POST' });
     } catch (e) { console.warn('[node] no se pudo pedir snapshot final a Python:', e.message); }
     server.close();

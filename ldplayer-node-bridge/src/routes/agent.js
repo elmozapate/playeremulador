@@ -76,7 +76,6 @@ function buildAgentRouter() {
         `${tag} · tick deviceId=${deviceId.slice(0, 8)} instance=${agent.instanceIndex ?? '?'} status=${status}`
       ));
     }
-    sseHub.broadcast('agent:heartbeat', agent);
     return res.json({ ok: true });
   });
 

@@ -185,7 +185,9 @@ function upsertHeartbeat({
   if (record.instanceIndex !== null) deviceByIndex.set(record.instanceIndex, deviceId);
   devices.set(deviceId, record);
   _syncAgentRecord(record);
+  eventBus.emit('agent:heartbeat', decorate(record));
   return decorate(record);
+
 }
 function listDevices() {
   return Array.from(devices.values()).map(decorate);

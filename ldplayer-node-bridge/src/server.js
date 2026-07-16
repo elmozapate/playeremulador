@@ -12,6 +12,8 @@ const buildServiceRouter = require('./routes/service.js');
 const buildEventsRouter = require('./routes/events.js');
 const buildDebugRouter = require('./routes/debug.js');
 const buildAppsConfigRouter = require('./routes/appsConfig.js');
+const buildInstanceModelRouter = require('./routes/instanceModel.js');
+require('./services/instanceModelStore');
 const buildAgentRouter = require('./routes/agent.js');
 const buildTasksRouter = require('./routes/tasks.js');
 const deviceRegistry = require('./services/deviceRegistry.js');
@@ -44,6 +46,7 @@ function createServer({ manager } = {}) {
   app.use('/events', buildEventsRouter());
   app.use('/api/pipeline', buildPipelineRouter(client));
   app.use('/api/tasks', buildTasksRouter(client));
+app.use('/api/instance-model', buildInstanceModelRouter());
   if (manager) {
     app.use('/api/service', buildServiceRouter(manager));
   }

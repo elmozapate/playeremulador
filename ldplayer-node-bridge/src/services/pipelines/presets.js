@@ -74,7 +74,7 @@ const PRESETS = {
         { type: 'tool', values: { tool_action: 'battery_get' } },
         { type: 'verify', values: { tool_action: 'bluetooth_get', expect_path: 'enabled', expect_value: false } },
         { type: 'tool', values: { tool_action: 'apps_current' } },
-        runStep(target),
+         { type: 'run', values: { package_name: target.package_name } },
         { type: 'note', values: { text: `Chequeo de salud completo (${target.package_name})` } },
       ],
     };

@@ -14,7 +14,8 @@ const config = {
     apiBaseUrl: process.env.PYTHON_API_BASE_URL || 'http://127.0.0.1:8000/api/v1',
     rootUrl: process.env.PYTHON_ROOT_URL || 'http://127.0.0.1:8000',
     requestTimeoutMs: parseInt(process.env.PYTHON_REQUEST_TIMEOUT_MS || '15000', 10),
-  },
+  wsUrl: process.env.PYTHON_WS_URL || null, // si no se define, se deriva de rootUrl + /ws/bridge
+   },
   pythonProcess: {
     manage: bool(process.env.PYTHON_MANAGE_PROCESS, true),
     pythonBin: process.env.PYTHON_BIN || 'python',
