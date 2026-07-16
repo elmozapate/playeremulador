@@ -7,7 +7,7 @@ from config import settings
 from services.monitor import monitor
 from services.window_service import window_service
 from services.ws_bridge import router as ws_bridge_router, bridge as ws_bridge
-from routers.monitor_router import router as monitor_router
+from api.monitor_router import router as monitor_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
