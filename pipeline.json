@@ -3,7 +3,9 @@
     "steps": [
         {
             "type": "initial_root",
-            "values": {}
+            "values": {
+                "timeoutSec": 30
+            }
         },
         {
             "type": "wait",

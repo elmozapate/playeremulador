@@ -152,3 +152,5 @@ async def make_ready(index: int):
         return {"success": True, "message": "Instancia configurada como ready", **result}
     except Exception as e:
         _raise_for(e)
+
+        

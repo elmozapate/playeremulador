@@ -82,7 +82,7 @@ const PRESETS = {
   setup_completo: () => ({
     name: 'Setup completo (Root + Apps)',
     steps: [
-      { type: 'initial_root', values: {} },
+      { type: 'initial_root', values: {"timeoutSec": 30} },
       { type: 'wait_root_ready', values: { timeoutSec: 120, pollSec: 3, graceSec: 5 } },
       { type: 'wait', values: { seconds: 5 } },
       { type: 'tool', values: { tool_action: 'bluetooth_set', enable: 'false' } },
@@ -103,7 +103,7 @@ const PRESETS = {
     steps: [
       { type: 'launch', values: { bootTimeoutSec: 90 } },
       { type: 'wait', values: { seconds: 5 } },
-      { type: 'initial_root', values: {} },
+      { type: 'initial_root', values: {timeoutSec: 30 } },
       { type: 'wait_root_ready', values: { timeoutSec: 120, pollSec: 3, graceSec: 5 } },
       { type: 'wait', values: { seconds: 10 } },
       { type: 'quit', values: {} },
