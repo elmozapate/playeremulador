@@ -97,13 +97,40 @@ class ADBController:
     # ADB DEVICES / CONEXIÓN BAJO NIVEL
     # ================================================================
 
+    ADB_TIMEOUT_S = 15
+    # Errores que SÍ significan "el serial cambió / la conexión se cayó" y
+    # justifican invalidar cache + reintentar. Todo lo demás es un fallo
+    # legítimo del comando (ej. "su -c id" sin root, "am start" de una app
+    # inexistente) y NO debe reintentarse.
+    _CONNECTION_ERROR_MARKERS = (
+        "device offline",
+        "device not found",
+        "not found",
+        "no devices/emulators found",
+        "protocol fault",
+        "connection reset",
+        "closed",
+        "device unauthorized",
+    )
     @staticmethod
     def _run_adb(*args):
-        return subprocess.run(
-            [settings.ADB_PATH, *args],
-            capture_output=True,
-            text=True,
-        )
+        try:
+            return subprocess.run(
+                [settings.ADB_PATH, *args],
+                capture_output=True,
+                text=True,
+                timeout=ADBController.ADB_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            class _TimedOut:
+                returncode = -1
+                stdout = ""
+                stderr = f"timeout tras {ADBController.ADB_TIMEOUT_S}s ejecutando adb {' '.join(args)}"
+            return _TimedOut()
+    @staticmethod
+    def _is_connection_error(stderr: str) -> bool:
+        low = (stderr or "").lower()
+        return any(marker in low for marker in ADBController._CONNECTION_ERROR_MARKERS)
 
     @staticmethod
     def _get_devices() -> list[str]:
@@ -459,46 +486,26 @@ class ADBController:
 
     @staticmethod
     def shell(index: int, command: str) -> str:
-
         serial = ADBController.resolve_serial(index)
-
-        result = ADBController._run_adb(
-            "-s",
-            serial,
-            "shell",
-            command,
-        )
-
+        result = ADBController._run_adb("-s", serial, "shell", command)
         if result.returncode == 0:
             return result.stdout
-
+        if not ADBController._is_connection_error(result.stderr):
+            # Fallo legítimo del comando, no del transporte ADB: NO reintentar.
+            raise RuntimeError(
+                f"ADB shell error index={index} serial={serial}: {result.stderr.strip()}"
+            )
         runtime_state.log_always(
-            f"[ADB] shell fallo index={index} "
-            f"serial={serial}: {result.stderr.strip()}"
+            f"[ADB] shell fallo de conexión index={index} "
+            f"serial={serial}: {result.stderr.strip()} -> reintentando con serial fresco"
         )
-
-        # El serial pudo cambiar después de reboot/quit/launch
         ADBController.invalidate_serial(index)
-
-        serial = ADBController.resolve_serial(
-            index,
-            force=True,
-        )
-
-        result = ADBController._run_adb(
-            "-s",
-            serial,
-            "shell",
-            command,
-        )
-
+        serial = ADBController.resolve_serial(index, force=True)
+        result = ADBController._run_adb("-s", serial, "shell", command)
         if result.returncode != 0:
             raise RuntimeError(
-                f"ADB shell error index={index} "
-                f"serial={serial}: "
-                f"{result.stderr.strip()}"
+                f"ADB shell error index={index} serial={serial}: {result.stderr.strip()}"
             )
-
         return result.stdout
 
     @staticmethod
@@ -523,28 +530,23 @@ class ADBController:
     # COMANDOS ADB NO-SHELL (install / uninstall) CON MISMO RETRY
     # ================================================================
 
-    @staticmethod
+   @staticmethod
     def _run_adb_on_device(index: int, *args) -> subprocess.CompletedProcess:
-        """Ejecuta un comando adb (no `shell`) contra el serial resuelto,
-        con el mismo reintento que `shell()` en caso de fallo."""
-
+        """Ejecuta un comando adb (no `shell`) contra el serial resuelto.
+        Solo reintenta si el fallo indica un problema de conexión/serial."""
         serial = ADBController.resolve_serial(index)
-
         result = ADBController._run_adb("-s", serial, *args)
-
         if result.returncode == 0:
             return result
-
+        if not ADBController._is_connection_error(result.stderr):
+            return result  # fallo legítimo (ej. "Failure [INSTALL_FAILED_...]"): no reintentar
         runtime_state.log_always(
-            f"[ADB] comando fallo index={index} "
-            f"serial={serial}: {result.stderr.strip()}"
+            f"[ADB] comando con fallo de conexión index={index} "
+            f"serial={serial}: {result.stderr.strip()} -> reintentando"
         )
-
         ADBController.invalidate_serial(index)
         serial = ADBController.resolve_serial(index, force=True)
-
         return ADBController._run_adb("-s", serial, *args)
-
     # ------------------------------------------------------------------
     # Batería
     # ------------------------------------------------------------------
@@ -687,12 +689,20 @@ class ADBController:
 
     @staticmethod
     def is_screen_on(index: int) -> bool:
-        output = ADBController.shell(index, "dumpsys power")
-        match = re.search(r"mHoldingDisplaySuspendBlocker=(\w+)", output)
+        # mWakefulness es el indicador directo del power manager; más estable
+        # entre versiones de Android que mHoldingDisplaySuspendBlocker.
+        output = ADBController.shell(index, "dumpsys power | grep mWakefulness")
+        if "mWakefulness=Awake" in output:
+            return True
+        if "mWakefulness=" in output:
+            return False
+        # Fallback si el grep no devolvió nada (shell distinto, permisos, etc.)
+        full = ADBController.shell(index, "dumpsys power")
+        match = re.search(r"mHoldingDisplaySuspendBlocker=(\w+)", full)
         if match:
             return match.group(1) == "true"
-        return "mWakefulness=Awake" in output
-
+        return "mWakefulness=Awake" in full
+        
     # ------------------------------------------------------------------
     # Input: teclas, texto, gestos
     # ------------------------------------------------------------------

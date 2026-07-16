@@ -1,3 +1,5 @@
+/* ===== src\index.js ===== */
+
 'use strict';
 const config = require('./config');
 const createServer = require('./server');
@@ -32,6 +34,9 @@ async function main() {
     console.log(`\n[node] recibido ${signal}, apagando...`);
     healthScheduler.stop();
     poller.stop();
+    try {
+      await fetch(`${config.python.rootUrl}/api/v1/debug/system/shutdown-snapshot`, { method: 'POST' });
+    } catch (e) { console.warn('[node] no se pudo pedir snapshot final a Python:', e.message); }
     server.close();
     if (manager) {
       await manager.stop();

@@ -266,6 +266,12 @@ class LDPlayerClient {
   getDebugStatus() {
     return this._request('GET', '/debug/status');
   }
+  getLastSession() {
+    return this._request('GET', '/debug/system/last-session');
+  }
+  shutdownSnapshot() {
+    return this._request('POST', '/debug/system/shutdown-snapshot');
+  }
   toggleDebug(enable) {
     return this._request('POST', '/debug/toggle', { body: { enable } });
   }

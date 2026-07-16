@@ -158,6 +158,11 @@ class InstanceRecordStore {
     });
   }
 
+  async recordAgent(index, agentInfo) {
+    return this.update(index, (r) => {
+      r.agent = { ...agentInfo, updated_at: Date.now() / 1000 };
+    });
+  }
   async addTask(index, taskType, detail = null) {
     const taskId = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
     await this.update(index, (r) => {

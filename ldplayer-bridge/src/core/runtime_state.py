@@ -1,12 +1,10 @@
 """
 Estado runtime configurable sin reiniciar el proceso: modo debug (verbose
 logging), TTL del health cache y el intervalo del monitor de background.
-
 Persistencia: cualquier cambio hecho en caliente (vía POST /api/v1/debug/*)
 se guarda en DATA_DIR/config/runtime.json (ver core.data_store) para que
 sobreviva a un reinicio del proceso. Al arrancar, si existe ese archivo,
 sus valores pisan los defaults de settings.
-
 Logging: log() solo sale por stdout si debug está activo; log_always()
 sale siempre por stdout (esto es lo que Node captura del proceso Python
 y reenvía por consola/SSE). AMBOS se guardan siempre en
@@ -18,7 +16,6 @@ import time
 from config import settings
 from core.data_store import data_store
 
-
 class RuntimeState:
     def __init__(self, initial_debug: bool, initial_health_ttl: float, initial_monitor_interval: float):
         self._lock = threading.Lock()
@@ -26,6 +23,8 @@ class RuntimeState:
         self._debug = persisted.get("debug", initial_debug)
         self._health_ttl = persisted.get("health_cache_ttl", initial_health_ttl)
         self._monitor_interval = persisted.get("monitor_interval", initial_monitor_interval)
+        # Modo reposo – se persiste junto con el resto de la config
+        self._sleep_mode = persisted.get("sleep_mode", False)
 
     @property
     def debug(self) -> bool:
@@ -60,12 +59,26 @@ class RuntimeState:
             self._monitor_interval = value
         self._persist_config()
 
+    # ---------- NUEVO: modo reposo ----------
+    @property
+    def sleep_mode(self) -> bool:
+        with self._lock:
+            return self._sleep_mode
+
+    @sleep_mode.setter
+    def sleep_mode(self, value: bool) -> None:
+        with self._lock:
+            self._sleep_mode = value
+        self._persist_config()
+    # ----------------------------------------
+
     def _persist_config(self) -> None:
         with self._lock:
             data = {
                 "debug": self._debug,
                 "health_cache_ttl": self._health_ttl,
                 "monitor_interval": self._monitor_interval,
+                "sleep_mode": self._sleep_mode,   # incluimos el nuevo campo
             }
         data_store.write_runtime_config(data)
 

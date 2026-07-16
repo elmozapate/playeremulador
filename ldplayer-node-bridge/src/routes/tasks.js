@@ -1,24 +1,28 @@
+/* ===== src\routes\tasks.js ===== */
+
 'use strict';
 const express = require('express');
 const eventBus = require('../utils/eventBus');
-// @ts-check
-// eslint-disable-next-line no-unused-vars
-const _schemas = require('../schemas/tasks'); // referencia de shapes, ver JSDoc del archivo
 const jobStore = require('../services/pipelines/jobStore');
 const { runJob, cancelJob } = require('../services/pipelines/jobRunner');
 const { STEP_TYPES } = require('../services/pipelines/stepTypes');
 const { listPresets, buildPreset } = require('../services/pipelines/presets');
 
+const recentJobs = new Map();
+// limpieza periódica de la caché de deduplicación
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of recentJobs.entries()) {
+    if (now - entry.timestamp > 30000) recentJobs.delete(key);
+  }
+}, 10000).unref();
+
 function buildTasksRouter(client) {
   const router = express.Router();
-
   router.get('/step-types', (req, res) => {
     res.json(Object.entries(STEP_TYPES).map(([type, def]) => ({ type, label: def.label })));
   });
- // @ts-check
-// eslint-disable-next-line no-unused-vars
   router.get('/presets', (req, res) => res.json(listPresets()));
-
   router.post('/presets/:id/run', (req, res) => {
     const { indices, parallel, params } = req.body || {};
     if (!Array.isArray(indices) || indices.length === 0) {
@@ -37,41 +41,56 @@ function buildTasksRouter(client) {
     runJob(client, job.id).catch((err) => console.error('[tasks] error corriendo job:', err.message));
     res.status(202).json({ ok: true, jobId: job.id });
   });
-
   router.post('/', (req, res) => {
-    const { name, steps, indices, parallel, meta } = req.body || {};
+    const { name, steps, indices, parallel, meta, client_request_id } = req.body || {};
+
+    // deduplicación por client_request_id (válido por 10s)
+    if (client_request_id) {
+      const cached = recentJobs.get(client_request_id);
+      if (cached && (Date.now() - cached.timestamp < 10000)) {
+        return res.status(200).json({ ok: true, status: 'duplicate', jobId: cached.jobId, payload: cached.job });
+      }
+    }
+
     if (!Array.isArray(steps) || steps.length === 0) {
       return res.status(400).json({ error: 'steps requerido (array)' });
     }
-    if (!Array.isArray(indices) || indices.length === 0) {
-      return res.status(400).json({ error: 'indices requerido (array de números)' });
+    const badStep = steps.find(
+      (s) => !s || typeof s.type !== 'string' || (s.values !== undefined && typeof s.values !== 'object')
+    );
+    if (badStep) {
+      return res.status(400).json({
+        error: 'cada step necesita "type" (string) y opcionalmente "values" (object)',
+        step: badStep,
+      });
+    }
+    if (!Array.isArray(indices) || indices.length === 0 || indices.some((i) => !Number.isFinite(Number(i)))) {
+      return res.status(400).json({ error: 'indices requerido (array de números finitos)' });
     }
     const job = jobStore.createJob({ name, steps, indices: indices.map(Number), parallel: !!parallel, meta });
+    if (client_request_id) {
+      recentJobs.set(client_request_id, { jobId: job.id, job, timestamp: Date.now() });
+    }
     eventBus.emit('job:created', { jobId: job.id, name: job.name, indices: job.indices });
     runJob(client, job.id).catch((err) => console.error('[tasks] error corriendo job:', err.message));
     res.status(202).json({ ok: true, jobId: job.id });
   });
-
   router.get('/', (req, res) => {
     res.json(jobStore.listJobs().map((j) => ({
       id: j.id, name: j.name, status: j.status, indices: j.indices,
       parallel: j.parallel, createdAt: j.createdAt, startedAt: j.startedAt, finishedAt: j.finishedAt,
     })));
   });
-
   router.get('/:id', (req, res) => {
     const job = jobStore.getJob(req.params.id);
     if (!job) return res.status(404).json({ error: 'no encontrado' });
     res.json(job);
   });
-
   router.post('/:id/cancel', (req, res) => {
     const job = cancelJob(req.params.id);
     if (!job) return res.status(404).json({ error: 'no encontrado' });
     res.json({ ok: true, jobId: job.id, cancelled: true });
   });
-
   return router;
 }
-
 module.exports = buildTasksRouter;

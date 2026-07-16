@@ -120,6 +120,9 @@ class InstanceRecordStore:
             "updated_at": None,
             "updated_by": None,
             "health": {},
+            "profile": {},
+            "installed_apps": {},
+            "agent": {},
             "schedule": {
                 "next_check_at": None,
                 "last_reboot_at": None,
@@ -207,6 +210,26 @@ class InstanceRecordStore:
             r["apks"][apk_id] = entry
         self.update(index, _fn)
 
+    def record_profile(self, index: int, profile: Dict[str, Any]) -> None:
+        """Persiste el perfil actualmente aplicado (cpu, memory, resolution,
+        root, adb_debug). Se llama desde instance_service.modify()/
+        initial_root()/make_ready() con los valores realmente aplicados."""
+        def _fn(r):
+            current = r.setdefault("profile", {})
+            current.update({k: v for k, v in profile.items() if v is not None})
+            current["updated_at"] = time.time()
+        self.update(index, _fn)
+    def record_installed_apps(self, index: int, packages: List[str]) -> None:
+        """Inventario periódico de apps instaladas (ver monitor.py)."""
+        def _fn(r):
+            r["installed_apps"] = {"packages": packages, "checked_at": time.time()}
+        self.update(index, _fn)
+    def record_agent(self, index: int, agent_info: Dict[str, Any]) -> None:
+        """Cruce con el deviceRegistry de Node: qué agente/heartbeat
+        corresponde a esta instancia."""
+        def _fn(r):
+            r["agent"] = {**agent_info, "updated_at": time.time()}
+        self.update(index, _fn)
     def record_permission(self, index: int, package_name: str, permission: str, granted: bool) -> None:
         def _fn(r):
             pkg = r["permissions"].setdefault(package_name, {})

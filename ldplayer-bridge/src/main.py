@@ -10,6 +10,8 @@ from services.monitor import monitor
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from services.instance_record_store import instance_record_store
+    instance_record_store.clear_orphan_locks()
     await monitor.start()
     yield
     await monitor.stop()

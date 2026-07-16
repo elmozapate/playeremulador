@@ -1,11 +1,9 @@
 """
 Refresca en background el estado de todas las instancias (polling) y lo
 persiste en disco (DATA_DIR/status/all.json vía core.data_store).
-
 v3: sin cache en memoria — Node lee directo el archivo compartido. El
 intervalo de refresco sale de runtime_state.monitor_interval (configurable
 en caliente vía POST /api/v1/debug/monitor-interval y persistido en disco).
-
 v4: el ciclo ahora compara cada snapshot contra el anterior (en memoria) y
 SOLO loguea (vía runtime_state.log_always, siempre visible por stdout ->
 Node lo captura y lo reenvía por consola/SSE) cuando detecta un cambio
@@ -25,18 +23,22 @@ from services.instance_record_store import instance_record_store
 # Se ignoran a propósito window_handle/bound_handle: cambian en cada
 # reboot/relaunch sin que eso sea relevante para "salud" del dispositivo.
 _WATCHED_INSTANCE_FIELDS = ("android_started", "pid", "vbox_pid", "name")
-
 # Se deja afuera "temperature_c": fluctúa naturalmente y ensuciaría el
 # log sin aportar nada accionable.
 _WATCHED_BATTERY_FIELDS = ("level", "status", "health")
 
-
+# Cada cuántos ciclos de refresh se re-inventarían las apps instaladas por
+# instancia (evita pegarle a `pm list packages` en cada tick de 5s). Con
+# monitor_interval=5s, 12 ciclos ~= 1 minuto; se recalcula sobre el
+# intervalo real así que sigue siendo aprox aunque cambie en caliente.
+APPS_INVENTORY_EVERY_N_CYCLES = 12
 class InstanceMonitor:
     def __init__(self):
         self._running = False
         self._task: Optional[asyncio.Task] = None
         self._last_snapshot: Dict[str, Dict[str, Any]] = {}
         self._initialized = False
+        self._cycle_count = 0
 
     async def start(self) -> None:
         if self._running:
@@ -55,6 +57,11 @@ class InstanceMonitor:
 
     async def _loop(self) -> None:
         while self._running:
+            # --- Modo reposo: no tocar ADB, casi sin CPU ---
+            if runtime_state.sleep_mode:
+                await asyncio.sleep(15)      # chequeo ligero cada 15s
+                continue
+            # -----------------------------------------------
             try:
                 await self._refresh()
             except Exception as e:  # noqa: BLE001 - no tumbar el loop de monitoreo
@@ -83,18 +90,29 @@ class InstanceMonitor:
         active_indices = {inst["index"] for inst in instances}
         snapshot: Dict[str, Any] = {}
         changes: List[str] = []
-
+        self._cycle_count += 1
+        do_inventory = self._initialized and (self._cycle_count % APPS_INVENTORY_EVERY_N_CYCLES == 0)
         for inst in instances:
             idx = inst["index"]
             key = str(idx)
-            # use_cache=True: solo pega a ADB si el health en disco venció
-            # (runtime_state.health_ttl). Evita golpear ADB de más.
-            health = await instance_service.get_health(idx, use_cache=True)
-            entry = {**inst, "battery": health.get("battery")}
+            if inst.get("android_started"):
+                # use_cache=True: solo pega a ADB si el health en disco venció
+                health = await instance_service.get_health(idx, use_cache=True)
+                entry = {**inst, "battery": health.get("battery")}
+            else:
+                entry = {**inst, "battery": None}
             snapshot[key] = entry
             await asyncio.to_thread(
                 instance_record_store.schedule_next_check, idx, runtime_state.monitor_interval
             )
+            if do_inventory and inst.get("android_started"):
+                try:
+                    packages = await instance_service.list_apps(idx, only_third_party=True)
+                    await asyncio.to_thread(
+                        instance_record_store.record_installed_apps, idx, packages
+                    )
+                except Exception as e:
+                    runtime_state.log(f"[monitor] no se pudo inventariar apps de index={idx}: {e}")
             prev = self._last_snapshot.get(key)
             if prev is None:
                 if self._initialized:
@@ -103,16 +121,13 @@ class InstanceMonitor:
                 diff = self._diff_instance(prev, entry)
                 if diff:
                     changes.append(f"index={idx} -> {diff}")
-
         for key in self._last_snapshot:
             if key not in snapshot:
                 changes.append(f"index={key} -> instancia ya no existe (cerrada o eliminada)")
-
         data_store.write_status_snapshot(snapshot)
         instance_service.prune_health_cache(active_indices)
         ADBController.prune(active_indices)
         await asyncio.to_thread(instance_record_store.prune, active_indices)
-
         if not self._initialized:
             runtime_state.log_always(f"[monitor] iniciado: {len(instances)} instancia(s) detectada(s)")
             self._initialized = True
@@ -121,7 +136,6 @@ class InstanceMonitor:
                 runtime_state.log_always(f"[monitor] cambio detectado: {change}")
         else:
             runtime_state.log(f"[monitor] refresh ok: sin cambios ({len(instances)} instancias activas)")
-
         self._last_snapshot = snapshot
 
     def invalidate(self, index: int) -> None:

@@ -22,6 +22,7 @@ function buildDebugRouter(client) {
   };
 
   router.get('/status', handle(() => client.getDebugStatus()));
+  router.get('/last-session', handle(() => client.getLastSession()));
 
   router.post('/toggle', handle((req) => {
     const { enable } = req.body || {};

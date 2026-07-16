@@ -48,14 +48,18 @@ function createServer({ manager } = {}) {
     app.use('/api/service', buildServiceRouter(manager));
   }
   app.get('/api/status/combined', async (req, res) => {
-    const instances = (await client.listInstances?.()) ?? [];
     const agents = deviceRegistry.listDevices();
-    const arr = Array.isArray(instances) ? instances : instances?.instances || [];
-    const withAgents = arr.map((inst) => {
-      const index = inst.index ?? inst.Index ?? inst.idx;
-      return { ...inst, agent: deviceRegistry.getDeviceByIndex(index) };
-    });
-    res.json({ instances: withAgents, agents });
+    try {
+      const instances = (await client.listInstances?.()) ?? [];
+      const arr = Array.isArray(instances) ? instances : instances?.instances || [];
+      const withAgents = arr.map((inst) => {
+        const index = inst.index ?? inst.Index ?? inst.idx;
+        return { ...inst, agent: deviceRegistry.getDeviceByIndex(index) };
+      });
+      res.json({ instances: withAgents, agents });
+    } catch (err) {
+      res.status(502).json({ error: `No se pudo obtener status combinado: ${err.message}`, agents });
+    }
   });
   app.use(express.static(require('path').resolve(__dirname, '..', 'public')));
   app.use((err, req, res, next) => {

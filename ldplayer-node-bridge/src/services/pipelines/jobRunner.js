@@ -7,12 +7,30 @@ const jobStore = require('./jobStore');
 // Mutex simple: "una encendida a la vez" entre TODOS los jobs
 class Mutex {
   constructor() { this._locked = false; this._queue = []; }
-  acquire() {
-    return new Promise((resolve) => {
+  acquire(timeoutMs = 5 * 60_000) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let timer = null;
       const tryAcquire = () => {
-        if (!this._locked) { this._locked = true; resolve(() => this._release()); }
-        else this._queue.push(tryAcquire);
+        if (settled) return;
+        if (!this._locked) {
+          settled = true;
+          if (timer) clearTimeout(timer);
+          this._locked = true;
+          resolve(() => this._release());
+        } else {
+          this._queue.push(tryAcquire);
+        }
       };
+      if (timeoutMs) {
+        timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          const i = this._queue.indexOf(tryAcquire);
+          if (i !== -1) this._queue.splice(i, 1);
+          reject(new Error(`timeout esperando el mutex de power (${timeoutMs}ms)`));
+        }, timeoutMs);
+      }
       tryAcquire();
     });
   }
@@ -34,7 +52,7 @@ function buildCtx(client, job, index) {
     isCancelled() { return job.cancelled; },
     sleep(ms) { return cancelableSleep(ms, () => job.cancelled); },
     async acquirePower(idx) {
-      const release = await powerMutex.acquire();
+      const release = await powerMutex.acquire(5 * 60_000);
       powerReleasers.set(idx, release);
     },
     releasePower(idx) {

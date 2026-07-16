@@ -1,3 +1,5 @@
+/* ===== src\services\pipelines\stepTypes.js ===== */
+
 'use strict';
 const { findToolAction } = require('./toolActions');
 const {
@@ -12,18 +14,7 @@ function getByPath(obj, path) {
   return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
 }
 
-/**
- * Cada step recibe (index, values, ctx) donde ctx trae:
- *  - client: instancia de LDPlayerClient
- *  - log(msg): loggea una línea asociada a esta instancia/job
- *  - isCancelled(): true si el job fue cancelado
- *  - sleep(ms): espera cancelable
- *  - acquirePower(index) / releasePower(index): slot de "una encendida a la vez"
- *  - waitForBoot(index, timeoutMs)
- *
- * Debe devolver { ok, detail?, abort? }
- *  - ok=false + abort=true corta el pipeline para ESA instancia (no las demás).
- */
+
 const STEP_TYPES = {
   note: {
     label: '📝 Nota',

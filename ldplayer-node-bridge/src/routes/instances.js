@@ -25,11 +25,17 @@ function buildInstancesRouter(client, poller) {
 
   const emitAction = (action, index, result) => {
     eventBus.emit('instance:action', { action, index, result, ts: Date.now() });
-    // Refrescamos el snapshot para que la UI vea el cambio ~inmediatamente
-    // en vez de esperar al próximo tick del poller.
     poller.refreshNow().catch(() => { });
   };
-
+  const idx = (req) => {
+    const n = Number(req.params.index);
+    if (!Number.isFinite(n)) {
+      const e = new Error(`index inválido: "${req.params.index}"`);
+      e.status = 400;
+      throw e;
+    }
+    return n;
+  };
   router.get('/', handle(() => client.listInstances()));
 
   router.post('/quitall', handle(async () => {
@@ -37,11 +43,8 @@ function buildInstancesRouter(client, poller) {
     emitAction('quitall', null, result);
     return result;
   }));
-
-  router.get('/:index', handle((req) => client.getInstance(Number(req.params.index))));
-
-  router.get('/:index/health', handle((req) => client.getHealth(Number(req.params.index))));
-
+router.get('/:index', handle((req) => client.getInstance(idx(req))));
+  router.get('/:index/health', handle((req) => client.getHealth(idx(req))));
   router.post('/:index/launch', handle(async (req) => {
     const result = await client.launch(Number(req.params.index));
     emitAction('launch', Number(req.params.index), result);

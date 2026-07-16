@@ -709,7 +709,6 @@
 
 <body>
   <script src="/socket.io/socket.io.js"></script>
-
   <header class="topbar">
     <div class="brand">
       <span class="dot"></span>
@@ -725,10 +724,10 @@
         <button class="small" onclick="serviceAction('start')">Start</button>
         <button class="small" onclick="serviceAction('stop')">Stop</button>
         <button class="small" onclick="serviceAction('restart')">Restart</button>
+        <button class="small violet" onclick="toggleSleepMode()">🌙 Reposo</button>
       </div>
     </div>
   </header>
-
   <section class="panel">
     <p class="panel-title panel-header" id="panelApps-header" onclick="togglePanel('panelApps')">
       <span class="chevron">▶</span>
@@ -755,7 +754,6 @@
       </div>
     </div>
   </section>
-
   <section class="panel">
     <p class="panel-title panel-header" id="panelSeleccion-header" onclick="togglePanel('panelSeleccion')">
       <span class="chevron">▶</span>
@@ -771,7 +769,6 @@
       </div>
     </div>
   </section>
-
   <section class="panel">
     <p class="panel-title panel-header" id="panelEncendido-header" onclick="togglePanel('panelEncendido')">
       <span class="chevron">▶</span>
@@ -802,7 +799,6 @@
       </div>
     </div>
   </section>
-
   <section class="panel">
     <p class="panel-title panel-header" id="panelInstalacion-header" onclick="togglePanel('panelInstalacion')">
       <span class="chevron">▶</span>
@@ -843,7 +839,6 @@
       </div>
     </div>
   </section>
-
   <section class="panel">
     <p class="panel-title panel-header" id="panelMonitor-header" onclick="togglePanel('panelMonitor')">
       <span class="chevron">▶</span>
@@ -892,7 +887,6 @@
       </div>
     </div>
   </section>
-
   <section class="panel">
     <p class="panel-title panel-header" id="panelPipeline-header" onclick="togglePanel('panelPipeline')">
       <span class="chevron">▶</span>
@@ -906,7 +900,6 @@
           <input type="text" id="pipelineNameInput" value="Mi pipeline" style="width:220px"
             oninput="currentPipeline.name = this.value" />
         </div>
-        <button class="violet" onclick="runHealthCheckDirect()">🏥 Health Check (directo)</button>
         <button onclick="loadPreset('encendido')">Preset: Encendido</button>
         <button onclick="loadPreset('instalacion')">Preset: Instalación</button>
         <button onclick="loadPreset('monitor')">Preset: Con monitor</button>
@@ -932,9 +925,7 @@
         <button id="serverStopBtn" class="ghost" onclick="stopPipelineOnServer()" disabled>■ Detener (servidor)</button>
         <span class="chain-status-pill" id="serverStatus">Inactivo</span>
       </div>
-
       <div id="pipelineStepsList" style="margin-top: 1rem; display:flex; flex-direction:column; gap:.6rem;"></div>
-
       <div class="row" style="margin-top:.8rem;">
         <select id="newStepTypeSelect"></select>
         <button class="teal" onclick="addStep(document.getElementById('newStepTypeSelect').value)">+ Agregar
@@ -942,7 +933,6 @@
       </div>
     </div>
   </section>
-
   <section class="panel">
     <p class="panel-title">Instancias <span class="hint">— "🛠️ Tools" agrupa batería / radios / ubicación / pantalla /
         input / apps (todo lo que usa ADB). "🌱 Root Inicial" y "✅ Ready" configuran el perfil de recursos/depuración
@@ -969,7 +959,6 @@
       </table>
     </div>
   </section>
-
   <section class="panel">
     <div class="row" style="justify-content:space-between;">
       <p class="panel-title" style="margin:0;">Log</p>
@@ -977,12 +966,10 @@
     </div>
     <div id="log" style="margin-top:.8rem;"></div>
   </section>
-
   <!-- Contenedor de modales -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal-box" id="modalBox"></div>
   </div>
-
   <!-- Modal de ejecución (cadenas / pipeline): muestra estado + consola + botón de detener -->
   <div class="modal-overlay" id="execOverlay">
     <div class="modal-box" id="execBox">
@@ -995,7 +982,6 @@
       </div>
     </div>
   </div>
-
   <script>
     // ---- Config fija de APKs para la cadena de instalación (orden: socks primero, earn después) ----
     // Tiempo real vía SSE
@@ -1003,7 +989,6 @@
       { label: 'socks', apk_path: 'C:\\playeremulador\\apks\\soks.apk' },
       { label: 'earn', apk_path: 'C:\\playeremulador\\apks\\earn.apk' },
     ];
-
     // ---- Config fija para la cadena "Iniciar con monitor" ----
     // La tercera app (monitor) no solo se instala: se abre, se espera y se cierra.
     const MONITOR_CHAIN_APKS = [
@@ -1014,14 +999,12 @@
         packageName: 'com.chataolutions.app',
       },
     ];
-
     // ---- Config fija para "Root Inicial + Setup de apps" (orden: socks -> earn -> monitor) ----
     const SETUP_CHAIN_APKS = [
       { label: 'socks', apk_path: 'C:\\playeremulador\\apks\\soks.apk' },
       { label: 'earn', apk_path: 'C:\\playeremulador\\apks\\earn.apk' },
       { label: 'monitor (app-debug)', apk_path: 'C:\\playeremulador\\apks\\app-debug.apk' },
     ];
-
     // ==================================================================
     // APPS CONOCIDAS — evita tener que escribir la ruta / package name
     // cada vez que instalás, abrís o cerrás una app. Se usan en:
@@ -1040,7 +1023,6 @@
       { id: 'monitor', label: 'Monitor (app-debug)', apk_path: 'C:\\playeremulador\\apks\\app-debug.apk', package_name: 'com.chataolutions.app' },
     ];
     let KNOWN_APPS = DEFAULT_KNOWN_APPS.map((a) => ({ ...a }));
-
     const logEl = document.getElementById('log');
     function log(line, cls) {
       const span = cls ? `<span class="${cls}">${line}</span>` : line;
@@ -1057,7 +1039,6 @@
       const v = Number(el?.value);
       return Number.isFinite(v) && v >= 0 ? v : fallback;
     }
-
     async function postJSON(url, body) {
       const r = await fetch(url, {
         method: 'POST',
@@ -1078,7 +1059,20 @@
       if (!obj || !path) return undefined;
       return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
     }
-
+    // ==================================================================
+    // MODO REPOSO (Python) — no apaga, no monitorea ADB, prioridad baja.
+    // ==================================================================
+    let sleepModeOn = false;
+    async function toggleSleepMode() {
+      const { ok, payload } = await postJSON('/api/debug/sleep', { enable: !sleepModeOn, lower_priority: true });
+      if (ok) {
+        sleepModeOn = !!payload?.sleep_mode;
+        toast(sleepModeOn ? 'Python en modo reposo' : 'Python activo de nuevo', sleepModeOn ? 'warn' : 'ok');
+        log(`[sleep] modo reposo -> ${sleepModeOn ? 'ON' : 'OFF'}`, sleepModeOn ? 'warn' : 'ok');
+      } else {
+        toast('No se pudo cambiar el modo reposo', 'bad');
+      }
+    }
     // ==================================================================
     // PANELES COLAPSABLES — todos los modos/paneles arriba de "Instancias"
     // y "Log" empiezan cerrados; se abren/cierran clickeando el título.
@@ -1091,7 +1085,6 @@
       'panelMonitor',
       'panelPipeline',
     ];
-
     function togglePanel(id) {
       const body = document.getElementById(id);
       const header = document.getElementById(`${id}-header`);
@@ -1101,7 +1094,6 @@
       const chevron = header.querySelector('.chevron');
       if (chevron) chevron.textContent = isOpen ? '▼' : '▶';
     }
-
     function openPanel(id) {
       const body = document.getElementById(id);
       const header = document.getElementById(`${id}-header`);
@@ -1111,7 +1103,6 @@
       const chevron = header.querySelector('.chevron');
       if (chevron) chevron.textContent = '▼';
     }
-
     function initCollapsiblePanels() {
       // Cerrados por default: no hace falta tocar nada más que asegurarse
       // de que el chevron arranque apuntando a la derecha (▶).
@@ -1121,7 +1112,6 @@
         if (chevron) chevron.textContent = '▶';
       }
     }
-
     // ==================================================================
     // MODAL DE EJECUCIÓN — usado por las cadenas (encendido / instalación
     // / monitor / setup) y por el pipeline runner. Muestra el estado
@@ -1136,7 +1126,6 @@
     const execCloseBtn = document.getElementById('execCloseBtn');
     let execModalOpen = false;
     let execStopHandler = null;
-
     function openExecModal(title, stopFn) {
       execTitleEl.textContent = title;
       execStatusEl.textContent = 'Estado: corriendo';
@@ -1148,31 +1137,26 @@
       execModalOpen = true;
       execOverlay.classList.add('show');
     }
-
     function execLog(line, cls) {
       if (!execModalOpen) return;
       const span = cls ? `<span class="${cls}">${line}</span>` : line;
       execConsoleEl.innerHTML += span + '\n';
       execConsoleEl.scrollTop = execConsoleEl.scrollHeight;
     }
-
     function execSetStatus(text) {
       if (execModalOpen) execStatusEl.textContent = text;
     }
-
     function finishExecModal(text) {
       if (!execModalOpen) return;
       execSetStatus(text || 'Estado: finalizado');
       execStopBtn.style.display = 'none';
       execCloseBtn.style.display = '';
     }
-
     function closeExecModal() {
       execModalOpen = false;
       execOverlay.classList.remove('show');
       execStopHandler = null;
     }
-
     execStopBtn.addEventListener('click', () => {
       if (execStopHandler) {
         execStopHandler();
@@ -1181,7 +1165,6 @@
       }
     });
     execCloseBtn.addEventListener('click', closeExecModal);
-
     // ==================================================================
     // TOASTS — feedback rápido además del log
     // ==================================================================
@@ -1206,60 +1189,42 @@
         setTimeout(() => el.remove(), 200);
       }, 2600);
     }
-
     // ==================================================================
     // MODALES — reemplazo genérico de prompt()/alert() con UI interactiva
     // ==================================================================
     const modalOverlay = document.getElementById('modalOverlay');
     const modalBox = document.getElementById('modalBox');
-
-    // FIX: antes esta función hacía `overlay.innerHTML = ''`. Como modalBox
-    // vive DENTRO del overlay, eso borraba el nodo #modalBox del DOM para
-    // siempre. La primera vez que abrías un modal funcionaba porque el nodo
-    // todavía existía; la segunda vez, showModal() seguía escribiendo sobre
-    // la referencia vieja de `modalBox`, que ya no estaba enganchada a nada
-    // visible -> el modal "no abría" (parecía cerrarse solo). Ahora sólo
-    // limpiamos el contenido de modalBox, nunca el overlay completo.
     function closeModal() {
       modalOverlay.classList.remove('show');
       modalBox.innerHTML = '';
     }
-
-    // config = { title, subtitle, fields: [{id,label,type,value,placeholder,options,unit,min,step,onChange}], confirmLabel, danger }
-    // onChange(value, fieldEls) permite que un campo actualice otro (ej: elegir una "app conocida" autocompleta la ruta/package).
     function showModal(config) {
       return new Promise((resolve) => {
         modalBox.innerHTML = '';
-
         const title = document.createElement('p');
         title.className = 'modal-title';
         title.textContent = config.title;
         modalBox.appendChild(title);
-
         if (config.subtitle) {
           const sub = document.createElement('p');
           sub.className = 'modal-sub';
           sub.textContent = config.subtitle;
           modalBox.appendChild(sub);
         }
-
         if (config.warning) {
           const warn = document.createElement('div');
           warn.className = 'modal-warning';
           warn.textContent = config.warning;
           modalBox.appendChild(warn);
         }
-
         const fieldEls = {};
         for (const f of config.fields || []) {
           const wrap = document.createElement('div');
           wrap.className = 'modal-field';
-
           const label = document.createElement('label');
           label.textContent = f.label;
           label.setAttribute('for', `mf-${f.id}`);
           wrap.appendChild(label);
-
           let input;
           if (f.type === 'select') {
             input = document.createElement('select');
@@ -1287,14 +1252,11 @@
           }
           modalBox.appendChild(wrap);
         }
-
         const errorEl = document.createElement('div');
         errorEl.className = 'modal-error';
         modalBox.appendChild(errorEl);
-
         const btns = document.createElement('div');
         btns.className = 'modal-btns';
-
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'ghost';
         cancelBtn.textContent = 'Cancelar';
@@ -1302,7 +1264,6 @@
           closeModal();
           resolve(null);
         };
-
         const confirmBtn = document.createElement('button');
         confirmBtn.className = config.danger ? 'danger' : 'primary';
         confirmBtn.textContent = config.confirmLabel || 'Confirmar';
@@ -1321,27 +1282,22 @@
           closeModal();
           resolve(result);
         };
-
         btns.appendChild(cancelBtn);
         btns.appendChild(confirmBtn);
         modalBox.appendChild(btns);
-
         modalOverlay.classList.add('show');
         const firstInput = modalBox.querySelector('input, select');
         if (firstInput) setTimeout(() => firstInput.focus(), 30);
       });
     }
-
     function confirmModal(title, subtitle, confirmLabel, danger, warning) {
       return showModal({ title, subtitle, fields: [], confirmLabel: confirmLabel || 'Confirmar', danger, warning });
     }
-
     modalOverlay.addEventListener('click', (e) => {
       if (e.target === modalOverlay) {
         closeModal();
       }
     });
-
     // ==================================================================
     // Acciones de servicio / instancia
     // ==================================================================
@@ -1349,17 +1305,14 @@
       const r = await fetch(`/api/service/${action}`, { method: 'POST' });
       log(`[service] ${action} -> ${r.status}`);
     }
-
     async function instanceAction(index, action) {
       const r = await fetch(`/api/instances/${index}/${action}`, { method: 'POST' });
       log(`[instances] ${action} #${index} -> ${r.status}`);
       return r.status;
     }
-
     function knownAppOptions() {
       return [{ value: '', label: '— manual —' }, ...KNOWN_APPS.map((a) => ({ value: a.id, label: a.label }))];
     }
-
     // --- Instalar APK (modal con selector de app conocida + ruta manual) ---
     async function installApk(index) {
       const result = await showModal({
@@ -1381,7 +1334,6 @@
       const { status, payload } = await postJSON(`/api/instances/${index}/install`, { apk_path: result.apk_path });
       log(`[instances] install #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
     }
-
     // --- Correr una app instalada (modal con selector de app conocida + package manual) ---
     async function runApp(index) {
       const result = await showModal({
@@ -1403,7 +1355,6 @@
       const { status, payload } = await postJSON(`/api/instances/${index}/run`, { package_name: result.package_name });
       log(`[instances] run #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
     }
-
     // --- Modificar CPU / memoria / resolución (modal interactivo) ---
     async function modifyInstance(index) {
       const result = await showModal({
@@ -1441,7 +1392,6 @@
         ],
       });
       if (!result) return;
-
       const body = {};
       if (result.cpu) body.cpu = Number(result.cpu);
       if (result.memory) body.memory = Number(result.memory);
@@ -1455,7 +1405,6 @@
       const { status, payload } = await postJSON(`/api/instances/${index}/modify`, body);
       log(`[instances] modify #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
     }
-
     // --- Clonar instancia (modal) ---
     async function cloneInstance(index) {
       const result = await showModal({
@@ -1470,7 +1419,6 @@
       const { status, payload } = await postJSON(`/api/instances/${index}/clone`, { new_name: result.new_name || null });
       log(`[instances] clone #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
     }
-
     async function killApp(index) {
       const result = await showModal({
         title: `Cerrar app — instancia #${index}`,
@@ -1492,14 +1440,9 @@
       const { status, payload } = await postJSON(`/api/instances/${index}/kill`, { package_name: result.package_name });
       log(`[instances] kill #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
     }
-
     // ==================================================================
     // PERFILES — Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)
     //           y Ready (3 núcleos + 3072MB)
-    // Ambos pegan a endpoints compuestos del backend (Python), que ya se
-    // encargan de aplicar todo en un solo paso. Como `modify`/`root` en
-    // LDPlayer suele aplicarse mejor con la instancia apagada, avisamos
-    // en el modal y sugerimos reiniciar después si hace falta.
     // ==================================================================
     async function initialRootInstance(index) {
       const ok = await confirmModal(
@@ -1520,7 +1463,6 @@
         toast(`#${index}: falló Root Inicial`, 'bad');
       }
     }
-
     async function makeReadyInstance(index) {
       const ok = await confirmModal(
         `✅ Ready — instancia #${index}`,
@@ -1540,7 +1482,6 @@
         toast(`#${index}: falló Ready`, 'bad');
       }
     }
-
     // ==================================================================
     // Gestión de Apps conocidas (panel superior)
     // ==================================================================
@@ -1566,7 +1507,6 @@
         body.appendChild(tr);
       }
     }
-
     async function openAppFormModal(appId) {
       const existing = appId ? KNOWN_APPS.find((a) => a.id === appId) : null;
       const result = await showModal({
@@ -1594,7 +1534,6 @@
       toast(`App "${result.label}" ${existing ? 'actualizada' : 'agregada'}`, 'ok');
       log(`[apps] "${result.label}" ${existing ? 'actualizada' : 'agregada'}`, 'ok');
     }
-
     function deleteKnownApp(appId) {
       const app = KNOWN_APPS.find((a) => a.id === appId);
       KNOWN_APPS = KNOWN_APPS.filter((a) => a.id !== appId);
@@ -1604,7 +1543,6 @@
       toast(`App "${app?.label ?? appId}" borrada`, 'warn');
       log(`[apps] "${app?.label ?? appId}" borrada`, 'warn');
     }
-
     async function loadKnownApps() {
       const hintEl = document.getElementById('appsSyncHint');
       try {
@@ -1621,7 +1559,6 @@
       renderKnownApps();
       renderInstances(Object.values(instancesByIndex));
     }
-
     async function syncKnownAppsToBackend() {
       const hintEl = document.getElementById('appsSyncHint');
       try {
@@ -1633,10 +1570,8 @@
         if (r.ok && hintEl) hintEl.textContent = '(sincronizado con el backend)';
       } catch {
         // El backend puede no tener todavía GET/PUT /api/config/apps.
-        // No pasa nada: seguimos funcionando en memoria sin problema.
       }
     }
-
     // --- Quick actions: instalar / abrir / cerrar una app conocida directo desde la fila ---
     function selectedQuickApp(index) {
       const sel = document.getElementById(`qa-${index}`);
@@ -1667,32 +1602,24 @@
       log(`[quick] cerrar "${app.label}" en #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`, ok ? 'ok' : 'bad');
       toast(ok ? `Cerrando ${app.label} en #${index}` : `Falló cerrar ${app.label} en #${index}`, ok ? 'ok' : 'bad');
     }
-
     // ==================================================================
     // TOOLS — todo lo que pega contra ADB (batería, radios, ubicación,
-    // pantalla, input, apps) + Perfiles (Root Inicial / Ready). Requiere
-    // que la instancia esté con Android arriba (android_started === true);
-    // si no, ni se abre el modal. También se reutiliza como catálogo de
-    // "acciones" dentro del pipeline runner (pasos tipo "tool" y "verify").
+    // pantalla, input, apps) + Perfiles (Root Inicial / Ready).
     // ==================================================================
     const TOOL_ACTIONS = [
-      // Batería
       { id: 'battery_get', group: 'Batería', label: '🔋 Consultar estado', method: 'get', path: i => `/api/instances/${i}/battery`, fields: [] },
       { id: 'battery_level', group: 'Batería', label: '🔋 Fijar nivel', method: 'post', path: i => `/api/instances/${i}/battery/level`, fields: [{ id: 'level', label: 'Nivel (0-100)', type: 'number', min: 0, max: 100, value: 80, required: true }], body: v => ({ level: Number(v.level) }) },
       { id: 'battery_status', group: 'Batería', label: '🔋 Fijar estado', method: 'post', path: i => `/api/instances/${i}/battery/status`, fields: [{ id: 'status', label: 'Estado', type: 'select', value: 'charging', options: [{ value: 'charging' }, { value: 'discharging' }, { value: 'not_charging' }, { value: 'full' }, { value: 'unknown' }] }], body: v => ({ status: v.status }) },
       { id: 'battery_reset', group: 'Batería', label: '🔋 Restaurar (deshacer sets)', method: 'post', path: i => `/api/instances/${i}/battery/reset`, fields: [] },
-      // Radios
       { id: 'bluetooth_get', group: 'Radios', label: '📶 Bluetooth — consultar', method: 'get', path: i => `/api/instances/${i}/bluetooth`, fields: [] },
       { id: 'bluetooth_set', group: 'Radios', label: '📶 Bluetooth — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/bluetooth`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
       { id: 'wifi_get', group: 'Radios', label: '📡 WiFi — consultar', method: 'get', path: i => `/api/instances/${i}/wifi`, fields: [] },
       { id: 'wifi_set', group: 'Radios', label: '📡 WiFi — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/wifi`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
       { id: 'mobile_data', group: 'Radios', label: '📱 Datos móviles — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/mobile-data`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
       { id: 'airplane_mode', group: 'Radios', label: '✈️ Modo avión — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/airplane-mode`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
-      // Ubicación / sensores
       { id: 'gps_set', group: 'Ubicación', label: '📍 GPS — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/gps`, fields: [{ id: 'enable', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Activar' }, { value: 'false', label: 'Desactivar' }] }], body: v => ({ enable: v.enable === 'true' }) },
       { id: 'geo_set', group: 'Ubicación', label: '📍 Simular ubicación', method: 'post', path: i => `/api/instances/${i}/geo`, fields: [{ id: 'lat', label: 'Latitud', type: 'number', step: '0.000001', required: true }, { id: 'lon', label: 'Longitud', type: 'number', step: '0.000001', required: true }], body: v => ({ lat: Number(v.lat), lon: Number(v.lon) }) },
       { id: 'rotation_lock', group: 'Ubicación', label: '🔒 Rotación — bloquear/liberar', method: 'post', path: i => `/api/instances/${i}/rotation-lock`, fields: [{ id: 'locked', label: 'Estado', type: 'select', value: 'true', options: [{ value: 'true', label: 'Bloquear' }, { value: 'false', label: 'Libre' }] }], body: v => ({ locked: v.locked === 'true' }) },
-      // Interfaz
       { id: 'brightness', group: 'Interfaz', label: '🔆 Brillo (0-255)', method: 'post', path: i => `/api/instances/${i}/brightness`, fields: [{ id: 'level', label: 'Nivel', type: 'number', min: 0, max: 255, value: 150, required: true }], body: v => ({ level: Number(v.level) }) },
       { id: 'screen_timeout', group: 'Interfaz', label: '⏱️ Timeout de pantalla (ms)', method: 'post', path: i => `/api/instances/${i}/screen-timeout`, fields: [{ id: 'ms', label: 'Milisegundos', type: 'number', min: 1000, value: 30000, required: true }], body: v => ({ ms: Number(v.ms) }) },
       { id: 'volume', group: 'Interfaz', label: '🔊 Volumen', method: 'post', path: i => `/api/instances/${i}/volume`, fields: [{ id: 'stream', label: 'Stream', type: 'select', value: 'music', options: [{ value: 'music' }, { value: 'ring' }, { value: 'alarm' }, { value: 'notification' }, { value: 'system' }, { value: 'voice_call' }] }, { id: 'level', label: 'Nivel (0-15)', type: 'number', min: 0, max: 15, value: 8, required: true }], body: v => ({ stream: v.stream, level: Number(v.level) }) },
@@ -1700,13 +1627,11 @@
       { id: 'screen_on', group: 'Interfaz', label: '🖥️ Pantalla — encender', method: 'post', path: i => `/api/instances/${i}/screen/on`, fields: [] },
       { id: 'screen_off', group: 'Interfaz', label: '🖥️ Pantalla — apagar', method: 'post', path: i => `/api/instances/${i}/screen/off`, fields: [] },
       { id: 'screen_get', group: 'Interfaz', label: '🖥️ Pantalla — consultar', method: 'get', path: i => `/api/instances/${i}/screen`, fields: [] },
-      // Input
       { id: 'input_key', group: 'Input', label: '⌨️ Tecla (nombre o keycode)', method: 'post', path: i => `/api/instances/${i}/input/key`, fields: [{ id: 'keycode', label: 'Keycode', type: 'text', placeholder: 'back / home / 4', required: true }], body: v => ({ keycode: isNaN(Number(v.keycode)) ? v.keycode : Number(v.keycode) }) },
       { id: 'input_text', group: 'Input', label: '⌨️ Insertar texto', method: 'post', path: i => `/api/instances/${i}/input/text`, fields: [{ id: 'text', label: 'Texto', type: 'text', required: true }], body: v => ({ text: v.text }) },
       { id: 'input_tap', group: 'Input', label: '👆 Tap', method: 'post', path: i => `/api/instances/${i}/input/tap`, fields: [{ id: 'x', label: 'X', type: 'number', required: true }, { id: 'y', label: 'Y', type: 'number', required: true }], body: v => ({ x: Number(v.x), y: Number(v.y) }) },
       { id: 'input_swipe', group: 'Input', label: '👆 Swipe', method: 'post', path: i => `/api/instances/${i}/input/swipe`, fields: [{ id: 'x1', label: 'X1', type: 'number', required: true }, { id: 'y1', label: 'Y1', type: 'number', required: true }, { id: 'x2', label: 'X2', type: 'number', required: true }, { id: 'y2', label: 'Y2', type: 'number', required: true }, { id: 'duration_ms', label: 'Duración (ms)', type: 'number', value: 300 }], body: v => ({ x1: Number(v.x1), y1: Number(v.y1), x2: Number(v.x2), y2: Number(v.y2), duration_ms: Number(v.duration_ms) || 300 }) },
       { id: 'input_long_press', group: 'Input', label: '👆 Long press', method: 'post', path: i => `/api/instances/${i}/input/long-press`, fields: [{ id: 'x', label: 'X', type: 'number', required: true }, { id: 'y', label: 'Y', type: 'number', required: true }, { id: 'duration_ms', label: 'Duración (ms)', type: 'number', value: 800 }], body: v => ({ x: Number(v.x), y: Number(v.y), duration_ms: Number(v.duration_ms) || 800 }) },
-      // Apps
       { id: 'apps_list', group: 'Apps', label: '📦 Listar apps instaladas', method: 'get', path: i => `/api/instances/${i}/apps`, fields: [{ id: 'only_third_party', label: 'Solo de terceros', type: 'select', value: 'true', options: [{ value: 'true', label: 'Sí' }, { value: 'false', label: 'No (incluir sistema)' }] }], query: v => `?only_third_party=${v.only_third_party}` },
       { id: 'apps_current', group: 'Apps', label: '📦 App en primer plano', method: 'get', path: i => `/api/instances/${i}/apps/current`, fields: [] },
       { id: 'apps_uninstall', group: 'Apps', label: '📦 Desinstalar', method: 'post', path: i => `/api/instances/${i}/apps/uninstall`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }], body: v => ({ package_name: v.package_name }) },
@@ -1716,51 +1641,27 @@
       { id: 'apps_revoke', group: 'Apps', label: '🔑 Revocar permiso', method: 'post', path: i => `/api/instances/${i}/apps/permissions/revoke`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }, { id: 'permission', label: 'Permiso', type: 'text', required: true }], body: v => ({ package_name: v.package_name, permission: v.permission }) },
       { id: 'play_protect', group: 'Apps', label: '🛡️ Play Protect — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/apps/play-protect`, fields: [{ id: 'disable', label: 'Acción', type: 'select', value: 'true', options: [{ value: 'true', label: 'Desactivar' }, { value: 'false', label: 'Activar' }] }], body: v => ({ disable: v.disable === 'true' }) },
       { id: 'run_reliable', group: 'Apps', label: '🚀 Abrir (modo confiable, con fallback ADB)', method: 'post', path: i => `/api/instances/${i}/apps/run-reliable`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }, { id: 'activity', label: 'Activity (opcional)', type: 'text' }, { id: 'timeout_s', label: 'Timeout (s)', type: 'number', value: 6 }], body: v => ({ package_name: v.package_name, activity: v.activity || null, timeout_s: Number(v.timeout_s) || 6 }) },
-      // Perfiles (configuración compuesta: root/debug/recursos)
       { id: 'root_status', group: 'Perfiles', label: '🔎 Estado root/ADB — consultar', method: 'get', path: i => `/api/instances/${i}/root/status`, fields: [] },
       { id: 'initial_root', group: 'Perfiles', label: '🌱 Configurar como Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)', method: 'post', path: i => `/api/instances/${i}/initial-root`, fields: [] },
       { id: 'make_ready', group: 'Perfiles', label: '✅ Configurar como Ready (3 núcleos + 3072MB)', method: 'post', path: i => `/api/instances/${i}/ready`, fields: [] },
     ];
-
-    // index -> última instancia conocida (para chequear android_started)
     let instancesByIndex = {};
-
-    // ==================================================================
-    // ESTADO DE INSTANCIA — junta en un solo modal:
-    //  1) Lo que ya tenemos guardado en el cliente (instancesByIndex[index]),
-    //     que viene del snapshot cacheado por el poller (SSE status:update
-    //     / carga inicial de /api/status/all) — no pega al backend, es
-    //     instantáneo pero puede estar unos segundos desactualizado.
-    //  2) Lo que devuelve GET /api/instances/:index en vivo (list_instances
-    //     real vía ldconsole, sin cache).
-    //  3) Lo que devuelve GET /api/status/:index (snapshot cacheado del
-    //     poller de Node, separado del cache de arriba).
-    //  4) Lo que devuelve GET /api/instances/:index/health (battery +
-    //     android_started, con su propio cache TTL en el backend Python).
-    // Cada sección se pide independiente y se muestra igual si alguna
-    // falla (por ejemplo si la instancia está apagada y health tira error).
-    // ==================================================================
     function jsonBlock(label, data) {
       const safe = data === undefined ? '(sin datos)' : JSON.stringify(data, null, 2);
       return `<div class="step-subfields-divider">${label}</div><pre style="white-space:pre-wrap; font-family:var(--mono); font-size:.75rem; background:var(--panel-2); padding:.6rem; border-radius:6px; margin:.3rem 0;">${safe}</pre>`;
     }
-
     async function showInstanceState(index) {
       modalBox.innerHTML = '';
-
       const title = document.createElement('p');
       title.className = 'modal-title';
       title.textContent = `ℹ️ Estado — instancia #${index}`;
       modalBox.appendChild(title);
-
       const sub = document.createElement('p');
       sub.className = 'modal-sub';
       sub.textContent = 'Cargando datos locales y del backend...';
       modalBox.appendChild(sub);
-
       const body = document.createElement('div');
       modalBox.appendChild(body);
-
       const btns = document.createElement('div');
       btns.className = 'modal-btns';
       const refreshBtn = document.createElement('button');
@@ -1773,25 +1674,18 @@
       closeBtn.onclick = () => closeModal();
       btns.append(closeBtn, refreshBtn);
       modalBox.appendChild(btns);
-
       modalOverlay.classList.add('show');
-
-      // 1) Lo que ya teníamos guardado localmente, sin pegarle a nada
       const local = instancesByIndex[index] || null;
-
-      // 2/3/4) En paralelo, contra el backend. Cada una puede fallar sola.
       const [liveRes, statusRes, healthRes] = await Promise.allSettled([
         getJSON(`/api/instances/${index}`),
         getJSON(`/api/status/${index}`),
         getJSON(`/api/instances/${index}/health`),
       ]);
-
       const extract = (settled) => {
         if (settled.status !== 'fulfilled') return { error: settled.reason?.message || 'error de red' };
         const { ok, status, payload } = settled.value;
         return ok ? payload : { error: payload?.error || `status ${status}` };
       };
-
       sub.textContent = 'Datos locales (cache del cliente) + backend en vivo.';
       body.innerHTML =
         jsonBlock('1) Local — de la última actualización del panel (SSE / poller)', local) +
@@ -1799,7 +1693,6 @@
         jsonBlock('3) GET /api/status/:index — snapshot cacheado del poller de Node', extract(statusRes)) +
         jsonBlock('4) GET /api/instances/:index/health — batería + android_started (cache TTL del backend Python)', extract(healthRes));
     }
-
     function openTools(index) {
       const inst = instancesByIndex[index];
       if (!inst || inst.android_started !== true) {
@@ -1808,21 +1701,16 @@
       }
       renderToolsModal(index);
     }
-
     function renderToolsModal(index, selectedId) {
       modalBox.innerHTML = '';
-
       const title = document.createElement('p');
       title.className = 'modal-title';
       title.textContent = `🛠️ Tools — instancia #${index}`;
       modalBox.appendChild(title);
-
       const sub = document.createElement('p');
       sub.className = 'modal-sub';
       sub.textContent = 'Todo esto corre sobre ADB; la instancia ya está confirmada como encendida.';
       modalBox.appendChild(sub);
-
-      // Selector de acción, agrupado por categoría
       const selWrap = document.createElement('div');
       selWrap.className = 'modal-field';
       const selLabel = document.createElement('label');
@@ -1830,7 +1718,6 @@
       selWrap.appendChild(selLabel);
       const select = document.createElement('select');
       select.id = 'toolsActionSelect';
-
       const groups = {};
       for (const action of TOOL_ACTIONS) {
         (groups[action.group] ??= []).push(action);
@@ -1849,18 +1736,14 @@
       }
       selWrap.appendChild(select);
       modalBox.appendChild(selWrap);
-
       const fieldsContainer = document.createElement('div');
       modalBox.appendChild(fieldsContainer);
-
       const errorEl = document.createElement('div');
       errorEl.className = 'modal-error';
       modalBox.appendChild(errorEl);
-
       const resultEl = document.createElement('div');
       resultEl.className = 'modal-result';
       modalBox.appendChild(resultEl);
-
       const btns = document.createElement('div');
       btns.className = 'modal-btns';
       const closeBtn = document.createElement('button');
@@ -1873,7 +1756,6 @@
       btns.appendChild(closeBtn);
       btns.appendChild(runBtn);
       modalBox.appendChild(btns);
-
       let fieldEls = {};
       function renderFields(actionId) {
         fieldsContainer.innerHTML = '';
@@ -1912,10 +1794,8 @@
           fieldsContainer.appendChild(wrap);
         }
       }
-
       select.addEventListener('change', () => renderFields(select.value));
       renderFields(select.value);
-
       runBtn.onclick = async () => {
         const action = TOOL_ACTIONS.find((a) => a.id === select.value);
         const values = {};
@@ -1951,13 +1831,10 @@
           runBtn.textContent = 'Ejecutar';
         }
       };
-
       modalOverlay.classList.add('show');
     }
-
     // ---- Selección ----
     let lastKnownIndices = [];
-
     function getCheckbox(index) {
       return document.getElementById(`chk-${index}`);
     }
@@ -1970,7 +1847,6 @@
       const selected = lastKnownIndices.filter((i) => getCheckbox(i)?.checked);
       return selected.length > 0 ? selected : [...lastKnownIndices];
     }
-
     // ---- Apagado masivo (en paralelo, no requiere esperar boot) ----
     async function powerAllOff() {
       const indices = getSelectedIndices();
@@ -1985,7 +1861,6 @@
       log(`[bulk] apagando ${indices.length} instancia(s) en paralelo...`);
       await Promise.all(indices.map((i) => instanceAction(i, 'quit')));
     }
-
     async function killSelectedApps() {
       const indices = getSelectedIndices();
       if (indices.length === 0) { log('[bulk] no hay instancias seleccionadas', 'warn'); return; }
@@ -2004,7 +1879,6 @@
       }
       log(`[bulk] kill ${result.package_name} en ${indices.length} instancia(s)`);
     }
-
     async function waitForAndroidReady(index, timeoutMs, isCancelledFn, pollMs = 3000) {
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
@@ -2017,19 +1891,16 @@
       }
       throw new Error(`timeout esperando boot de #${index}`);
     }
-
     // ==================================================================
-    // CADENA 1: Encendido puro (launch -> esperar boot -> esperar delay -> siguiente)
+    // CADENA 1: Encendido puro
     // ==================================================================
     let powerChainCancelled = false;
     let powerChainRunning = false;
-
     function stopPowerChain() {
       powerChainCancelled = true;
       log('[encendido] deteniendo tras la instancia actual...', 'warn');
       document.getElementById('powerChainStopBtn').disabled = true;
     }
-
     async function runPowerChain() {
       if (powerChainRunning) return;
       const indices = getSelectedIndices();
@@ -2039,7 +1910,6 @@
       }
       const bootTimeoutMs = secInput('powerBootTimeoutSec', 90) * 1000;
       const gapMs = secInput('powerGapSec', 5) * 1000;
-
       powerChainRunning = true;
       powerChainCancelled = false;
       document.getElementById('powerChainBtn').disabled = true;
@@ -2047,20 +1917,16 @@
       document.getElementById('powerChainStatus').textContent = `Corriendo (${indices.length})`;
       document.getElementById('powerChainStatus').classList.add('active');
       openExecModal('🟢 Encendido en cadena', stopPowerChain);
-
       log(`[encendido] iniciando cadena sobre: ${indices.join(', ')}`, 'warn');
-
       try {
         for (const index of indices) {
           if (powerChainCancelled) { log('[encendido] detenida por el usuario', 'warn'); break; }
-
           log(`[encendido] #${index} -> launch`, 'warn');
           const { ok } = await postJSON(`/api/instances/${index}/launch`);
           if (!ok) {
             log(`[encendido] #${index} launch falló, salto a la siguiente`, 'bad');
             continue;
           }
-
           log(`[encendido] #${index} -> esperando boot...`);
           try {
             await waitForAndroidReady(index, bootTimeoutMs, () => powerChainCancelled);
@@ -2070,7 +1936,6 @@
             log(`[encendido] #${index} ${e.message}`, 'bad');
             continue;
           }
-
           if (powerChainCancelled) { log('[encendido] detenida por el usuario', 'warn'); break; }
           log(`[encendido] esperando ${gapMs / 1000}s antes de la siguiente`);
           await sleep(gapMs);
@@ -2085,19 +1950,16 @@
         finishExecModal('Estado: finalizado');
       }
     }
-
     // ==================================================================
-    // CADENA 2: Instalación completa (launch -> boot -> install soks -> delay -> install earn -> quit -> delay -> siguiente)
+    // CADENA 2: Instalación completa
     // ==================================================================
     let chainCancelled = false;
     let chainRunning = false;
-
     function stopChain() {
       chainCancelled = true;
       log('[cadena] deteniendo tras la instancia actual...', 'warn');
       document.getElementById('chainStopBtn').disabled = true;
     }
-
     async function runChainForInstance(index, bootTimeoutMs, installDelayMs, postQuitDelayMs) {
       log(`[cadena] #${index} -> launch`, 'warn');
       const launchRes = await postJSON(`/api/instances/${index}/launch`);
@@ -2105,16 +1967,14 @@
         log(`[cadena] #${index} launch falló (${launchRes.status}), salto a la siguiente`, 'bad');
         return;
       }
-
       log(`[cadena] #${index} -> esperando boot...`);
       try {
         await waitForAndroidReady(index, bootTimeoutMs, () => chainCancelled);
       } catch (e) {
         log(`[cadena] #${index} ${e.message}`, 'bad');
-        return; // no instalamos si no bootea
+        return;
       }
       log(`[cadena] #${index} -> boot OK`, 'ok');
-
       for (let i = 0; i < CHAIN_APKS.length; i++) {
         if (chainCancelled) throw new Error('cancelado');
         const { label, apk_path } = CHAIN_APKS[i];
@@ -2129,14 +1989,11 @@
         log(`[cadena] #${index} -> esperando ${installDelayMs / 1000}s ${isLast ? 'antes de cerrar' : 'antes de instalar la siguiente APK'}`);
         await sleep(installDelayMs);
       }
-
       log(`[cadena] #${index} -> quit`);
       await postJSON(`/api/instances/${index}/quit`);
-
       log(`[cadena] #${index} -> esperando ${postQuitDelayMs / 1000}s antes de la siguiente instancia`);
       await sleep(postQuitDelayMs);
     }
-
     async function runChain() {
       if (chainRunning) return;
       const indices = getSelectedIndices();
@@ -2147,7 +2004,6 @@
       const bootTimeoutMs = secInput('chainBootTimeoutSec', 90) * 1000;
       const installDelayMs = secInput('chainInstallDelaySec', 10) * 1000;
       const postQuitDelayMs = secInput('chainDelaySec', 15) * 1000;
-
       chainRunning = true;
       chainCancelled = false;
       document.getElementById('chainStartBtn').disabled = true;
@@ -2155,9 +2011,7 @@
       document.getElementById('chainStatus').textContent = `Corriendo (${indices.length})`;
       document.getElementById('chainStatus').classList.add('active');
       openExecModal('▶ Cadena de instalación', stopChain);
-
       log(`[cadena] iniciando sobre: ${indices.join(', ')}`, 'warn');
-
       try {
         for (const index of indices) {
           if (chainCancelled) {
@@ -2184,21 +2038,16 @@
         finishExecModal('Estado: finalizado');
       }
     }
-
     // ==================================================================
     // CADENA 3: Iniciar con monitor
-    // launch -> boot -> install monitor -> abrir com.chataolutions.app ->
-    // esperar -> cerrarlo -> delay -> quit -> delay -> siguiente instancia
     // ==================================================================
     let monitorChainCancelled = false;
     let monitorChainRunning = false;
-
     function stopMonitorChain() {
       monitorChainCancelled = true;
       log('[monitor] deteniendo tras la instancia actual...', 'warn');
       document.getElementById('monitorChainStopBtn').disabled = true;
     }
-
     async function runMonitorChainForInstance(index, bootTimeoutMs, installDelayMs, runWaitMs, postQuitDelayMs) {
       log(`[monitor] #${index} -> launch`, 'warn');
       const launchRes = await postJSON(`/api/instances/${index}/launch`);
@@ -2206,7 +2055,6 @@
         log(`[monitor] #${index} launch falló (${launchRes.status}), salto a la siguiente`, 'bad');
         return;
       }
-
       log(`[monitor] #${index} -> esperando boot...`);
       try {
         await waitForAndroidReady(index, bootTimeoutMs, () => monitorChainCancelled);
@@ -2215,11 +2063,9 @@
         return;
       }
       log(`[monitor] #${index} -> boot OK`, 'ok');
-
       for (let i = 0; i < MONITOR_CHAIN_APKS.length; i++) {
         if (monitorChainCancelled) throw new Error('cancelado');
         const { label, apk_path, runAfterInstall, packageName } = MONITOR_CHAIN_APKS[i];
-
         log(`[monitor] #${index} -> instalando ${label} (${apk_path})`);
         const { status, ok, payload } = await postJSON(`/api/instances/${index}/install`, { apk_path });
         if (ok) {
@@ -2227,22 +2073,16 @@
         } else {
           log(`[monitor] #${index} -> ${label} FALLÓ (${status}) ${payload?.error ?? ''}`, 'bad');
         }
-
         if (runAfterInstall && ok) {
           if (monitorChainCancelled) throw new Error('cancelado');
-
           log(`[monitor] #${index} -> esperando 10s antes de abrir ${packageName}`);
           await sleep(10_000);
-
           if (monitorChainCancelled) throw new Error('cancelado');
-
           log(`[monitor] #${index} -> abriendo ${packageName}`, 'warn');
-
           const runRes = await postJSON(
             `/api/instances/${index}/run`,
             { package_name: packageName }
           );
-
           if (runRes.ok) {
             log(`[monitor] #${index} -> ${label} abierto OK`, 'ok');
           } else {
@@ -2251,37 +2091,28 @@
               'bad'
             );
           }
-
           log(`[monitor] #${index} -> esperando ${runWaitMs / 1000}s con el monitor abierto`);
           await sleep(runWaitMs);
-
           if (monitorChainCancelled) throw new Error('cancelado');
-
           log(`[monitor] #${index} -> cerrando ${packageName}`);
-
           const killRes = await postJSON(
             `/api/instances/${index}/kill`,
             { package_name: packageName }
           );
-
           log(
             `[monitor] #${index} -> ${label} cerrado -> ${killRes.status}`,
             killRes.ok ? 'ok' : 'bad'
           );
         }
-
         const isLast = i === MONITOR_CHAIN_APKS.length - 1;
         log(`[monitor] #${index} -> esperando ${installDelayMs / 1000}s ${isLast ? 'antes de cerrar' : 'antes del siguiente paso'}`);
         await sleep(installDelayMs);
       }
-
       log(`[monitor] #${index} -> quit`);
       await postJSON(`/api/instances/${index}/quit`);
-
       log(`[monitor] #${index} -> esperando ${postQuitDelayMs / 1000}s antes de la siguiente instancia`);
       await sleep(postQuitDelayMs);
     }
-
     async function runMonitorChain() {
       if (monitorChainRunning) return;
       const indices = getSelectedIndices();
@@ -2293,7 +2124,6 @@
       const installDelayMs = secInput('monitorInstallDelaySec', 10) * 1000;
       const runWaitMs = secInput('monitorRunWaitSec', 5) * 1000;
       const postQuitDelayMs = secInput('monitorDelaySec', 15) * 1000;
-
       monitorChainRunning = true;
       monitorChainCancelled = false;
       document.getElementById('monitorChainStartBtn').disabled = true;
@@ -2302,9 +2132,7 @@
       statusEl.textContent = `Corriendo (${indices.length})`;
       statusEl.classList.add('active', 'violet-pill');
       openExecModal('🖥️ Iniciar con monitor', stopMonitorChain);
-
       log(`[monitor] iniciando cadena con monitor sobre: ${indices.join(', ')}`, 'warn');
-
       try {
         for (const index of indices) {
           if (monitorChainCancelled) {
@@ -2331,29 +2159,16 @@
         finishExecModal('Estado: finalizado');
       }
     }
-
     // ==================================================================
     // CADENA 4: Root Inicial + Setup de apps
-    // initial-root -> esperar reinicio + ADB listo -> bluetooth off ->
-    // datos móviles off -> Play Protect off -> instalar socks -> earn ->
-    // monitor (en ese orden) -> delay -> siguiente instancia
-    //
-    // OJO: waitForRootReady pega a GET /api/instances/:index/root/status
-    // y busca campos adb_ready/ready/online/connected/status/state.
-    // Ajustalo si tu backend de Python devuelve otra forma.
-    // También asume que "initial-root" ya se encarga de reiniciar la
-    // instancia por su cuenta; si tu backend NO reinicia solo, avisame y
-    // agregamos un "quit" + "launch" explícito antes de esperar el ADB.
     // ==================================================================
     let setupChainCancelled = false;
     let setupChainRunning = false;
-
     function stopSetupChain() {
       setupChainCancelled = true;
       log('[setup] deteniendo tras la instancia actual...', 'warn');
       document.getElementById('setupChainStopBtn').disabled = true;
     }
-
     async function waitForRootReady(index, timeoutMs, pollMs, graceMs, isCancelledFn) {
       await sleep(graceMs);
       const deadline = Date.now() + timeoutMs;
@@ -2375,47 +2190,39 @@
       }
       throw new Error(`timeout esperando ADB listo en #${index}${lastErr ? ' - ' + lastErr.message : ''}`);
     }
-
     async function runSetupChainForInstance(index, opts) {
       const { adbTimeoutMs, pollMs, graceMs, stepDelayMs, installDelayMs, postDelayMs } = opts;
-
       log(`[setup] #${index} -> initial-root`, 'warn');
       const rootRes = await postJSON(`/api/instances/${index}/initial-root`);
       if (!rootRes.ok) {
         log(`[setup] #${index} initial-root falló (${rootRes.status}) ${rootRes.payload?.error ?? ''}, salto a la siguiente`, 'bad');
         return;
       }
-
       log(`[setup] #${index} -> esperando reinicio y ADB listo...`);
       try {
         await waitForRootReady(index, adbTimeoutMs, pollMs, graceMs, () => setupChainCancelled);
       } catch (e) {
         if (e.message === 'cancelado') throw e;
         log(`[setup] #${index} ${e.message}`, 'bad');
-        return; // no seguimos tocando radios/apps si el ADB nunca volvió
+        return;
       }
       log(`[setup] #${index} -> ADB listo`, 'ok');
-
       if (setupChainCancelled) throw new Error('cancelado');
       await sleep(stepDelayMs);
-
       log(`[setup] #${index} -> bluetooth off`);
       const btRes = await postJSON(`/api/instances/${index}/bluetooth`, { enable: false });
       log(`[setup] #${index} -> bluetooth ${btRes.ok ? 'OK' : `FALLÓ (${btRes.status})`}`, btRes.ok ? 'ok' : 'bad');
       await sleep(stepDelayMs);
-
       if (setupChainCancelled) throw new Error('cancelado');
       log(`[setup] #${index} -> datos móviles off`);
       const dataRes = await postJSON(`/api/instances/${index}/mobile-data`, { enable: false });
       log(`[setup] #${index} -> datos móviles ${dataRes.ok ? 'OK' : `FALLÓ (${dataRes.status})`}`, dataRes.ok ? 'ok' : 'bad');
       await sleep(stepDelayMs);
-
       if (setupChainCancelled) throw new Error('cancelado');
       log(`[setup] #${index} -> quitar Play Protect`);
       const ppRes = await postJSON(`/api/instances/${index}/apps/play-protect`, { disable: true });
       log(`[setup] #${index} -> Play Protect ${ppRes.ok ? 'OK' : `FALLÓ (${ppRes.status})`}`, ppRes.ok ? 'ok' : 'bad');
       await sleep(stepDelayMs);
-
       for (let i = 0; i < SETUP_CHAIN_APKS.length; i++) {
         if (setupChainCancelled) throw new Error('cancelado');
         const { label, apk_path } = SETUP_CHAIN_APKS[i];
@@ -2428,11 +2235,9 @@
         }
         await sleep(installDelayMs);
       }
-
       log(`[setup] #${index} -> esperando ${postDelayMs / 1000}s antes de la siguiente instancia`);
       await sleep(postDelayMs);
     }
-
     async function runSetupChain() {
       if (setupChainRunning) return;
       const indices = getSelectedIndices();
@@ -2440,7 +2245,6 @@
         log('[setup] no hay instancias para procesar', 'warn');
         return;
       }
-
       const opts = {
         adbTimeoutMs: secInput('setupAdbTimeoutSec', 120) * 1000,
         pollMs: secInput('setupPollSec', 3) * 1000,
@@ -2449,7 +2253,6 @@
         installDelayMs: secInput('setupInstallDelaySec', 3) * 1000,
         postDelayMs: secInput('setupPostDelaySec', 10) * 1000,
       };
-
       setupChainRunning = true;
       setupChainCancelled = false;
       document.getElementById('setupChainStartBtn').disabled = true;
@@ -2458,9 +2261,7 @@
       statusEl.textContent = `Corriendo (${indices.length})`;
       statusEl.classList.add('active');
       openExecModal('🌱 Setup completo (Root + Apps)', stopSetupChain);
-
       log(`[setup] iniciando setup completo (Root Inicial + apps) sobre: ${indices.join(', ')}`, 'warn');
-
       try {
         for (const index of indices) {
           if (setupChainCancelled) {
@@ -2487,92 +2288,48 @@
         finishExecModal('Estado: finalizado');
       }
     }
-
     // ==================================================================
     // PIPELINE RUNNER — motor genérico de pasos
-    //
-    // Un pipeline es: { name, steps: [ { type, values }, ... ] }
-    // Cada "type" viene de PIPELINE_STEP_TYPES: define sus campos (fields)
-    // y una función exec(index, values, ctx) que hace la acción real
-    // contra la instancia `index`. El motor corre los pasos EN ORDEN para
-    // cada instancia seleccionada (una por una, o en paralelo si tildás
-    // la opción), respetando esperas (wait) e inputs (tap/swipe/texto via
-    // el paso "tool"), y puede abortar solo esa instancia si un "launch"
-    // no bootea o una "verify" falla con "abortar".
-    //
-    // NOTA sobre {index}: cualquier valor de texto de cualquier paso puede
-    // incluir el placeholder "{index}", que se reemplaza automáticamente
-    // por el index real de la instancia justo antes de ejecutar ese paso
-    // (ver runPipelineStepsForInstance). Útil, por ejemplo, para nombres
-    // de dispositivo tipo "LDPlayer-00{index}" en el preset de Registro
-    // Health.
     // ==================================================================
     function appSelectOptions() {
       return [{ value: '', label: '— manual —' }, ...KNOWN_APPS.map((a) => ({ value: a.id, label: a.label }))];
     }
-
-    // ==================================================================
-    // VERIFICACIÓN DE INSTALACIÓN POR ADB — reusa el mismo endpoint que
-    // ya tenía el tool "apps_list" (GET /api/instances/:i/apps), que
-    // devuelve un array de package names instalados, ej:
-    // ["net.typeblog.socks", "com.chataolutions.app", "com.brd.earnrewards"]
-    //
-    // Devuelve `null` cuando no se pudo consultar (sin ADB / instancia
-    // apagada / endpoint caído) para diferenciarlo de "no está instalada".
-    // ==================================================================
     async function getInstalledPackages(index, onlyThirdParty = true) {
       const { ok, payload } = await getJSON(`/api/instances/${index}/apps?only_third_party=${onlyThirdParty}`);
       if (!ok || !Array.isArray(payload)) return null;
       return payload;
     }
-
     async function isPackageInstalled(index, packageName, onlyThirdParty = true) {
       const installed = await getInstalledPackages(index, onlyThirdParty);
-      if (installed === null) return null; // desconocido: no se pudo verificar
+      if (installed === null) return null;
       return installed.includes(packageName);
     }
-
-    // ==================================================================
-    // LOCK "SOLO UNA INSTANCIA ENCENDIDA A LA VEZ" (pipeline runner)
-    // Se aplica únicamente cuando el pipeline corre SECUENCIAL (checkbox
-    // "en paralelo" destildado). El paso "launch" espera a que se libere
-    // el slot antes de encender; "quit" lo libera; y por las dudas
-    // también se libera solo al terminar todos los pasos de una
-    // instancia (por si el pipeline no tiene un "quit" explícito).
-    // ==================================================================
     let activePoweredSlot = null;
-
     async function acquirePowerSlot(index, ctx) {
-      if (ctx.parallel) return; // en modo paralelo no hay lock: se pidió explícitamente correr juntas
+      if (ctx.parallel) return;
       while (activePoweredSlot !== null && activePoweredSlot !== index) {
         ctx.log(`esperando a que #${activePoweredSlot} se apague antes de encender esta instancia (solo una encendida a la vez)`);
         await ctx.sleep(3000);
       }
       activePoweredSlot = index;
     }
-
     function releasePowerSlot(index) {
       if (activePoweredSlot === index) activePoweredSlot = null;
     }
-
     async function waitForAppForeground({
       index,
       packageName,
-
       runApp,
       getCurrentApp,
       getApps,
       installApp,
-
       maxRetries = 3,
       delay = 5000,
-
       maxInstallRetries = 2,
       installDelay = 5000,
     }) {
       let totalAttempts = 0;
       let installAttempts = 0;
-
       for (
         let installCycle = 0;
         installCycle <= maxInstallRetries;
@@ -2581,17 +2338,13 @@
         console.log(
           `[run] ${packageName} -> ciclo ${installCycle + 1}/${maxInstallRetries + 1}`
         );
-
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           totalAttempts++;
-
           console.log(
             `[run] ${packageName} -> abriendo app (${attempt}/${maxRetries})`
           );
-
           try {
             const runResult = await runApp();
-
             if (!runResult?.ok) {
               console.warn(
                 `[run] Error abriendo ${packageName}:`,
@@ -2604,27 +2357,20 @@
               e
             );
           }
-
-          // Espera después de abrir
           await sleep(delay);
-
           try {
             const current = await getCurrentApp();
-
             const foregroundPackage =
               current?.payload?.package_name;
-
             const isForeground =
               current?.status === 200 &&
               current?.ok &&
               foregroundPackage === packageName;
-
             console.log(
               `[run] [${attempt}/${maxRetries}] Primer plano:`,
               foregroundPackage || "DESCONOCIDO",
               isForeground ? "OK" : "NO"
             );
-
             if (isForeground) {
               return {
                 ok: true,
@@ -2641,23 +2387,17 @@
             );
           }
         }
-
         console.warn(
           `[run] ${packageName} no quedó en primer plano después de ${maxRetries} intentos`
         );
-
-        // Revisar si sigue instalada
         let installed = false;
-
         try {
           const apps = await getApps();
-
           installed =
             apps?.status === 200 &&
             apps?.ok &&
             Array.isArray(apps.payload) &&
             apps.payload.includes(packageName);
-
           console.log(
             `[run] ${packageName} -> instalada:`,
             installed ? "SI" : "NO"
@@ -2668,9 +2408,6 @@
             e
           );
         }
-
-        // Si está instalada, no tiene sentido reinstalar.
-        // Terminamos porque falló al abrir.
         if (installed) {
           return {
             ok: false,
@@ -2681,12 +2418,9 @@
               `pero no quedó en primer plano después de ${maxRetries} intentos.`,
           };
         }
-
-        // No quedan intentos de instalación
         if (installCycle >= maxInstallRetries) {
           break;
         }
-
         if (typeof installApp !== "function") {
           return {
             ok: false,
@@ -2695,17 +2429,13 @@
             error: `La aplicación ${packageName} no está instalada y no se definió installApp.`,
           };
         }
-
         installAttempts++;
-
         console.warn(
           `[run] ${packageName} no está instalada. ` +
           `Instalando ${installAttempts}/${maxInstallRetries}...`
         );
-
         try {
           const installResult = await installApp();
-
           if (!installResult?.ok) {
             console.error(
               `[run] Error instalando ${packageName}:`,
@@ -2723,10 +2453,8 @@
             e
           );
         }
-
         await sleep(installDelay);
       }
-
       return {
         ok: false,
         totalAttempts,
@@ -2736,108 +2464,40 @@
           `después de ${totalAttempts} intentos y ${installAttempts} instalaciones.`,
       };
     }
-
-    // ── Health Check directo ──────────────────────────────
-async function runHealthCheckDirect() {
-  const indices = getSelectedIndices();
-  if (indices.length === 0) {
-    log('[health] no hay instancias seleccionadas, se usarán todas', 'warn');
-    // Si no hay selección, usamos todas las instancias conocidas
-    // (la lógica de getSelectedIndices ya devuelve todas si no hay checkboxes marcados)
-  }
-  // Si aún así no hay índices, abortar
-  if (indices.length === 0) {
-    log('[health] no hay instancias disponibles', 'warn');
-    toast('No hay instancias para health check', 'bad');
-    return;
-  }
-
-  // Confirmar antes de ejecutar (opcional)
-  const ok = await confirmModal(
-    '🏥 Ejecutar Health Check',
-    `Se va a correr el health check en ${indices.length} instancia(s): ${indices.join(', ')}.`,
-    'Ejecutar',
-    false,
-    'El health check lanza la app, verifica batería, bluetooth, foreground y reinicia la app si es necesario.'
-  );
-  if (!ok) return;
-
-  try {
-    const { status, ok: httpOk, payload } = await postJSON('/api/tasks/presets/health/run', {
-      indices,
-      parallel: false  // secuencial por defecto; podrías agregar un checkbox si querés
-    });
-
-    if (!httpOk) {
-      log(`[health] error al crear job -> ${status} ${payload?.error || ''}`, 'bad');
-      toast('Error al lanzar health check', 'bad');
-      return;
-    }
-
-    const jobId = payload.jobId;
-    log(`[health] job creado con id ${jobId}`, 'ok');
-    toast(`Health check lanzado (job ${jobId})`, 'ok');
-
-    // Opcional: abrir el modal de ejecución para seguir el progreso
-    // (reutilizamos el mismo sistema que el pipeline del servidor)
-    // Como ya tenemos socket.io escuchando job:step, job:done, etc.,
-    // podemos asignar currentJobId para que esos eventos se muestren en el log.
-    // También podemos abrir el modal de ejecución.
-    currentJobId = jobId;
-    document.getElementById('serverRunBtn').disabled = true;
-    document.getElementById('serverStopBtn').disabled = false;
-    const statusEl = document.getElementById('serverStatus');
-    statusEl.textContent = `Corriendo (${indices.length})`;
-    statusEl.classList.add('active');
-    openExecModal(`🏥 Health Check (job ${jobId})`, () => stopPipelineOnServer());
-
-  } catch (e) {
-    log(`[health] excepción: ${e.message}`, 'bad');
-    toast('Error al lanzar health check', 'bad');
-  }
-}
-    
     async function waitForAppInstalled({
       index,
       packageName,
       getApps,
-      maxRetries = 3,          // intentos por ciclo
-      delay = 5000,            // espera entre verificaciones
+      maxRetries = 3,
+      delay = 5000,
       reinstallApp,
-      maxReinstalls = 2,       // máximo de reinstalaciones
-      reinstallDelay = 5000,   // espera después de reinstalar
+      maxReinstalls = 2,
+      reinstallDelay = 5000,
     }) {
       let totalAttempts = 0;
-
       for (
         let reinstallAttempt = 0;
         reinstallAttempt <= maxReinstalls;
         reinstallAttempt++
       ) {
         const cycle = reinstallAttempt + 1;
-
         console.log(
           `[install] ${packageName} -> ciclo ${cycle}/${maxReinstalls + 1}` +
           ` | reinstalaciones ${reinstallAttempt}/${maxReinstalls}`
         );
-
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           totalAttempts++;
-
           try {
             const apps = await getApps();
-
             const installed =
               apps?.status === 200 &&
               apps?.ok &&
               Array.isArray(apps.payload) &&
               apps.payload.includes(packageName);
-
             console.log(
               `[${attempt}/${maxRetries}] Buscando ${packageName}...`,
               installed ? "ENCONTRADA" : "NO"
             );
-
             if (installed) {
               return {
                 ok: true,
@@ -2853,32 +2513,25 @@ async function runHealthCheckDirect() {
               e
             );
           }
-
           if (attempt < maxRetries) {
             await sleep(delay);
           }
         }
-
-        // Ya agotamos todas las reinstalaciones permitidas
         if (reinstallAttempt >= maxReinstalls) {
           break;
         }
-
         if (typeof reinstallApp !== "function") {
           return {
             ok: false,
             error: "No se definió reinstallApp.",
           };
         }
-
         console.warn(
           `[install] ${packageName} no encontrada después de ${maxRetries} intentos.` +
           ` Reinstalando ${reinstallAttempt + 1}/${maxReinstalls}...`
         );
-
         try {
           const reinstallResult = await reinstallApp();
-
           if (!reinstallResult?.ok) {
             console.error(
               `[install] Error reinstalando ${packageName}:`,
@@ -2896,10 +2549,8 @@ async function runHealthCheckDirect() {
             e
           );
         }
-
         await sleep(reinstallDelay);
       }
-
       return {
         ok: false,
         totalAttempts,
@@ -2910,6 +2561,13 @@ async function runHealthCheckDirect() {
           `${totalAttempts} verificaciones y ${maxReinstalls} reinstalaciones.`,
       };
     }
+    // ------------------------------------------------------------------
+    // FIX (duplicado): antes existían DOS definiciones de "check_battery"
+    // en este array. `find()` siempre devolvía la primera (sin soporte de
+    // on_fail:'abort'), así que el preset "health_check" cargaba con
+    // on_fail:'abort' pero corría la versión vieja que lo ignoraba. Acá
+    // queda una sola definición, la completa (con on_fail).
+    // ------------------------------------------------------------------
     const PIPELINE_STEP_TYPES = [
       {
         id: 'note', label: '📝 Nota (solo log, no hace nada)',
@@ -2931,12 +2589,10 @@ async function runHealthCheckDirect() {
           { id: 'bootTimeoutSec', label: 'Timeout de boot (seg)', type: 'number', value: 90, min: 10, required: true },
         ],
         exec: async (index, v, ctx) => {
-          // Respeta "solo una encendida a la vez" cuando el pipeline corre secuencial
           await ctx.acquirePower(index);
           const r = await postJSON(`/api/instances/${index}/launch`);
           if (!r.ok) { ctx.releasePower(index); return { ok: false, detail: `launch falló (status ${r.status})`, abort: true }; }
           try {
-            // Misma señal que habilita el botón "🛠️ Tools" en la tabla (android_started === true)
             await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000);
           } catch (e) {
             ctx.releasePower(index);
@@ -2964,7 +2620,7 @@ async function runHealthCheckDirect() {
         id: 'quit', label: '🔴 Apagar (quit)', fields: [],
         exec: async (index, v, ctx) => {
           const r = await postJSON(`/api/instances/${index}/quit`);
-          ctx.releasePower(index); // libera el slot para que la siguiente instancia pueda encender
+          ctx.releasePower(index);
           return { ok: r.ok, detail: `status ${r.status}` };
         },
       },
@@ -2990,7 +2646,7 @@ async function runHealthCheckDirect() {
               Number(v.timeoutSec || 120) * 1000,
               Number(v.pollSec || 3) * 1000,
               Number(v.graceSec || 5) * 1000,
-              () => false, // la cancelación del pipeline la maneja ctx.sleep dentro de waitForRootReady vía pollMs
+              () => false,
             );
             return { ok: true, detail: 'ADB listo' };
           } catch (e) {
@@ -3022,68 +2678,53 @@ async function runHealthCheckDirect() {
           if (!v.apk_path) {
             return { ok: false, detail: "sin ruta de APK" };
           }
-
           const r = await postJSON(
             `/api/instances/${index}/install`,
             { apk_path: v.apk_path }
           );
-
           if (!r.ok) {
             return {
               ok: false,
               detail: r.payload?.error || `status ${r.status}`,
             };
           }
-
-          // Si no es una app conocida, termina aquí.
           if (!v.known_app) {
             return {
               ok: true,
               detail: "APK enviada para instalar",
             };
           }
-
           const appk = KNOWN_APPS.find(a => a.id === v.known_app);
-
           if (!appk) {
             return {
               ok: false,
               detail: "No se encontró la app conocida.",
             };
           }
-
           const action = TOOL_ACTIONS.find(a => a.id === "apps_list");
           const qs = "?only_third_party=true";
           const result = await waitForAppInstalled({
             index,
             packageName: appk.package_name,
-
             maxRetries: 3,
             delay: 5000,
-
             maxReinstalls: 2,
             reinstallDelay: 5000,
-
             getApps: () =>
               getJSON(`${action.path(index)}${qs}`),
-
             reinstallApp: () =>
               postJSON(
                 `/api/instances/${index}/install`,
                 { apk_path: v.apk_path }
               ),
           });
-
-
           console.log(result);
-
           if (!result.ok) {
             return {
               ok: false,
               detail: result.error,
             };
           }
-
           return {
             ok: true,
             detail: `Aplicación instalada correctamente(${appk.package_name})`,
@@ -3093,7 +2734,6 @@ async function runHealthCheckDirect() {
       {
         id: 'run',
         label: '▶️ Abrir app',
-
         fields: [
           {
             id: 'known_app',
@@ -3101,17 +2741,14 @@ async function runHealthCheckDirect() {
             type: 'select',
             value: '',
             options: () => appSelectOptions(),
-
             onChange: (val, fieldEls) => {
               const app = KNOWN_APPS.find((a) => a.id === val);
-
               if (app && fieldEls.package_name) {
                 fieldEls.package_name.input.value =
                   app.package_name || '';
               }
             },
           },
-
           {
             id: 'package_name',
             label: 'Package name (o manual)',
@@ -3119,7 +2756,6 @@ async function runHealthCheckDirect() {
             placeholder: 'com.example.app',
           },
         ],
-
         exec: async (index, v) => {
           if (!v.package_name) {
             return {
@@ -3127,34 +2763,25 @@ async function runHealthCheckDirect() {
               detail: 'sin package name',
             };
           }
-
           const appk = KNOWN_APPS.find(
             (a) =>
               a.id === v.known_app ||
               a.package_name === v.package_name
           );
-
           const currentAction = TOOL_ACTIONS.find(
             a => a.id === 'apps_current'
           );
-
           const appsAction = TOOL_ACTIONS.find(
             a => a.id === 'apps_list'
           );
-
           const qs = '?only_third_party=true';
-
           const result = await waitForAppForeground({
             index,
             packageName: v.package_name,
-
-            // Configuración
             maxRetries: 3,
             delay: 5000,
-
             maxInstallRetries: 2,
             installDelay: 5000,
-
             runApp: () =>
               postJSON(
                 `/api/instances/${index}/run`,
@@ -3162,17 +2789,14 @@ async function runHealthCheckDirect() {
                   package_name: v.package_name,
                 }
               ),
-
             getCurrentApp: () =>
               getJSON(
                 currentAction.path(index)
               ),
-
             getApps: () =>
               getJSON(
                 `${appsAction.path(index)}${qs}`
               ),
-
             installApp: appk?.apk_path
               ? () =>
                 postJSON(
@@ -3183,14 +2807,12 @@ async function runHealthCheckDirect() {
                 )
               : null,
           });
-
           if (!result.ok) {
             return {
               ok: false,
               detail: result.error,
             };
           }
-
           return {
             ok: true,
             detail:
@@ -3237,7 +2859,6 @@ async function runHealthCheckDirect() {
             const qs = action.query ? action.query(v) : '';
             res = await getJSON(`${action.path(index)}${qs}`);
             console.log(res);
-
           } else {
             res = await postJSON(action.path(index), action.body ? action.body(v) : {});
           }
@@ -3278,7 +2899,6 @@ async function runHealthCheckDirect() {
           { id: 'command', label: 'Comando (shell)', type: 'text', placeholder: 'settings put system screen_brightness 120', required: true },
         ],
         exec: async (index, v) => {
-          // Espera un endpoint del estilo POST /api/instances/:index/adb { command } -> { output }
           const r = await postJSON(`/api/instances/${index}/adb`, { command: v.command });
           return { ok: r.ok, detail: r.payload?.error || r.payload?.output || `status ${r.status}` };
         },
@@ -3289,24 +2909,8 @@ async function runHealthCheckDirect() {
           { id: 'command', label: 'Comando', type: 'text', placeholder: 'echo listo', required: true },
         ],
         exec: async (index, v) => {
-          // Espera un endpoint del estilo POST /api/host/run { command } -> { output }
-          // (no depende de la instancia, pero se ejecuta en su turno dentro del pipeline)
           const r = await postJSON(`/api/host/run`, { command: v.command });
           return { ok: r.ok, detail: r.payload?.error || r.payload?.output || `status ${r.status}` };
-        },
-      }, {
-        id: 'check_battery', label: '🔋 Verificar batería (debe devolver datos válidos)',
-        fields: [],  // no requiere configuración extra
-        exec: async (index, v, ctx) => {
-          const { ok, payload } = await getJSON(`/api/instances/${index}/battery`);
-          if (!ok || !payload || Object.keys(payload).length === 0) {
-            return { ok: false, detail: 'batería no disponible o respuesta vacía' };
-          }
-          // Verificamos que tenga al menos "level" o "status"
-          if (payload.level === undefined && payload.status === undefined) {
-            return { ok: false, detail: 'respuesta de batería no contiene level ni status' };
-          }
-          return { ok: true, detail: JSON.stringify(payload) };
         },
       },
       {
@@ -3328,7 +2932,6 @@ async function runHealthCheckDirect() {
           const { ok, payload } = await getJSON(`/api/instances/${index}/battery`);
           const fail = !ok || !payload || Object.keys(payload).length === 0 ||
             (payload.level === undefined && payload.status === undefined);
-
           if (fail) {
             if (v.on_fail === 'abort') {
               await postJSON(`/api/instances/${index}/quit`);
@@ -3339,9 +2942,7 @@ async function runHealthCheckDirect() {
           return { ok: true, detail: JSON.stringify(payload) };
         },
       }];
-
     let currentPipeline = { name: 'Mi pipeline', steps: [] };
-
     function defaultValuesForType(type) {
       const stepType = PIPELINE_STEP_TYPES.find((t) => t.id === type);
       if (!stepType) return {};
@@ -3352,16 +2953,13 @@ async function runHealthCheckDirect() {
       }
       return values;
     }
-
     function addStep(type) {
       currentPipeline.steps.push({ type, values: defaultValuesForType(type) });
       renderPipelineBuilder();
     }
-
     function renderPipelineBuilder() {
       const nameInput = document.getElementById('pipelineNameInput');
       if (nameInput && document.activeElement !== nameInput) nameInput.value = currentPipeline.name || '';
-
       const list = document.getElementById('pipelineStepsList');
       list.innerHTML = '';
       if (currentPipeline.steps.length === 0) {
@@ -3375,19 +2973,15 @@ async function runHealthCheckDirect() {
         list.appendChild(buildStepCard(step, i));
       });
     }
-
     function buildStepCard(step, i) {
       const card = document.createElement('div');
       card.className = 'step-card';
-
       const head = document.createElement('div');
       head.className = 'step-card-head';
-
       const num = document.createElement('span');
       num.className = 'step-num';
       num.textContent = `#${i + 1}`;
       head.appendChild(num);
-
       const typeSelect = document.createElement('select');
       for (const st of PIPELINE_STEP_TYPES) {
         const o = document.createElement('option');
@@ -3402,10 +2996,8 @@ async function runHealthCheckDirect() {
         renderPipelineBuilder();
       });
       head.appendChild(typeSelect);
-
       const btns = document.createElement('div');
       btns.className = 'step-card-btns';
-
       const upBtn = document.createElement('button');
       upBtn.className = 'small ghost';
       upBtn.textContent = '↑';
@@ -3415,7 +3007,6 @@ async function runHealthCheckDirect() {
         [currentPipeline.steps[i - 1], currentPipeline.steps[i]] = [currentPipeline.steps[i], currentPipeline.steps[i - 1]];
         renderPipelineBuilder();
       };
-
       const downBtn = document.createElement('button');
       downBtn.className = 'small ghost';
       downBtn.textContent = '↓';
@@ -3425,7 +3016,6 @@ async function runHealthCheckDirect() {
         [currentPipeline.steps[i + 1], currentPipeline.steps[i]] = [currentPipeline.steps[i], currentPipeline.steps[i + 1]];
         renderPipelineBuilder();
       };
-
       const dupBtn = document.createElement('button');
       dupBtn.className = 'small ghost';
       dupBtn.textContent = '⧉';
@@ -3434,7 +3024,6 @@ async function runHealthCheckDirect() {
         currentPipeline.steps.splice(i + 1, 0, JSON.parse(JSON.stringify(step)));
         renderPipelineBuilder();
       };
-
       const delBtn = document.createElement('button');
       delBtn.className = 'small danger';
       delBtn.textContent = '🗑️';
@@ -3443,20 +3032,15 @@ async function runHealthCheckDirect() {
         currentPipeline.steps.splice(i, 1);
         renderPipelineBuilder();
       };
-
       btns.append(upBtn, downBtn, dupBtn, delBtn);
       head.appendChild(btns);
       card.appendChild(head);
-
       const fieldsWrap = document.createElement('div');
       fieldsWrap.className = 'step-fields';
       card.appendChild(fieldsWrap);
-
       renderStepFields(step, fieldsWrap);
-
       return card;
     }
-
     function buildFieldInput(f, currentValue) {
       const opts = typeof f.options === 'function' ? f.options() : (f.options || []);
       let input;
@@ -3479,31 +3063,25 @@ async function runHealthCheckDirect() {
       }
       return input;
     }
-
     function renderStepFields(step, container) {
       container.innerHTML = '';
       const stepType = PIPELINE_STEP_TYPES.find((t) => t.id === step.type);
       if (!stepType) return;
       step.values = step.values || {};
-
       const fieldEls = {};
-
       for (const f of stepType.fields) {
         const wrap = document.createElement('div');
         wrap.className = 'field';
         const label = document.createElement('label');
         label.textContent = f.label;
         wrap.appendChild(label);
-
         const input = buildFieldInput(f, step.values[f.id]);
         wrap.appendChild(input);
         container.appendChild(wrap);
         fieldEls[f.id] = input;
-
         if (step.values[f.id] === undefined) {
           step.values[f.id] = f.type === 'number' ? Number(input.value || 0) : input.value;
         }
-
         input.addEventListener('input', () => {
           step.values[f.id] = f.type === 'number' ? Number(input.value) : input.value;
         });
@@ -3516,8 +3094,6 @@ async function runHealthCheckDirect() {
           if (f.dynamic) renderStepFields(step, container);
         });
       }
-
-      // Sub-campos dinámicos para pasos "tool" / "verify", según la acción ADB elegida
       if (stepType.id === 'tool' || stepType.id === 'verify') {
         const pool = stepType.id === 'verify' ? TOOL_ACTIONS.filter((a) => a.method === 'get') : TOOL_ACTIONS;
         let subAction = TOOL_ACTIONS.find((a) => a.id === step.values.tool_action);
@@ -3525,24 +3101,20 @@ async function runHealthCheckDirect() {
           subAction = pool[0];
           if (subAction) step.values.tool_action = subAction.id;
         }
-
         if (subAction && subAction.fields.length > 0) {
           const divider = document.createElement('div');
           divider.className = 'step-subfields-divider';
           divider.textContent = `Parámetros de: ${subAction.label}`;
           container.appendChild(divider);
-
           for (const f of subAction.fields) {
             const wrap = document.createElement('div');
             wrap.className = 'field';
             const label = document.createElement('label');
             label.textContent = f.label;
             wrap.appendChild(label);
-
             const input = buildFieldInput(f, step.values[f.id]);
             wrap.appendChild(input);
             container.appendChild(wrap);
-
             if (step.values[f.id] === undefined) {
               step.values[f.id] = f.type === 'number' ? Number(input.value || 0) : input.value;
             }
@@ -3556,7 +3128,6 @@ async function runHealthCheckDirect() {
         }
       }
     }
-
     function initStepTypeSelect() {
       const sel = document.getElementById('newStepTypeSelect');
       sel.innerHTML = '';
@@ -3567,12 +3138,17 @@ async function runHealthCheckDirect() {
         sel.appendChild(o);
       }
     }
-
+    // ------------------------------------------------------------------
+    // FIX (duplicación): la rama "health_check" era la única que NO
+    // terminaba en `return`, entonces caía al bloque común de abajo y
+    // el render/toast/log se ejecutaban DOS VECES (eso es lo que se veía
+    // como "el pipeline se duplica"). Ahora todas las ramas comparten el
+    // mismo bloque final, sin repetir nada adentro del if.
+    // ------------------------------------------------------------------
     function loadPreset(name) {
       const socks = KNOWN_APPS.find((a) => a.id === 'socks');
       const earn = KNOWN_APPS.find((a) => a.id === 'earn');
       const monitor = KNOWN_APPS.find((a) => a.id === 'monitor');
-
       if (name === 'encendido') {
         currentPipeline = {
           name: 'Encendido en cadena', steps: [
@@ -3627,9 +3203,6 @@ async function runHealthCheckDirect() {
           ],
         };
       } else if (name === 'setup_root_adb') {
-        // Preset "Root Inicial + ADB": SOLO habilita root + depuración ADB
-        // (6 núcleos + 8192MB + 540x960). No toca radios ni instala apps —
-        // para eso está el preset "Setup Apps" de abajo.
         currentPipeline = {
           name: 'Root Inicial + ADB', steps: [
             { type: 'launch', values: { bootTimeoutSec: 90 } },
@@ -3641,9 +3214,6 @@ async function runHealthCheckDirect() {
           ],
         };
       } else if (name === 'setup_apps') {
-        // Preset "Setup Apps": desactiva bluetooth/datos/Play Protect e
-        // instala socks -> earn -> monitor. Espera 10s tras quitar Play
-        // Protect (antes de instalar) y espera 10s antes de apagar al final.
         currentPipeline = {
           name: 'Setup Apps (instalación)', steps: [
             { type: 'launch', values: { bootTimeoutSec: 90 } },
@@ -3667,28 +3237,22 @@ async function runHealthCheckDirect() {
         currentPipeline = {
           name: 'Health Check (batería + apps)',
           steps: [
-            {
-              type: 'launch',
-              values: { bootTimeoutSec: 60 }       // 60s para boot, si no → aborta esa instancia
-            },
+            { type: 'launch', values: { bootTimeoutSec: 60 } },
             { type: 'wait', values: { seconds: 5 } },
-            {
-              type: 'check_battery',
-              values: { on_fail: 'abort' }         // fallo de batería → cierra y pasa a la siguiente
-            },
+            { type: 'check_battery', values: { on_fail: 'abort' } },
             { type: 'wait', values: { seconds: 2 } },
             {
-              type: 'check_apps',
+              type: 'verify',
               values: {
-                package_names: 'net.typeblog.socks, com.brd.earnrewards, com.chataolutions.app',
-                on_fail: 'abort'                   // apps faltantes → cierra y pasa a la siguiente
-              }
-            }
-          ]
+                tool_action: 'apps_list',
+                only_third_party: 'true',
+                expect_path: '0',
+                expect_value: 'net.typeblog.socks',
+                on_mismatch: 'continue',
+              },
+            },
+          ],
         };
-        renderPipelineBuilder();
-        toast(`Preset "${currentPipeline.name}" cargado`, 'ok');
-        log(`[pipeline] preset "health_check" cargado`, 'ok');
       } else {
         return;
       }
@@ -3696,13 +3260,8 @@ async function runHealthCheckDirect() {
       toast(`Preset "${currentPipeline.name}" cargado`, 'ok');
       log(`[pipeline] preset "${name}" cargado`, 'ok');
     }
-
     // ==================================================================
-    // Preset "Registro Health" — pide la URL del servidor antes de armar
-    // el pipeline (por eso va aparte de loadPreset, que es sincrónico).
-    // Abre el Monitor, escribe el nombre de dispositivo (con {index} para
-    // que cada instancia use su propio número) y la URL del server con la
-    // secuencia de teclas/pantallas indicada, y cierra todo al final.
+    // Preset "Registro Health"
     // ==================================================================
     async function loadPresetRegistroHealth() {
       const monitor = KNOWN_APPS.find((a) => a.id === 'monitor');
@@ -3716,7 +3275,6 @@ async function runHealthCheckDirect() {
         ],
       });
       if (!result) return;
-
       currentPipeline = {
         name: 'Registro Health (nombre + server)',
         steps: [
@@ -3726,7 +3284,6 @@ async function runHealthCheckDirect() {
           { type: 'wait', values: { seconds: 10 } },
           { type: 'tool', values: { tool_action: 'input_key', keycode: 'D' } },
           { type: 'wait', values: { seconds: 2 } },
-          // {index} se reemplaza automáticamente por el index de cada instancia al correr
           { type: 'tool', values: { tool_action: 'input_text', text: `${result.name_prefix}{ index }` } },
           { type: 'wait', values: { seconds: 2 } },
           { type: 'tool', values: { tool_action: 'input_key', keycode: 'TAB' } },
@@ -3753,7 +3310,6 @@ async function runHealthCheckDirect() {
       toast(`Preset "${currentPipeline.name}" cargado`, 'ok');
       log(`[pipeline] preset "registro_health" cargado(server = ${result.server_url})`, 'ok');
     }
-
     function exportPipeline() {
       const blob = new Blob([JSON.stringify(currentPipeline, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -3764,7 +3320,6 @@ async function runHealthCheckDirect() {
       URL.revokeObjectURL(url);
       log('[pipeline] exportado a JSON', 'ok');
     }
-
     function importPipelineFile(fileInput) {
       const file = fileInput.files[0];
       if (!file) return;
@@ -3785,16 +3340,13 @@ async function runHealthCheckDirect() {
       reader.readAsText(file);
       fileInput.value = '';
     }
-
     let pipelineCancelled = false;
     let pipelineRunning = false;
-
     function stopPipeline() {
       pipelineCancelled = true;
       log('[pipeline] deteniendo tras el paso actual...', 'warn');
       document.getElementById('pipelineStopBtn').disabled = true;
     }
-
     async function pipelineSleep(ms) {
       const chunk = 500;
       let remaining = ms;
@@ -3805,9 +3357,6 @@ async function runHealthCheckDirect() {
         remaining -= t;
       }
     }
-
-    // Reemplaza el placeholder {index} por el número real de la instancia
-    // en todos los valores de texto de un paso (no toca números/booleans).
     function resolveStepValues(rawValues, index) {
       const resolved = {};
       for (const [k, v] of Object.entries(rawValues || {})) {
@@ -3815,8 +3364,6 @@ async function runHealthCheckDirect() {
       }
       return resolved;
     }
-
-
     async function runPipelineStepsForInstance(index, steps, parallel) {
       try {
         for (let i = 0; i < steps.length; i++) {
@@ -3844,7 +3391,6 @@ async function runHealthCheckDirect() {
             } else {
               log(`[pipeline] #${index} paso ${i + 1} FALLÓ ${result?.detail ? '- ' + result.detail : ''}`, 'bad');
               if (result?.abort) throw new Error('abortado_por_verificacion');
-              // Si un paso falla (pero no aborta) lo consideramos error para la clasificación final
               return false;
             }
           } catch (e) {
@@ -3857,18 +3403,16 @@ async function runHealthCheckDirect() {
             return false;
           }
         }
-        return true; // todos los pasos ok
+        return true;
       } finally {
         releasePowerSlot(index);
       }
     }
-
     async function runPipeline() {
       if (pipelineRunning) return;
       const indices = getSelectedIndices();
       if (indices.length === 0) { log('[pipeline] no hay instancias para procesar', 'warn'); return; }
       if (!currentPipeline.steps.length) { log('[pipeline] el pipeline no tiene pasos', 'warn'); return; }
-
       pipelineRunning = true;
       pipelineCancelled = false;
       document.getElementById('pipelineRunBtn').disabled = true;
@@ -3877,13 +3421,10 @@ async function runHealthCheckDirect() {
       statusEl.textContent = `Corriendo (${indices.length})`;
       statusEl.classList.add('active');
       openExecModal(`🧩 ${currentPipeline.name || 'Pipeline'}`, stopPipeline);
-
       const parallel = document.getElementById('pipelineParallel').checked;
       log(`[pipeline] "${currentPipeline.name || 'sin nombre'}" iniciando sobre: ${indices.join(', ')} (${parallel ? 'en paralelo' : 'secuencial'})`, 'warn');
-
       const okIndices = [];
       const errorIndices = [];
-
       try {
         if (parallel) {
           const results = await Promise.all(indices.map(async (index) => {
@@ -3901,7 +3442,6 @@ async function runHealthCheckDirect() {
           for (const index of indices) {
             if (pipelineCancelled) {
               log('[pipeline] detenida por el usuario', 'warn');
-              // Las instancias no procesadas van a error
               const remaining = indices.slice(indices.indexOf(index));
               errorIndices.push(...remaining);
               break;
@@ -3927,44 +3467,35 @@ async function runHealthCheckDirect() {
         document.getElementById('pipelineStopBtn').disabled = true;
         statusEl.textContent = 'Inactivo';
         statusEl.classList.remove('active');
-
-        // Mostrar resumen
         log('========================================', 'warn');
         log('🏁 RESUMEN DEL PIPELINE', 'warn');
         log(`✔️ Instancias OK (${okIndices.length}): ${okIndices.join(', ') || 'ninguna'}`, 'ok');
         log(`❌ Instancias con ERROR (${errorIndices.length}): ${errorIndices.join(', ') || 'ninguna'}`, 'bad');
         log('========================================', 'warn');
-
         finishExecModal('Estado: finalizado');
       }
     }
-
     // ---- Render de instancias ----
     function renderInstances(instances) {
       const body = document.getElementById('instancesBody');
       const list = Array.isArray(instances) ? instances : Object.values(instances || {});
       lastKnownIndices = list.map((inst) => inst.index);
       instancesByIndex = Object.fromEntries(list.map((inst) => [inst.index, inst]));
-
-      // Preservar checks y selección de "app rápida" al re-renderizar
       const checkedSet = new Set(lastKnownIndices.filter((i) => getCheckbox(i)?.checked));
       const quickAppSelections = {};
       for (const i of lastKnownIndices) {
         const sel = document.getElementById(`qa-${i}`);
         if (sel) quickAppSelections[i] = sel.value;
       }
-
       const searchEl = document.getElementById('instanceSearchInput');
       const searchTerm = (searchEl?.value || '').trim().toLowerCase();
       const filtered = searchTerm
         ? list.filter((inst) => `${inst.index}`.includes(searchTerm) || (inst.name || '').toLowerCase().includes(searchTerm))
         : list;
-
       const countHint = document.getElementById('instanceCountHint');
       if (countHint) {
         countHint.textContent = searchTerm ? `${filtered.length} de ${list.length} instancia(s)` : `${list.length} instancia(s)`;
       }
-
       body.innerHTML = '';
       for (const inst of filtered) {
         const tr = document.createElement('tr');
@@ -3974,7 +3505,6 @@ async function runHealthCheckDirect() {
           ? '<span class="badge on">● activo</span>'
           : '<span class="badge off">● apagado</span>';
         const toolsTitle = isUp ? 'Batería / radios / ubicación / pantalla / input / apps (ADB)' : 'Encendé la instancia (Launch) para poder usar herramientas ADB';
-
         const appOptions = KNOWN_APPS.map((a) => `<option value="${a.id}">${a.label}</option>`).join('');
         const quickAppBlock = KNOWN_APPS.length
           ? `<select id="qa-${inst.index}">${appOptions}</select>
@@ -3982,7 +3512,6 @@ async function runHealthCheckDirect() {
              <button class="small" onclick="quickRun(${inst.index})" title="Abrir la app elegida" ${isUp ? '' : 'disabled'}>▶️</button>
              <button class="small" onclick="quickKill(${inst.index})" title="Cerrar la app elegida" ${isUp ? '' : 'disabled'}>✖️</button>`
           : `<span class="hint">agregá apps arriba ↑</span>`;
-
         tr.innerHTML = `
           <td><input type="checkbox" id="chk-${inst.index}" ${checked} /></td>
           <td>${inst.index}</td>
@@ -4005,44 +3534,29 @@ async function runHealthCheckDirect() {
             <button class="small" onclick="showInstanceState(${inst.index})" title="Ver todo lo que sabemos de esta instancia (local + backend)">ℹ️ Estado</button>
           </td>`;
         body.appendChild(tr);
-
         if (quickAppSelections[inst.index]) {
           const sel = document.getElementById(`qa-${inst.index}`);
           if (sel) sel.value = quickAppSelections[inst.index];
         }
       }
     }
-
     // Carga inicial
     fetch('/api/status/all').then((r) => r.json()).then(renderInstances);
     loadKnownApps();
     initStepTypeSelect();
     renderPipelineBuilder();
     initCollapsiblePanels();
-
     // ==================================================================
     // MODO SERVIDOR — delega la ejecución del pipeline al Task Manager de
-    // Node (/api/tasks) en vez de correr todo client-side. El progreso
-    // llega en tiempo real por Socket.IO (job:step, job:instance:status,
-    // job:log, job:done, job:cancelled — ver services/pipelines/jobRunner.js).
-    //
-    // OJO: el catálogo de steps del server (src/services/pipelines/stepTypes.js)
-    // es un subconjunto del cliente: note, wait, launch, reboot, quit,
-    // initial_root, wait_root_ready, make_ready, install, run, kill, tool,
-    // verify, root_shell. Los pasos "adb_raw", "host_command" y
-    // "check_battery" del builder de arriba NO existen todavía en el
-    // servidor — si tu pipeline los usa, el job va a marcar "tipo de step
-    // desconocido" para ese paso.
+    // Node (/api/tasks). Progreso vía Socket.IO.
     // ==================================================================
     const socket = io({ path: '/socket.io' });
     let currentJobId = null;
-
     function jobLineClass(status) {
       if (status === 'error' || status === 'failed' || status === 'aborted') return 'bad';
       if (status === 'ok' || status === 'done') return 'ok';
       return undefined;
     }
-
     socket.on('job:step', (p) => {
       if (p.jobId !== currentJobId) return;
       log(`[job] #${p.index} ${p.step} -> ${p.status}${p.detail ? ' - ' + p.detail : ''}`, jobLineClass(p.status));
@@ -4075,44 +3589,52 @@ async function runHealthCheckDirect() {
       document.getElementById('serverStatus').classList.remove('active');
       currentJobId = null;
     });
-
+    // ------------------------------------------------------------------
+    // FIX (duplicación de jobs): el guard `if (currentJobId) return;`
+    // no servía porque currentJobId recién se asignaba DESPUÉS del
+    // `await postJSON(...)`. Un doble click (o UI lenta) alcanzaba a
+    // pasar el guard dos veces y creaba dos jobs. Ahora se usa una
+    // bandera SÍNCRONA (_busy) que se levanta antes de cualquier await.
+    // ------------------------------------------------------------------
     async function runPipelineOnServer() {
-      if (currentJobId) return;
-      const indices = getSelectedIndices();
-      if (indices.length === 0) { log('[job] no hay instancias para procesar', 'warn'); return; }
-      if (!currentPipeline.steps.length) { log('[job] el pipeline no tiene pasos', 'warn'); return; }
-      const parallel = document.getElementById('pipelineParallel').checked;
-
-      const { status, ok, payload } = await postJSON('/api/tasks', {
-        name: currentPipeline.name || 'Pipeline',
-        steps: currentPipeline.steps,
-        indices,
-        parallel,
-      });
-      if (!ok) {
-        log(`[job] no se pudo crear el job -> ${status} ${payload?.error ?? ''}`, 'bad');
-        toast('Falló crear el job', 'bad');
-        return;
+      if (currentJobId || runPipelineOnServer._busy) return;
+      runPipelineOnServer._busy = true;
+      try {
+        const indices = getSelectedIndices();
+        if (indices.length === 0) { log('[job] no hay instancias para procesar', 'warn'); return; }
+        if (!currentPipeline.steps.length) { log('[job] el pipeline no tiene pasos', 'warn'); return; }
+        const parallel = document.getElementById('pipelineParallel').checked;
+        const runBtn = document.getElementById('serverRunBtn');
+        runBtn.disabled = true; // feedback inmediato, síncrono, antes del await
+        const { status, ok, payload } = await postJSON('/api/tasks', {
+          name: currentPipeline.name || 'Pipeline',
+          steps: currentPipeline.steps,
+          indices,
+          parallel,
+        });
+        if (!ok) {
+          log(`[job] no se pudo crear el job -> ${status} ${payload?.error ?? ''}`, 'bad');
+          toast('Falló crear el job', 'bad');
+          runBtn.disabled = false;
+          return;
+        }
+        currentJobId = payload.jobId;
+        document.getElementById('serverStopBtn').disabled = false;
+        const statusEl = document.getElementById('serverStatus');
+        statusEl.textContent = `Corriendo (${indices.length})`;
+        statusEl.classList.add('active');
+        openExecModal(`☁️ ${currentPipeline.name || 'Pipeline'} (servidor)`, stopPipelineOnServer);
+        log(`[job] creado jobId=${currentJobId} sobre: ${indices.join(', ')} (${parallel ? 'paralelo' : 'secuencial'})`, 'warn');
+      } finally {
+        runPipelineOnServer._busy = false;
       }
-
-      currentJobId = payload.jobId;
-      document.getElementById('serverRunBtn').disabled = true;
-      document.getElementById('serverStopBtn').disabled = false;
-      const statusEl = document.getElementById('serverStatus');
-      statusEl.textContent = `Corriendo (${indices.length})`;
-      statusEl.classList.add('active');
-      openExecModal(`☁️ ${currentPipeline.name || 'Pipeline'} (servidor)`, stopPipelineOnServer);
-      log(`[job] creado jobId=${currentJobId} sobre: ${indices.join(', ')} (${parallel ? 'paralelo' : 'secuencial'})`, 'warn');
     }
-
     async function stopPipelineOnServer() {
       if (!currentJobId) return;
       log('[job] cancelando...', 'warn');
       document.getElementById('serverStopBtn').disabled = true;
       await postJSON(`/api/tasks/${currentJobId}/cancel`);
     }
-
-    // Tiempo real vía SSE
     const es = new EventSource('/events');
     es.addEventListener('status:update', (e) => renderInstances(JSON.parse(e.data).instances));
     es.addEventListener('python:state', (e) => {
@@ -4129,11 +3651,9 @@ async function runHealthCheckDirect() {
     es.addEventListener('agent:heartbeat', (e) => {
       const a = JSON.parse(e.data);
       log(`[agent] #${a.instanceIndex ?? '?'} (${a.deviceId.slice(0, 8)}) ${a.status} (${a.event ?? ''})`);
-      // acá podrías cruzar a.instanceIndex con lastKnownIndices y pintar un badge extra en la fila
     });
     es.addEventListener('instance:action', (e) => log(`[action] ${e.data}`));
     es.addEventListener('status:error', (e) => log(`[status-error] ${e.data}`));
   </script>
 </body>
-
 </html>

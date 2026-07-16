@@ -30,7 +30,15 @@ function buildSystemRouter(client, poller) {
     poller.refreshNow().catch(() => { });
   };
 
-  const idx = (req) => Number(req.params.index);
+  const idx = (req) => {
+    const n = Number(req.params.index);
+    if (!Number.isFinite(n)) {
+      const e = new Error(`index inválido: "${req.params.index}"`);
+      e.status = 400;
+      throw e;
+    }
+    return n;
+  };
   const requireBody = (req, field) => {
     const value = (req.body || {})[field];
     if (value === undefined || value === null || value === '') {

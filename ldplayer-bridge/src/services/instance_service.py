@@ -1,4 +1,6 @@
 import asyncio
+import re
+import subprocess
 import time
 import os
 from typing import Dict, List, Optional
@@ -55,10 +57,37 @@ class InstanceService:
         ADBController.invalidate_serial(index)
         await asyncio.to_thread(instance_record_store.record_quit, index)
 
+    @staticmethod
+    def _extract_package_name(apk_path: str) -> Optional[str]:
+        """Intenta leer el package name real del APK con `aapt dump badging`
+        (herramienta del Android SDK, corre en el host, no en el emulador).
+        Si aapt no está instalado o falla, devuelve None: quien llame debe
+        caer al nombre de archivo como fallback (documentando que en ese
+        caso record_apk no correlacionará con uninstall/force-stop/etc,
+        que sí usan el package_name real que manda el frontend)."""
+        aapt_bin = os.getenv("AAPT_PATH", "aapt")
+        try:
+            result = subprocess.run(
+                [aapt_bin, "dump", "badging", apk_path],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                match = re.search(r"package: name='([\w.]+)'", result.stdout)
+                if match:
+                    return match.group(1)
+        except Exception:
+            pass
+        return None
     async def install_app(self, index: int, apk_path: str) -> None:
         await asyncio.to_thread(LDConsole.install_app, index, apk_path)
-        apk_id = os.path.splitext(os.path.basename(apk_path))[0]
-        await asyncio.to_thread(instance_record_store.record_apk, index, apk_id, "installed", apk_path)
+        package_name = await asyncio.to_thread(self._extract_package_name, apk_path)
+        # Clave preferida: package_name real (correlaciona con uninstall/
+        # force-stop/clear-data). Si no se pudo extraer (sin aapt), cae al
+        # nombre de archivo como antes.
+        apk_key = package_name or os.path.splitext(os.path.basename(apk_path))[0]
+        await asyncio.to_thread(
+            instance_record_store.record_apk, index, apk_key, "installed", apk_path
+        )
     async def run_app(self, index: int, package_name: str) -> None:
         await asyncio.to_thread(LDConsole.run_app, index, package_name)
 
@@ -66,6 +95,8 @@ class InstanceService:
                      memory: Optional[int] = None, resolution: Optional[str] = None,
                      root: Optional[bool] = None) -> None:
         await asyncio.to_thread(LDConsole.modify, index, cpu, memory, resolution, root)
+        profile = {"cpu": cpu, "memory": memory, "resolution": resolution, "root": root}
+        await asyncio.to_thread(instance_record_store.record_profile, index, profile)
 
     async def clone(self, index: int, new_name: str) -> None:
         await asyncio.to_thread(LDConsole.clone, source_index=index, new_name=new_name)
@@ -205,17 +236,20 @@ class InstanceService:
     # ==================================================================
     async def uninstall_app(self, index: int, package_name: str) -> str:
         result = await asyncio.to_thread(ADBController.uninstall_app, index, package_name)
-        await asyncio.to_thread(instance_record_store.record_apk, index, package_name, "uninstalled")
+        status = "uninstalled" if "Success" in result else "uninstall_failed"
+        await asyncio.to_thread(instance_record_store.record_apk, index, package_name, status)
         return result
-
     async def force_stop_app(self, index: int, package_name: str) -> str:
+        # `am force-stop` no devuelve texto de éxito/error, así que no hay
+        # forma barata de verificarlo sin una consulta extra (dumpsys); se
+        # registra como intento, no como confirmación.
         result = await asyncio.to_thread(ADBController.force_stop, index, package_name)
         await asyncio.to_thread(instance_record_store.record_apk, index, package_name, "force_stopped")
         return result
-
     async def clear_app_data(self, index: int, package_name: str) -> str:
         result = await asyncio.to_thread(ADBController.clear_app_data, index, package_name)
-        await asyncio.to_thread(instance_record_store.record_apk, index, package_name, "data_cleared")
+        status = "data_cleared" if "Success" in result else "data_clear_failed"
+        await asyncio.to_thread(instance_record_store.record_apk, index, package_name, status)
         return result
 
     async def list_apps(self, index: int, only_third_party: bool = True) -> List[str]:
@@ -333,13 +367,25 @@ class InstanceService:
         await asyncio.to_thread(
             instance_record_store.add_event, index, "profile", "Perfil aplicado: initial-root (cpu=4 mem=8192)"
         )
+        await asyncio.to_thread(
+            instance_record_store.record_profile, index,
+            {
+                "cpu": 4,
+                "memory": 8192,
+                "resolution": "540,960,240",
+                "root": result.get("root_active"),
+                "adb_debug": 2 if result.get("adb_debugging") else None,
+            },
+        )
         return result
-
     async def make_ready(self, index: int) -> Dict:
         await asyncio.to_thread(LDConsole.modify, index, 3, 3072, None, None)
         data_store.delete_health(index)
         await asyncio.to_thread(
             instance_record_store.add_event, index, "profile", "Perfil aplicado: ready (cpu=3 mem=3072)"
+        )
+        await asyncio.to_thread(
+            instance_record_store.record_profile, index, {"cpu": 3, "memory": 3072}
         )
         return {"index": index, "cpu": 3, "memory": 3072}
 

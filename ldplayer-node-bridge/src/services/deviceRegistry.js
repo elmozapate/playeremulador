@@ -27,7 +27,7 @@
 //   mismo orden en que se lanzan las instancias).
 
 const eventBus = require('../utils/eventBus');
-
+const { instanceRecordStore } = require('./instanceRecordStore');
 const STALE_MS = 45_000; // sin heartbeat en este tiempo -> se considera "no vivo"
 const CLEANUP_MS = 5 * 60_000; // barrido periódico de dispositivos muy viejos
 const DEVICE_TTL_MS = STALE_MS * 20; // borrado definitivo si no se ve en este tiempo
@@ -65,6 +65,18 @@ function emptyRecord(deviceId) {
 function decorate(record) {
   if (!record) return null;
   return { ...record, alive: now() - record.lastSeen < STALE_MS };
+}
+function _syncAgentRecord(record) {
+  if (record.instanceIndex === null || record.instanceIndex === undefined) return;
+  // Fire-and-forget: no bloquear la respuesta del heartbeat por esto.
+  instanceRecordStore
+    .recordAgent(record.instanceIndex, {
+      deviceId: record.deviceId,
+      status: record.status,
+      lastSeen: record.lastSeen,
+      appVersion: record.appVersion,
+    })
+    .catch(() => { });
 }
 
 // --- Cola de lanzamientos pendientes (alimentada por eventBus) ---------
@@ -118,10 +130,9 @@ function registerDevice({ appVersion, ua, meta, requestedInstanceIndex } = {}) {
   record.registeredAt = now();
   record.status = 'registered';
   record.event = 'register';
-
   devices.set(deviceId, record);
   if (instanceIndex !== null) deviceByIndex.set(instanceIndex, deviceId);
-
+  _syncAgentRecord(record);
   eventBus.emit('agent:register', decorate(record));
   return record;
 }
@@ -172,13 +183,10 @@ function upsertHeartbeat({
     }
   }
   if (record.instanceIndex !== null) deviceByIndex.set(record.instanceIndex, deviceId);
-
   devices.set(deviceId, record);
+  _syncAgentRecord(record);
   return decorate(record);
 }
-
-// --- Consultas -------------------------------------------------------------
-
 function listDevices() {
   return Array.from(devices.values()).map(decorate);
 }
