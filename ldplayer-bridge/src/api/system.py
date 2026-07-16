@@ -253,7 +253,9 @@ async def press_key(index: int, body: KeyRequest):
 @router.post("/{index}/input/text", response_model=ActionResponse)
 async def input_text(index: int, body: TextRequest):
     try:
-        await task_queue.enqueue(index, instance_service.input_text, index, body.text)
+        # Reemplazar {index} por el número real de la instancia
+        text_with_index = body.text.replace("{index}", str(index))
+        await task_queue.enqueue(index, instance_service.input_text, index, text_with_index)
         return ActionResponse(success=True, message="Texto insertado", index=index)
     except Exception as e:
         _raise_for(e)
