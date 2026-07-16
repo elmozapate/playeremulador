@@ -1,37 +1,27 @@
 'use strict';
 const eventBus = require('../../utils/eventBus');
-
+const appsConfigStore = require('../appsConfigStore');
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-const DEFAULT_KNOWN_APPS = [
-    { id: 'socks', label: 'SOCKS proxy', apk_path: 'C:\\playeremulador\\apks\\soks.apk', package_name: '' },
-    { id: 'earn', label: 'Earn app', apk_path: 'C:\\playeremulador\\apks\\earn.apk', package_name: '' },
-    { id: 'monitor', label: 'Monitor (app-debug)', apk_path: 'C:\\playeremulador\\apks\\app-debug.apk', package_name: 'com.chataolutions.app' },
-];
-
+// La lista de apps ya NO está hardcodeada acá: sale de
+// appsConfigStore.readApps() (persistida en ldplayer-data/config/apps.json,
+// editable vía /api/config/apps). Se mantiene el export DEFAULT_KNOWN_APPS
+// por compatibilidad, apuntando a los mismos defaults.
+const DEFAULT_KNOWN_APPS = appsConfigStore.DEFAULT_APPS;
 const DEFAULT_OPTIONS = {
-    apps: DEFAULT_KNOWN_APPS,
-    rootReadyTimeoutMs: 120_000, // cuanto esperar máx a que el adb vuelva a estar listo tras el reinicio
-    rootPollIntervalMs: 3_000,   // cada cuanto se pregunta
-    postRebootGraceMs: 5_000,    // colchón antes de empezar a preguntar (dejar que arranque el reboot)
-    stepDelayMs: 1_500,          // pausa entre bluetooth/datos/playprotect
-    installDelayMs: 3_000,       // pausa entre cada instalación de apk
-    stopOnError: false,          // si un device falla, seguir igual con los demás
+    rootReadyTimeoutMs: 120_000, 
+    rootPollIntervalMs: 3_000,   
+    postRebootGraceMs: 5_000,    
+    stepDelayMs: 1_500,          
+    installDelayMs: 3_000,       
+    stopOnError: false,          
 };
-
 function emitStep(index, step, status, extra = {}) {
     const payload = { index, step, status, ts: Date.now(), ...extra };
     eventBus.emit('pipeline:step', payload);
     return payload;
 }
-
-/**
- * Poll a /instances/:index/root/status hasta que el adb esté listo.
- * OJO: ajustá los nombres de campo (adb_ready/ready/online/status/state) según
- * lo que realmente devuelva tu API de Python — puse varios candidatos comunes.
- */
 async function waitForAdbReady(client, index, opts) {
     const deadline = Date.now() + opts.rootReadyTimeoutMs;
     await sleep(opts.postRebootGraceMs);
@@ -54,11 +44,11 @@ async function waitForAdbReady(client, index, opts) {
         (lastErr ? ` - último error: ${lastErr.message}` : '')
     );
 }
-
 async function runSetupForInstance(client, index, options) {
-    const opts = { ...DEFAULT_OPTIONS, ...options };
+    // apps: si no viene explícito en `options`, se toma la config
+    // persistida (o los defaults si nunca se editó nada).
+    const opts = { ...DEFAULT_OPTIONS, apps: appsConfigStore.readApps(), ...options };
     const results = { index, steps: [], ok: true, error: null };
-
     const step = async (name, fn) => {
         emitStep(index, name, 'start');
         try {
@@ -72,34 +62,22 @@ async function runSetupForInstance(client, index, options) {
             throw err;
         }
     };
-
     try {
-        // 1. initial-root
         await step('initial-root', () => client.initialRoot(index));
         await step('initial-root-reboot', () => client.reboot(index));
         await sleep(opts.stepDelayMs);
-        // 2 y 3. esperar a que reinicie + confirmar adb listo
         await step('wait-adb-ready', () => waitForAdbReady(client, index, opts));
         await sleep(opts.stepDelayMs);
-
-        // 4. bluetooth off
         await step('bluetooth-off', () => client.setBluetooth(index, false));
         await sleep(opts.stepDelayMs);
-
-        // 5. datos móviles off
         await step('mobile-data-off', () => client.setMobileData(index, false));
         await sleep(opts.stepDelayMs);
-
-        // 6. quitar play protect
         await step('play-protect-off', () => client.setPlayProtect(index, true));
         await sleep(opts.stepDelayMs);
-
-        // 7. instalar apps en orden: socks -> earn -> monitor
         for (const app of opts.apps) {
             await step(`install:${app.id}`, () => client.installApp(index, app.apk_path));
             await sleep(opts.installDelayMs);
         }
-
         results.ok = true;
         emitStep(index, 'pipeline', 'done');
     } catch (err) {
@@ -107,22 +85,13 @@ async function runSetupForInstance(client, index, options) {
         results.error = err.message;
         emitStep(index, 'pipeline', 'failed', { error: err.message });
     }
-
     return results;
 }
-
-/**
- * Corre el setup completo sobre uno o varios índices, en secuencia
- * (uno termina -> arranca el siguiente). Si querés concurrencia, avisame
- * y lo cambiamos a Promise.all con un límite.
- */
 async function runSetupPipeline(client, indices, options = {}) {
     const list = Array.isArray(indices) ? indices : [indices];
-    const opts = { ...DEFAULT_OPTIONS, ...options };
+    const opts = { ...DEFAULT_OPTIONS, apps: appsConfigStore.readApps(), ...options };
     const summary = [];
-
     eventBus.emit('pipeline:batch', { status: 'start', indices: list, ts: Date.now() });
-
     for (const index of list) {
         const result = await runSetupForInstance(client, index, opts);
         summary.push(result);
@@ -131,11 +100,9 @@ async function runSetupPipeline(client, indices, options = {}) {
             break;
         }
     }
-
     eventBus.emit('pipeline:batch', { status: 'done', summary, ts: Date.now() });
     return summary;
 }
-
 module.exports = {
     runSetupPipeline,
     runSetupForInstance,
