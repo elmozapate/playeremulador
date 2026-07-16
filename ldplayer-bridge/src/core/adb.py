@@ -530,7 +530,7 @@ class ADBController:
     # COMANDOS ADB NO-SHELL (install / uninstall) CON MISMO RETRY
     # ================================================================
 
-   @staticmethod
+    @staticmethod
     def _run_adb_on_device(index: int, *args) -> subprocess.CompletedProcess:
         """Ejecuta un comando adb (no `shell`) contra el serial resuelto.
         Solo reintenta si el fallo indica un problema de conexión/serial."""
@@ -702,7 +702,7 @@ class ADBController:
         if match:
             return match.group(1) == "true"
         return "mWakefulness=Awake" in full
-        
+
     # ------------------------------------------------------------------
     # Input: teclas, texto, gestos
     # ------------------------------------------------------------------
