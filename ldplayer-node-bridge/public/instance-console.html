@@ -254,10 +254,17 @@
     <span class="sub">ldplayer-bridge</span>
   </div>
   <span class="pill" id="bridgePill"><span class="dot" id="bridgeDot"></span><span id="bridgeLabel">bridge python: ---</span></span>
+  <span class="pill" id="monitorPill"><span class="dot" id="monitorDot"></span><span id="monitorLabel">sys: ---</span></span>
+  <button class="btn small" id="monitorToggleBtn">activar monitor</button>
+  <div class="field">
+    <label for="pyUrlInput">python</label>
+    <input id="pyUrlInput" type="text" value="http://localhost:8000" spellcheck="false" />
+  </div>
   <div class="field">
     <label for="baseUrlInput">node</label>
     <input id="baseUrlInput" type="text" value="http://localhost:4000" spellcheck="false" />
   </div>
+
   <button class="btn small" id="refreshBtn">refrescar</button>
 </header>
 
@@ -310,14 +317,23 @@
   const drawerBody = $('#drawerBody');
 
   let baseUrl = baseUrlInput.value.replace(/\/+$/, '');
+  let pyBaseUrl = $('#pyUrlInput').value.replace(/\/+$/, '') + '/api/v1';
   let models = [];
   let pollTimer = null;
+  let monitorActive = false;
+  let monitorTimer = null;
 
-  baseUrlInput.addEventListener('change', () => {
+
+baseUrlInput.addEventListener('change', () => {
     baseUrl = baseUrlInput.value.replace(/\/+$/, '');
     loadAll();
   });
+  $('#pyUrlInput').addEventListener('change', () => {
+    pyBaseUrl = $('#pyUrlInput').value.replace(/\/+$/, '');
+    refreshMonitorStatus();
+  });
   $('#refreshBtn').addEventListener('click', loadAll);
+
 
   // -------------------- formatting helpers --------------------
   function relTime(ts) {
@@ -552,6 +568,56 @@
     }
   }
 
+async function refreshMonitorStatus() {
+    try {
+      const res = await fetch(`${pyBaseUrl}/monitor/status`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      monitorActive = data.active;
+      $('#monitorToggleBtn').textContent = monitorActive ? 'desactivar monitor' : 'activar monitor';
+      if (monitorActive) {
+        loadMonitorCurrent();
+        if (!monitorTimer) monitorTimer = setInterval(loadMonitorCurrent, 3000);
+      } else {
+        $('#monitorDot').className = 'dot';
+        $('#monitorLabel').textContent = 'sys: inactivo';
+        if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
+      }
+    } catch (_) {
+      $('#monitorDot').className = 'dot off';
+      $('#monitorLabel').textContent = 'sys: sin conexión';
+    }
+  }
+
+  async function loadMonitorCurrent() {
+    try {
+      const res = await fetch(`${pyBaseUrl}/monitor/current`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data && data.cpu_percent !== undefined) {
+        $('#monitorDot').className = 'dot live';
+        $('#monitorLabel').textContent = `sys: cpu ${data.cpu_percent.toFixed(0)}% · ram ${data.ram_percent.toFixed(0)}%`;
+      } else {
+        $('#monitorDot').className = 'dot warn';
+        $('#monitorLabel').textContent = 'sys: esperando datos';
+      }
+    } catch (_) {
+      $('#monitorDot').className = 'dot off';
+      $('#monitorLabel').textContent = 'sys: sin conexión';
+    }
+  }
+
+  $('#monitorToggleBtn').addEventListener('click', async () => {
+    try {
+      const endpoint = monitorActive ? 'stop' : 'start';
+      const res = await fetch(`${pyBaseUrl}/monitor/${endpoint}`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await refreshMonitorStatus();
+    } catch (err) {
+      alert(`no se pudo ${monitorActive ? 'desactivar' : 'activar'} el monitor: ${err.message}`);
+    }
+  });
+
   async function loadAll() {
     await Promise.all([loadModels(), loadBridge()]);
     lastPoll.textContent = `última actualización: ${new Date().toLocaleTimeString('es-AR')}`;
@@ -563,7 +629,9 @@
   }
 
   loadAll();
+  refreshMonitorStatus();
   startPolling();
+
 })();
 </script>
 
