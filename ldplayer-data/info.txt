@@ -1,0 +1,142 @@
+====================================================================
+ ldplayer-data/  —  Carpeta de datos compartida (Python + Node)
+====================================================================
+
+Qué es
+------
+Carpeta creada automáticamente (no hace falta crearla a mano) por
+ambos servicios la primera vez que arrancan. Vive en la raíz del
+proyecto, al mismo nivel que apks/, ldplayer-bridge/ y
+ldplayer-node-bridge/:
+
+    PLAYEREMULADOR/
+    ├── apks/
+    ├── installerV3/
+    ├── ldplayer-bridge/          (Python)
+    ├── ldplayer-node-bridge/     (Node)
+    ├── ldplayer-data/            <- esta carpeta
+    ├── .gitignore
+    └── pipeline.json
+
+Para qué sirve
+---------------
+Antes, el status y el health de las instancias vivían en memoria
+(diccionarios en Python, y un cache en el poller de Node que se
+llenaba pidiéndole ese status a Python por HTTP cada pocos segundos).
+Todo eso se perdía al reiniciar cualquiera de los dos procesos, y
+Node dependía de la red para tener el dato.
+
+Ahora Python escribe ese estado en archivos acá, y Node los lee
+directo del disco (mismo filesystem, misma raíz). Esto significa:
+
+  - El estado sobrevive un reinicio de Python, de Node, o de ambos.
+  - Node no necesita pegarle a Python por HTTP para el status/health
+    "de fondo" — solo relee el archivo.
+  - La comunicación HTTP entre Node y Python SIGUE existiendo para
+    todo lo que es una acción puntual en caliente (lanzar una
+    instancia, tocar un switch, instalar una app, correr un shell
+    root, etc.) — eso no cambió, solo se sacó el status/health
+    "pasivo" de ese camino.
+
+Quién escribe y quién lee
+--------------------------
+  - Python (ldplayer-bridge) es el ÚNICO que ESCRIBE acá:
+      · el monitor de background (services/monitor.py) escribe el
+        snapshot de status en cada ciclo
+      · instance_service.py escribe/lee el health cacheado por
+        instancia (usa el mismo archivo para cache interno de TTL)
+      · runtime_state.py persiste su config y escribe los logs
+
+  - Node (ldplayer-node-bridge) solo LEE (services/dataStore.js):
+      · para servir /api/status/all y /api/status/:index
+      · el poller relee el snapshot en vez de pedirlo por HTTP
+
+Node nunca escribe en esta carpeta. Si en algún momento Python no
+está corriendo, Node simplemente no encuentra archivos nuevos y cae
+a un fallback puntual por HTTP (que también va a fallar si Python
+está caído — eso es esperado).
+
+Estructura interna
+-------------------
+ldplayer-data/
+├── status/
+│   └── all.json          Snapshot de TODAS las instancias.
+│                          { "instances": { "<index>": {...} },
+│                            "updated_at": <epoch seconds> }
+│                          Lo reescribe el monitor de Python en cada
+│                          ciclo (intervalo = runtime_state.monitor_interval).
+│
+├── health/
+│   └── <index>.json      Health cacheado de una instancia puntual
+│                          (batería, android_started, pid, etc).
+│                          { "health": {...}, "updated_at": <epoch> }
+│                          Se usa como cache con TTL: si "updated_at"
+│                          tiene menos de runtime_state.health_ttl
+│                          segundos, se sirve tal cual en vez de
+│                          volver a pegarle a ADB. Se borra (no se
+│                          deja "viejo") cuando la instancia se
+│                          reinicia, apaga, o se le cambia algo que
+│                          invalida el dato (batería, modify, etc).
+│
+├── config/
+│   └── runtime.json      Config configurable en caliente, persistida:
+│                          { "debug": bool,
+│                            "health_ttl": segundos,
+│                            "monitor_interval": segundos,
+│                            "updated_at": <epoch> }
+│                          Se lee al arrancar Python (para no perder
+│                          los valores si se reinicia el proceso) y
+│                          se reescribe cada vez que se cambia por:
+│                            POST /api/v1/debug/toggle
+│                            POST /api/v1/debug/health-ttl
+│                            POST /api/v1/debug/monitor-interval
+│                          (o sus equivalentes en Node: /api/debug/...)
+│
+└── logs/
+    └── service.log        Log de texto plano, en append, de todo lo
+                            que pasa por runtime_state.log()/log_always()
+                            del lado Python. Se escribe SIEMPRE acá,
+                            independiente del modo debug. La consola
+                            de Python (stdout) solo muestra log() si
+                            debug está activo; log_always() siempre
+                            sale por consola además de al archivo.
+                            No tiene rotación automática — conviene
+                            revisar el tamaño de tanto en tanto o
+                            armar una rotación externa si crece mucho.
+
+Formato de archivos
+--------------------
+Todo lo que es JSON (status, health, config) se escribe de forma
+atómica: primero a un archivo temporal y después se renombra sobre
+el definitivo (os.replace). Esto evita que Node lea un archivo a
+medio escribir. Si por algún motivo un archivo queda corrupto o
+vacío, tanto Python como Node lo tratan como "no hay dato todavía"
+en vez de romper.
+
+Configuración relacionada (.env)
+----------------------------------
+LDPLAYER_DATA_DIR   Ruta absoluta a esta carpeta. Si no se define,
+                     se calcula sola como la carpeta hermana de
+                     ldplayer-bridge/ y ldplayer-node-bridge/ (lo que
+                     ya coincide con esta estructura, por eso no hace
+                     falta setearla). Debe ser LA MISMA en el .env de
+                     Python y en el de Node si se define a mano.
+                     Node ya la propaga automáticamente al proceso
+                     Python que levanta (pythonServiceManager.js), así
+                     que alcanza con definirla del lado Node.
+
+¿Se sube a git?
+-----------------
+No. Es contenido generado en runtime, específico de cada máquina
+donde corre el servicio (rutas de LDPlayer, instancias reales, etc).
+Agregar a .gitignore:
+
+    ldplayer-data/
+
+¿Se puede borrar?
+--------------------
+Sí, con el servicio detenido. Al volver a arrancar, Python la vuelve
+a crear vacía y se repuebla sola en el primer ciclo del monitor (no
+hay pérdida de datos "reales": las instancias de LDPlayer y las APKs
+no viven acá, solo el estado cacheado/derivado de ellas).
+====================================================================
