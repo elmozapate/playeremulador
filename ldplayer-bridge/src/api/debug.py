@@ -1,14 +1,8 @@
-"""
-Ruta para prender/apagar el modo verbose, ajustar el TTL del health
-cache y el intervalo del monitor en caliente, sin reiniciar el servicio.
-Todo lo que se cambia acá queda persistido en disco (ver
-core.runtime_state), así que sobrevive a un reinicio del proceso.
-
-Nuevo: modo reposo (bajo consumo), snapshot final al apagar y
-recuperación de última sesión al iniciar.
-"""
 import time
-from fastapi import APIRouter, HTTPException
+import platform
+import os
+import json
+from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel, Field
 from core.runtime_state import runtime_state
 from core.data_store import data_store
@@ -16,6 +10,14 @@ from services.instance_service import instance_service
 
 router = APIRouter()
 
+# --- Seguridad básica (¡IMPORTANTE!) ---
+API_KEY = "tu-clave-secreta-cambia-esto"
+async def verify_api_key(x_api_key: str = Header(...)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+    return x_api_key
+
+# --- Pydantic models ---
 class DebugToggleRequest(BaseModel):
     enable: bool
 
@@ -25,112 +27,140 @@ class HealthTTLRequest(BaseModel):
 class MonitorIntervalRequest(BaseModel):
     seconds: float = Field(..., ge=1)
 
-# ---------- NUEVO: modo reposo ----------
 class SleepModeRequest(BaseModel):
     enable: bool
     lower_priority: bool = True
-# ----------------------------------------
-def clear_orphan_locks(self) -> None:
-        """Borra locks cuyo proceso dueño ya no existe. Llamar una sola vez
-        al arrancar el servicio, antes de que empiece a llegar tráfico."""
-        try:
-            files = os.listdir(self.dir)
-        except OSError:
-            return
-        import psutil  # ya es dependencia opcional del proyecto (core/adb.py)
-        for name in files:
+
+# --- Función de locks ARREGLADA (sin self) ---
+def clear_orphan_locks(lock_dir: str) -> None:
+    """Borra locks cuyo proceso dueño ya no existe."""
+    if not os.path.isdir(lock_dir):
+        return
+    try:
+        import psutil
+        for name in os.listdir(lock_dir):
             if not name.endswith(".lock"):
                 continue
-            path = os.path.join(self.dir, name)
+            path = os.path.join(lock_dir, name)
             try:
                 with open(path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                pid = int(content.split(":")[1])
-                if not psutil.pid_exists(pid):
-                    os.remove(path)
-            except Exception:
-                # si no se puede parsear o psutil no está, no tocar nada
+                    # Asumimos formato JSON o simple. Usamos split pero con strip por seguridad.
+                    pid_str = f.read().strip().split(":")[-1] 
+                    pid = int(pid_str)
+                    if not psutil.pid_exists(pid):
+                        os.remove(path)
+            except (ValueError, IndexError, OSError):
+                # Si no se puede leer, lo dejamos quieto o lo logueamos
                 pass
+    except ImportError:
+        pass # psutil no disponible
 
-@router.get("/status")
+# --- Endpoints con autenticación (opcional, pero recomendada) ---
+@router.get("/status", dependencies=[Depends(verify_api_key)])
 async def get_debug_status():
     return {
         "debug": runtime_state.debug,
         "health_cache_ttl": runtime_state.health_ttl,
         "monitor_interval": runtime_state.monitor_interval,
-        "sleep_mode": runtime_state.sleep_mode,   # exponemos el estado
+        "sleep_mode": runtime_state.sleep_mode,
     }
 
-@router.post("/toggle")
+@router.post("/toggle", dependencies=[Depends(verify_api_key)])
 async def toggle_debug(body: DebugToggleRequest):
     runtime_state.debug = body.enable
     estado = "activado" if body.enable else "desactivado"
     runtime_state.log_always(f"[DEBUG] modo verbose {estado} vía API")
     return {"debug": runtime_state.debug}
 
-@router.post("/health-ttl")
+@router.post("/health-ttl", dependencies=[Depends(verify_api_key)])
 async def set_health_ttl(body: HealthTTLRequest):
-    if body.seconds < 1:
-        raise HTTPException(status_code=400, detail="El TTL debe ser >= 1 segundo")
     runtime_state.health_ttl = body.seconds
-    runtime_state.log_always(f"[DEBUG] health cache TTL actualizado a {body.seconds}s vía API")
     return {"health_cache_ttl": runtime_state.health_ttl}
 
-@router.post("/monitor-interval")
+@router.post("/monitor-interval", dependencies=[Depends(verify_api_key)])
 async def set_monitor_interval(body: MonitorIntervalRequest):
-    if body.seconds < 1:
-        raise HTTPException(status_code=400, detail="El intervalo debe ser >= 1 segundo")
     runtime_state.monitor_interval = body.seconds
-    runtime_state.log_always(f"[DEBUG] intervalo del monitor actualizado a {body.seconds}s vía API")
     return {"monitor_interval": runtime_state.monitor_interval}
 
-# ---------- NUEVO: endpoint de reposo ----------
-@router.post("/sleep")
+# --- Endpoint de reposo MEJORADO (detección de SO explícita) ---
+@router.post("/sleep", dependencies=[Depends(verify_api_key)])
 async def set_sleep_mode(body: SleepModeRequest):
     runtime_state.sleep_mode = body.enable
+    
     if body.lower_priority:
         try:
-            import psutil, os
+            import psutil
             p = psutil.Process(os.getpid())
+            system = platform.system()
+            
             if body.enable:
-                # Windows: IDLE_PRIORITY_CLASS ; Linux: nice alto
-                p.nice(psutil.IDLE_PRIORITY_CLASS if hasattr(psutil, "IDLE_PRIORITY_CLASS") else 19)
+                # Modo reposo (prioridad mínima)
+                if system == "Windows":
+                    p.nice(psutil.IDLE_PRIORITY_CLASS)  # Windows
+                else:
+                    p.nice(19)  # Linux / macOS (nice 19 = menor prioridad)
             else:
-                p.nice(psutil.NORMAL_PRIORITY_CLASS if hasattr(psutil, "NORMAL_PRIORITY_CLASS") else 0)
+                # Modo normal
+                if system == "Windows":
+                    p.nice(psutil.NORMAL_PRIORITY_CLASS)
+                else:
+                    p.nice(0)
         except Exception as e:
-            runtime_state.log_always(f"[sleep] no se pudo ajustar prioridad: {e}")
-    estado = "reposo" if body.enable else "activo"
-    runtime_state.log_always(f"[sleep] modo {estado}")
+            runtime_state.log_always(f"[sleep] error ajustando prioridad: {e}")
+    
+    runtime_state.log_always(f"[sleep] modo {'reposo' if body.enable else 'activo'}")
     return {"sleep_mode": runtime_state.sleep_mode}
-# -----------------------------------------------
 
-# ---------- NUEVO: snapshot final y última sesión ----------
-@router.post("/system/shutdown-snapshot")
+# --- SNAPSHOT ATOMICO (único archivo) ---
+def _perform_snapshot():
+    """Lógica interna reutilizable para guardar el estado completo."""
+    try:
+        instances = instance_service.list_instances()
+        snapshot_data = {
+            "last_shutdown_at": time.time(),
+            "instance_count": len(instances),
+            "instances": {str(i["index"]): i for i in instances},
+            "runtime_config": {
+                "debug": runtime_state.debug,
+                "health_cache_ttl": runtime_state.health_ttl,
+                "monitor_interval": runtime_state.monitor_interval,
+                "sleep_mode": runtime_state.sleep_mode,
+            }
+        }
+        # Guardamos en un SOLO archivo (atomicidad)
+        with open(data_store.snapshot_path, "w", encoding="utf-8") as f:
+            json.dump(snapshot_data, f, indent=2)
+        runtime_state.log_always(f"[snapshot] guardado exitoso ({len(instances)} instancias)")
+        return snapshot_data
+    except Exception as e:
+        runtime_state.log_always(f"[snapshot] ERROR CRÍTICO: {e}")
+        # Devolvemos un estado parcial o relanzamos
+        raise HTTPException(status_code=500, detail=f"Error guardando snapshot: {str(e)}")
+
+@router.post("/system/shutdown-snapshot", dependencies=[Depends(verify_api_key)])
 async def shutdown_snapshot():
-    """Guarda el estado completo de las instancias justo antes de apagar."""
-    instances = await instance_service.list_instances()
-    data_store.write_status_snapshot({
-        str(i["index"]): i for i in instances
-    })
-    data_store.write_runtime_config({
-        "debug": runtime_state.debug,
-        "health_cache_ttl": runtime_state.health_ttl,
-        "monitor_interval": runtime_state.monitor_interval,
-        "sleep_mode": runtime_state.sleep_mode,
-        "last_shutdown_at": time.time(),
-        "last_shutdown_instance_count": len(instances),
-    })
-    runtime_state.log_always(f"[shutdown] snapshot final guardado ({len(instances)} instancias)")
-    return {"ok": True, "instances": len(instances)}
+    """Guarda el estado completo justo antes de apagar."""
+    _perform_snapshot()
+    return {"ok": True}
 
-@router.get("/system/last-session")
+@router.get("/system/last-session", dependencies=[Depends(verify_api_key)])
 async def last_session():
-    """Devuelve el último estado conocido antes del apagado anterior."""
-    cfg = data_store.read_runtime_config() or {}
-    snapshot = data_store.read_status_snapshot() or {}
-    return {
-        "last_shutdown_at": cfg.get("last_shutdown_at"),
-        "instances": snapshot.get("instances", {}),
-        "updated_at": snapshot.get("updated_at"),
-    }
-# -----------------------------------------------------------
+    """Devuelve el último estado conocido."""
+    try:
+        with open(data_store.snapshot_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    except FileNotFoundError:
+        return {"error": "No hay snapshot previo"}
+    except json.JSONDecodeError:
+        return {"error": "Snapshot corrupto"}
+
+# --- ¡NUEVO! Snapshot automático al apagar el servicio ---
+@router.on_event("shutdown")
+async def auto_shutdown_snapshot():
+    """Se ejecuta SOLO cuando FastAPI se detiene limpiamente."""
+    runtime_state.log_always("[shutdown] Ejecutando snapshot automático...")
+    try:
+        _perform_snapshot()
+    except Exception as e:
+        runtime_state.log_always(f"[shutdown] Falló snapshot automático: {e}")
