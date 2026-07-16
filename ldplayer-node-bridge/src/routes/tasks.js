@@ -1,6 +1,9 @@
 'use strict';
 const express = require('express');
 const eventBus = require('../utils/eventBus');
+// @ts-check
+// eslint-disable-next-line no-unused-vars
+const _schemas = require('../schemas/tasks'); // referencia de shapes, ver JSDoc del archivo
 const jobStore = require('../services/pipelines/jobStore');
 const { runJob, cancelJob } = require('../services/pipelines/jobRunner');
 const { STEP_TYPES } = require('../services/pipelines/stepTypes');
@@ -12,7 +15,12 @@ function buildTasksRouter(client) {
   router.get('/step-types', (req, res) => {
     res.json(Object.entries(STEP_TYPES).map(([type, def]) => ({ type, label: def.label })));
   });
-
+'use strict';
+const express = require('express');
+const eventBus = require('../utils/eventBus');
+// @ts-check
+// eslint-disable-next-line no-unused-vars
+const _schemas = require('../schemas/tasks'); // referencia de shapes, ver JSDoc del archivo
   router.get('/presets', (req, res) => res.json(listPresets()));
 
   router.post('/presets/:id/run', (req, res) => {
