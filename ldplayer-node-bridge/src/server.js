@@ -3,6 +3,7 @@
 const express = require('express');
 const cors = require('cors');
 const config = require('./config.js');
+const WindowService = require('./services/windowService');
 
 const { LDPlayerClient } = require('./services/ldplayerClient.js');
 const StatusPoller = require('./services/statusPoller.js');
@@ -33,6 +34,8 @@ const corsOptions = {
 function createServer({ manager } = {}) {
   const client = new LDPlayerClient();
   const poller = new StatusPoller(client);
+    const windowService = new WindowService(client);   // ← nuevo
+
   const app = express();
 
   app.use(cors(corsOptions));
@@ -87,7 +90,7 @@ function createServer({ manager } = {}) {
     res.status(err.status || 500).json({ error: err.message || 'Error interno' });
   });
 
-  return { app, client, poller };
+  return { app, client, poller, windowService };
 }
 
 module.exports = createServer;

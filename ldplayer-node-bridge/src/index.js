@@ -12,7 +12,7 @@ const { warmupBeforeJob } = require('./services/pipelines/jobRunner');  // ← I
 
 async function main() {
   const manager = config.pythonProcess.manage ? new PythonServiceManager() : null;
-  const { app, client, poller } = createServer({ manager });
+  const { app, client, poller, windowService } = createServer({ manager });
   const healthScheduler = new HealthScheduler(client, poller);
 
   eventBus.on('python:state', ({ state }) => console.log(`[python] estado -> ${state}`));
@@ -37,7 +37,9 @@ async function main() {
     console.log(`[node] bridge escuchando en http://${config.node.host}:${config.node.port}`);
     console.log(`[node] SSE en /events, Socket.IO en /socket.io, API en /api/instances, /api/status, /api/service, /api/tasks`);
   });
-
+  server.on('listening', () => {
+    windowService.start();
+  });
   attachSocketIO(server);
 
   setTimeout(() => {
@@ -50,6 +52,7 @@ async function main() {
     console.log(`\n[node] recibido ${signal}, apagando...`);
     healthScheduler.stop();
     poller.stop();
+    windowService.stop();
     pythonBridgeSocket.close();
     try {
       await fetch(`${config.python.rootUrl}/api/v1/debug/system/shutdown-snapshot`, {
