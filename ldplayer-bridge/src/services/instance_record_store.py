@@ -1,4 +1,3 @@
-
 """
 Registro persistente POR INSTANCIA: health, apks revisadas/instaladas,
 permisos confirmados, últimos eventos (reboot/launch/quit), próximo
@@ -219,17 +218,20 @@ class InstanceRecordStore:
             current.update({k: v for k, v in profile.items() if v is not None})
             current["updated_at"] = time.time()
         self.update(index, _fn)
+
     def record_installed_apps(self, index: int, packages: List[str]) -> None:
         """Inventario periódico de apps instaladas (ver monitor.py)."""
         def _fn(r):
             r["installed_apps"] = {"packages": packages, "checked_at": time.time()}
         self.update(index, _fn)
+
     def record_agent(self, index: int, agent_info: Dict[str, Any]) -> None:
         """Cruce con el deviceRegistry de Node: qué agente/heartbeat
         corresponde a esta instancia."""
         def _fn(r):
             r["agent"] = {**agent_info, "updated_at": time.time()}
         self.update(index, _fn)
+
     def record_permission(self, index: int, package_name: str, permission: str, granted: bool) -> None:
         def _fn(r):
             pkg = r["permissions"].setdefault(package_name, {})
@@ -294,6 +296,47 @@ class InstanceRecordStore:
             if int(stem) not in active_indices:
                 try:
                     os.remove(os.path.join(self.dir, name))
+                except OSError:
+                    pass
+
+    # ------------------------------------------------------------------
+    # NUEVO MÉTODO: Limpieza de locks huérfanos al arrancar
+    # ------------------------------------------------------------------
+    def clear_orphan_locks(self) -> None:
+        """Borra locks cuyo proceso dueño ya no existe.
+        Llamar una sola vez al arrancar el servicio (desde lifespan).
+        """
+        import psutil
+
+        try:
+            files = os.listdir(self.dir)
+        except OSError:
+            return
+
+        for name in files:
+            if not name.endswith(".json.lock"):
+                continue
+
+            lock_path = os.path.join(self.dir, name)
+            try:
+                # Leemos el contenido del lock para obtener el PID
+                with open(lock_path, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+
+                # Formato: "owner:pid:timestamp" (ej: "python:1234:1234567890.123")
+                parts = content.split(":")
+                if len(parts) >= 2:
+                    pid_str = parts[1].strip()
+                    pid = int(pid_str)
+                    if not psutil.pid_exists(pid):
+                        os.remove(lock_path)
+                else:
+                    # Si el formato no es el esperado, lo borramos (corrupto)
+                    os.remove(lock_path)
+            except (ValueError, IndexError, OSError, FileNotFoundError):
+                # Si no se puede leer o parsear, lo borramos para no bloquear
+                try:
+                    os.remove(lock_path)
                 except OSError:
                     pass
 
