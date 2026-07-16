@@ -1,11 +1,8 @@
 'use strict';
 
 const express = require('express');
-
-/**
- * @param {import('../services/pythonServiceManager').PythonServiceManager} manager
- */
-function buildServiceRouter(manager) {
+const { warmupBeforeJob } = require('../services/pipelines/jobRunner');
+function buildServiceRouter(manager, { client } = {}) {
   const router = express.Router();
 
   router.get('/status', (req, res) => res.json(manager.getStatus()));
@@ -31,14 +28,15 @@ function buildServiceRouter(manager) {
     }
   });
 
-  router.post('/restart', async (req, res) => {
+  router.post('/restart', async (req, res) => { try { res.json(await manager.restart()); } catch (err) { res.status(500).json({ error: err.message }); } });
+  router.post('/warmup', async (req, res) => {
+    if (!client) return res.status(400).json({ error: 'cliente no disponible' });
+    const indices = Array.isArray(req.body?.indices) ? req.body.indices.map(Number).filter(Number.isFinite) : [0, 1, 2];
     try {
-      res.json(await manager.restart());
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
+      await warmupBeforeJob(client, indices);
+      res.json({ ok: true, indices });
+    } catch (err) { res.status(500).json({ error: err.message }); }
   });
-
   return router;
 }
 

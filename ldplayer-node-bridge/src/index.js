@@ -29,6 +29,14 @@ async function main() {
     }
   }
 
+  eventBus.on('instance:action', ({ action, index }) => {
+    if (index === null || index === undefined) return;
+    if (action === 'launch') {
+      windowService.registerForInstance(index).catch((err) => console.warn(`[window] no se pudo registrar ventana index=${index}: ${err.message}`));
+    } else if (action === 'quit' || action === 'kill') {
+      windowService.unregisterForInstance(index).catch(() => { });
+    }
+  });
   pythonBridgeSocket.connect();
   poller.start();
   // healthScheduler.start() se llama después del warmup (dentro del setTimeout)
@@ -41,21 +49,12 @@ async function main() {
     windowService.start();
   });
   attachSocketIO(server);
+  // nada se enciende solo: el warmup es manual via POST /api/service/warmup
+  if (config.pythonProcess && require('./config').healthCheck.enabled) {
+    healthScheduler.start();
+    console.log('[health] scheduler iniciado (config.healthCheck.enabled=true)');
+  }
 
-  // Calentamiento asíncrono: espera a que termine (o falle) y luego inicia el health scheduler
-  setTimeout(async () => {
-    try {
-      console.log('🔥 Iniciando calentamiento de instancias...');
-      await warmupBeforeJob(client, [0, 1, 2]);
-      console.log('✅ Calentamiento completado.');
-    } catch (err) {
-      console.error('[warmup] error inesperado:', err.message);
-    } finally {
-      // El health scheduler se inicia siempre, haya funcionado o no el warmup
-      healthScheduler.start();
-      console.log('[health] scheduler iniciado después del warmup');
-    }
-  }, 5000);
 
   const shutdown = async (signal) => {
     console.log(`\n[node] recibido ${signal}, apagando...`);

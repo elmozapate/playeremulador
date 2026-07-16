@@ -34,7 +34,7 @@ const corsOptions = {
 function createServer({ manager } = {}) {
   const client = new LDPlayerClient();
   const poller = new StatusPoller(client);
-    const windowService = new WindowService(client);   // ← nuevo
+  const windowService = new WindowService(client);   // ← nuevo
 
   const app = express();
 
@@ -62,9 +62,7 @@ function createServer({ manager } = {}) {
   app.use('/api/instance-model', buildInstanceModelRouter());
   app.use('/api/windows', buildWindowsRouter(client)); // <-- NUEVO (Fase 0)
 
-  if (manager) {
-    app.use('/api/service', buildServiceRouter(manager));
-  }
+  if (manager) { app.use('/api/service', buildServiceRouter(manager, { client })); }
 
   app.get('/api/status/combined', async (req, res) => {
     const agents = deviceRegistry.listDevices();

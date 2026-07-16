@@ -2,12 +2,8 @@
 
 'use strict';
 const { findToolAction } = require('./toolActions');
-const {
-  waitForAndroidReady,
-  waitForRootReady,
-  waitForAppInstalled,
-  waitForAppForeground,
-} = require('./waitHelpers');
+const { waitForAndroidReady, waitForRootReady, waitForAppInstalled, waitForAppForeground, } = require('./waitHelpers');
+const eventBus = require('../../utils/eventBus');
 
 function getByPath(obj, path) {
   if (!obj || !path) return undefined;
@@ -42,14 +38,13 @@ const STEP_TYPES = {
         ctx.releasePower(index);
         return { ok: false, detail: `launch falló: ${err.message}`, abort: true };
       }
-      try {
-        await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000);
-      } catch (err) {
+      try { await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000); } catch (err) {
         ctx.releasePower(index);
         return { ok: false, detail: err.message, abort: true };
       }
+      eventBus.emit('instance:action', { action: 'launch', index, result: true, ts: Date.now() });
       return { ok: true, detail: 'Tools disponible' };
-    },
+    }
   },
 
   reboot: {
@@ -70,18 +65,15 @@ const STEP_TYPES = {
   },
 
   quit: {
-    label: '🔴 Apagar (quit)',
-    async exec(index, v, ctx) {
+    label: '🔴 Apagar (quit)', async exec(index, v, ctx) {
       try {
         await ctx.client.quit(index);
+        eventBus.emit('instance:action', { action: 'quit', index, result: true, ts: Date.now() });
         return { ok: true };
-      } catch (err) {
-        return { ok: false, detail: err.message };
-      } finally {
-        ctx.releasePower(index);
-      }
+      } catch (err) { return { ok: false, detail: err.message }; } finally { ctx.releasePower(index); }
     },
   },
+
 
   initial_root: {
     label: '🌱 Perfil: Root Inicial',

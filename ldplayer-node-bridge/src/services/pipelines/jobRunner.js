@@ -66,7 +66,7 @@ function buildCtx(client, job, index) {
 }
 
 // En jobRunner.js
-async function warmupBeforeJob(client, indices = [0,1,2]) {
+async function warmupBeforeJob(client, indices = [0, 1, 2]) {
   console.log('🔥 Calentando instancias una por una...');
   for (const index of indices) {
     try {
@@ -175,4 +175,4 @@ function cancelJob(jobId) {
   return job;
 }
 
-module.exports = { runJob, cancelJob, warmupBeforeJob };
+module.exports = { runJob, cancelJob, warmupBeforeJob, powerMutex };
