@@ -1724,6 +1724,81 @@
     // index -> última instancia conocida (para chequear android_started)
     let instancesByIndex = {};
 
+    // ==================================================================
+    // ESTADO DE INSTANCIA — junta en un solo modal:
+    //  1) Lo que ya tenemos guardado en el cliente (instancesByIndex[index]),
+    //     que viene del snapshot cacheado por el poller (SSE status:update
+    //     / carga inicial de /api/status/all) — no pega al backend, es
+    //     instantáneo pero puede estar unos segundos desactualizado.
+    //  2) Lo que devuelve GET /api/instances/:index en vivo (list_instances
+    //     real vía ldconsole, sin cache).
+    //  3) Lo que devuelve GET /api/status/:index (snapshot cacheado del
+    //     poller de Node, separado del cache de arriba).
+    //  4) Lo que devuelve GET /api/instances/:index/health (battery +
+    //     android_started, con su propio cache TTL en el backend Python).
+    // Cada sección se pide independiente y se muestra igual si alguna
+    // falla (por ejemplo si la instancia está apagada y health tira error).
+    // ==================================================================
+    function jsonBlock(label, data) {
+      const safe = data === undefined ? '(sin datos)' : JSON.stringify(data, null, 2);
+      return `<div class="step-subfields-divider">${label}</div><pre style="white-space:pre-wrap; font-family:var(--mono); font-size:.75rem; background:var(--panel-2); padding:.6rem; border-radius:6px; margin:.3rem 0;">${safe}</pre>`;
+    }
+
+    async function showInstanceState(index) {
+      modalBox.innerHTML = '';
+
+      const title = document.createElement('p');
+      title.className = 'modal-title';
+      title.textContent = `ℹ️ Estado — instancia #${index}`;
+      modalBox.appendChild(title);
+
+      const sub = document.createElement('p');
+      sub.className = 'modal-sub';
+      sub.textContent = 'Cargando datos locales y del backend...';
+      modalBox.appendChild(sub);
+
+      const body = document.createElement('div');
+      modalBox.appendChild(body);
+
+      const btns = document.createElement('div');
+      btns.className = 'modal-btns';
+      const refreshBtn = document.createElement('button');
+      refreshBtn.className = 'teal';
+      refreshBtn.textContent = '↻ Refrescar';
+      refreshBtn.onclick = () => showInstanceState(index);
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'ghost';
+      closeBtn.textContent = 'Cerrar';
+      closeBtn.onclick = () => closeModal();
+      btns.append(closeBtn, refreshBtn);
+      modalBox.appendChild(btns);
+
+      modalOverlay.classList.add('show');
+
+      // 1) Lo que ya teníamos guardado localmente, sin pegarle a nada
+      const local = instancesByIndex[index] || null;
+
+      // 2/3/4) En paralelo, contra el backend. Cada una puede fallar sola.
+      const [liveRes, statusRes, healthRes] = await Promise.allSettled([
+        getJSON(`/api/instances/${index}`),
+        getJSON(`/api/status/${index}`),
+        getJSON(`/api/instances/${index}/health`),
+      ]);
+
+      const extract = (settled) => {
+        if (settled.status !== 'fulfilled') return { error: settled.reason?.message || 'error de red' };
+        const { ok, status, payload } = settled.value;
+        return ok ? payload : { error: payload?.error || `status ${status}` };
+      };
+
+      sub.textContent = 'Datos locales (cache del cliente) + backend en vivo.';
+      body.innerHTML =
+        jsonBlock('1) Local — de la última actualización del panel (SSE / poller)', local) +
+        jsonBlock('2) GET /api/instances/:index — en vivo (ldconsole, sin cache)', extract(liveRes)) +
+        jsonBlock('3) GET /api/status/:index — snapshot cacheado del poller de Node', extract(statusRes)) +
+        jsonBlock('4) GET /api/instances/:index/health — batería + android_started (cache TTL del backend Python)', extract(healthRes));
+    }
+
     function openTools(index) {
       const inst = instancesByIndex[index];
       if (!inst || inst.android_started !== true) {
@@ -3866,6 +3941,7 @@
             <button class="small violet" onclick="initialRootInstance(${inst.index})" title="Root ON + debug ADB ON + 6 núcleos + 8192MB + 540x960">🌱 Root Inicial</button>
             <button class="small teal" onclick="makeReadyInstance(${inst.index})" title="3 núcleos + 3072MB">✅ Ready</button>
             <button class="small teal" onclick="openTools(${inst.index})" ${isUp ? '' : 'disabled'} title="${toolsTitle}">🛠️ Tools</button>
+            <button class="small" onclick="showInstanceState(${inst.index})" title="Ver todo lo que sabemos de esta instancia (local + backend)">ℹ️ Estado</button>
           </td>`;
         body.appendChild(tr);
 
