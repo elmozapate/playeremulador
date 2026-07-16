@@ -3169,32 +3169,35 @@
         },
       },
       {
-        id: 'check_apps', label: '📦 Verificar apps instaladas (lista de package names)',
+        id: 'check_battery',
+        label: '🔋 Verificar batería (debe devolver datos válidos)',
         fields: [
           {
-            id: 'package_names', label: 'Package names (separados por coma)',
-            type: 'text', placeholder: 'net.typeblog.socks, com.brd.earnrewards, ...',
-            required: true
+            id: 'on_fail',
+            label: 'Si la batería no responde',
+            type: 'select',
+            value: 'continue',
+            options: [
+              { value: 'continue', label: 'Continuar igual' },
+              { value: 'abort', label: 'Cerrar (quit) y pasar a la siguiente instancia' }
+            ]
           }
         ],
         exec: async (index, v) => {
-          const requiredApps = (v.package_names || '').split(',').map(s => s.trim()).filter(Boolean);
-          if (requiredApps.length === 0) return { ok: false, detail: 'sin apps para verificar' };
+          const { ok, payload } = await getJSON(`/api/instances/${index}/battery`);
+          const fail = !ok || !payload || Object.keys(payload).length === 0 ||
+            (payload.level === undefined && payload.status === undefined);
 
-          const action = TOOL_ACTIONS.find(a => a.id === 'apps_list');
-          const { ok, payload } = await getJSON(`${action.path(index)}?only_third_party=true`);
-          if (!ok || !Array.isArray(payload)) {
-            return { ok: false, detail: 'no se pudo obtener lista de apps' };
+          if (fail) {
+            if (v.on_fail === 'abort') {
+              await postJSON(`/api/instances/${index}/quit`);
+              return { ok: false, detail: 'batería no disponible, quit y se omite el resto', abort: true };
+            }
+            return { ok: false, detail: 'batería no disponible o respuesta vacía' };
           }
-
-          const missing = requiredApps.filter(app => !payload.includes(app));
-          if (missing.length > 0) {
-            return { ok: false, detail: `faltan: ${missing.join(', ')}` };
-          }
-          return { ok: true, detail: `todas las apps presentes (${requiredApps.length})` };
+          return { ok: true, detail: JSON.stringify(payload) };
         },
-      },
-    ];
+      }];
 
     let currentPipeline = { name: 'Mi pipeline', steps: [] };
 
@@ -3525,22 +3528,21 @@
           steps: [
             {
               type: 'launch',
-              values: { bootTimeoutSec: 60 }        // si en 60s no hay Tools → se aborta y va a error
+              values: { bootTimeoutSec: 60 }       // 60s para boot, si no → aborta esa instancia
             },
             { type: 'wait', values: { seconds: 5 } },
             {
-              type: 'check_battery',                // verifica que batería responda con datos
-              values: {}
+              type: 'check_battery',
+              values: { on_fail: 'abort' }         // fallo de batería → cierra y pasa a la siguiente
             },
             { type: 'wait', values: { seconds: 2 } },
             {
-              type: 'check_apps',                   // verifica que estén las 3 apps
+              type: 'check_apps',
               values: {
-                package_names: 'net.typeblog.socks, com.brd.earnrewards, com.chataolutions.app'
+                package_names: 'net.typeblog.socks, com.brd.earnrewards, com.chataolutions.app',
+                on_fail: 'abort'                   // apps faltantes → cierra y pasa a la siguiente
               }
-            },
-            { type: 'wait', values: { seconds: 10 } },
-            { type: 'quit', values: {} },
+            }
           ]
         };
         renderPipelineBuilder();
