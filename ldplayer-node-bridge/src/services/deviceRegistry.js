@@ -11,7 +11,7 @@
 //      que se conecta (no manda deviceId, no lo tiene todavía).
 //   2) registerDevice() genera un deviceId nuevo y, si puede, le asigna un instanceIndex:
 //        - si el propio cliente lo indica explícitamente (requestedInstanceIndex), se usa ese.
-//        - si no, se intenta hacer match con la cola de "lanzamientos pendientes" (ver abajo).
+//        - si no, se intenta hacer match con la cola de "lanzamientos pendientes".
 //   3) El cliente guarda deviceId + instanceIndex en su storage local y de ahí en más
 //      manda heartbeats normales con ese deviceId.
 //
@@ -20,14 +20,15 @@
 // dispara la acción sin pasar por esa ruta)
 //
 // Cola de lanzamientos pendientes:
-//   Cuando instances.js dispara una acción 'launch' sobre un índice (por ej. desde la cadena
-//   "Iniciar con monitor"), este módulo lo escucha por el eventBus y guarda {index, ts} en
-//   una cola FIFO con TTL. Así, si el próximo /register que llega no trae instanceIndex propio,
-//   se le asigna el índice más viejo pendiente (asumiendo que las apps se registran en el
-//   mismo orden en que se lanzan las instancias).
+//   Cuando instances.js dispara una acción 'launch' sobre un índice, este módulo lo
+//   escucha por el eventBus y guarda {index, ts} en una cola FIFO con TTL. Así, si el
+//   próximo /register que llega no trae instanceIndex propio, se le asigna el índice
+//   más viejo pendiente (asumiendo que las apps se registran en el mismo orden en que
+//   se lanzan las instancias).
 
 const eventBus = require('../utils/eventBus');
 const { instanceRecordStore } = require('./instanceRecordStore');
+
 const STALE_MS = 45_000; // sin heartbeat en este tiempo -> se considera "no vivo"
 const CLEANUP_MS = 5 * 60_000; // barrido periódico de dispositivos muy viejos
 const DEVICE_TTL_MS = STALE_MS * 20; // borrado definitivo si no se ve en este tiempo
@@ -66,6 +67,7 @@ function decorate(record) {
   if (!record) return null;
   return { ...record, alive: now() - record.lastSeen < STALE_MS };
 }
+
 function _syncAgentRecord(record) {
   if (record.instanceIndex === null || record.instanceIndex === undefined) return;
   // Fire-and-forget: no bloquear la respuesta del heartbeat por esto.
@@ -76,7 +78,7 @@ function _syncAgentRecord(record) {
       lastSeen: record.lastSeen,
       appVersion: record.appVersion,
     })
-    .catch(() => { });
+    .catch(() => {});
 }
 
 // --- Cola de lanzamientos pendientes (alimentada por eventBus) ---------
@@ -131,7 +133,19 @@ function registerDevice({ appVersion, ua, meta, requestedInstanceIndex } = {}) {
   record.status = 'registered';
   record.event = 'register';
   devices.set(deviceId, record);
-  if (instanceIndex !== null) deviceByIndex.set(instanceIndex, deviceId);
+  if (instanceIndex !== null) {
+    // Eliminar posible entrada anterior con el mismo índice (seguridad)
+    const oldDeviceId = deviceByIndex.get(instanceIndex);
+    if (oldDeviceId && oldDeviceId !== deviceId) {
+      // Si otro dispositivo tenía este índice, lo desvinculamos (no debería ocurrir)
+      const oldRecord = devices.get(oldDeviceId);
+      if (oldRecord) {
+        oldRecord.instanceIndex = null;
+        devices.set(oldDeviceId, oldRecord);
+      }
+    }
+    deviceByIndex.set(instanceIndex, deviceId);
+  }
   _syncAgentRecord(record);
   eventBus.emit('agent:register', decorate(record));
   return record;
@@ -154,6 +168,12 @@ function upsertHeartbeat({
   const existing = devices.get(deviceId);
   const record = existing || emptyRecord(deviceId);
 
+  // Si no existía previamente, lo marcamos como registrado (implícito)
+  if (!existing) {
+    record.registered = true;
+    record.registeredAt = now();
+  }
+
   record.status = status || record.status || 'alive';
   record.event = event || record.event;
   record.ts = ts || now();
@@ -174,21 +194,44 @@ function upsertHeartbeat({
     }
   }
 
-  // El instanceIndex sólo se pisa si todavía no estaba asignado, o si el
-  // cliente lo manda explícito y difiere (por ej. tras un reset manual).
+  // Actualizar instanceIndex si se proporciona y es diferente
+  let newIndex = record.instanceIndex;
   if (instanceIndex !== undefined && instanceIndex !== null && instanceIndex !== '') {
     const n = Number(instanceIndex);
-    if (Number.isFinite(n) && n !== record.instanceIndex) {
-      record.instanceIndex = n;
+    if (Number.isFinite(n)) {
+      newIndex = n;
     }
   }
-  if (record.instanceIndex !== null) deviceByIndex.set(record.instanceIndex, deviceId);
+
+  if (newIndex !== record.instanceIndex) {
+    // Eliminar la entrada anterior en el mapa de índices si el deviceId la tenía
+    if (record.instanceIndex !== null) {
+      const currentDeviceId = deviceByIndex.get(record.instanceIndex);
+      if (currentDeviceId === deviceId) {
+        deviceByIndex.delete(record.instanceIndex);
+      }
+    }
+    record.instanceIndex = newIndex;
+    if (newIndex !== null) {
+      // Asegurar que no haya otro dispositivo con este índice
+      const oldDeviceId = deviceByIndex.get(newIndex);
+      if (oldDeviceId && oldDeviceId !== deviceId) {
+        const oldRecord = devices.get(oldDeviceId);
+        if (oldRecord) {
+          oldRecord.instanceIndex = null;
+          devices.set(oldDeviceId, oldRecord);
+        }
+      }
+      deviceByIndex.set(newIndex, deviceId);
+    }
+  }
+
   devices.set(deviceId, record);
   _syncAgentRecord(record);
   eventBus.emit('agent:heartbeat', decorate(record));
   return decorate(record);
-
 }
+
 function listDevices() {
   return Array.from(devices.values()).map(decorate);
 }
@@ -202,6 +245,11 @@ function getDeviceByIndex(instanceIndex) {
   const deviceId = deviceByIndex.get(n);
   if (!deviceId) return null;
   return decorate(devices.get(deviceId));
+}
+
+function getIndexForDevice(deviceId) {
+  const record = devices.get(deviceId);
+  return record?.instanceIndex ?? null;
 }
 
 function removeDevice(deviceId) {
@@ -231,6 +279,7 @@ module.exports = {
   listDevices,
   getDevice,
   getDeviceByIndex,
+  getIndexForDevice,
   removeDevice,
   expectRegistration,
 };

@@ -40,13 +40,11 @@ async function main() {
 
   attachSocketIO(server);
 
-  // 🔥 WARMUP AUTOMÁTICO EN SEGUNDO PLANO (no bloquea el arranque)
-  // Se ejecuta después de que el servidor esté listo y el poller haya empezado
   setTimeout(() => {
-    warmupBeforeJob([0, 1, 2]).catch((err) => {
+    warmupBeforeJob(client, [0, 1, 2]).catch((err) => {
       console.error('[warmup] error inesperado:', err.message);
     });
-  }, 5000); // espera 5s para dar tiempo a que todo esté estable
+  }, 5000);
 
   const shutdown = async (signal) => {
     console.log(`\n[node] recibido ${signal}, apagando...`);
@@ -56,7 +54,7 @@ async function main() {
     try {
       await fetch(`${config.python.rootUrl}/api/v1/debug/system/shutdown-snapshot`, {
         method: 'POST',
-        headers: { 'x-api-key': process.env.PYTHON_API_KEY || 'tu-clave-secreta-cambia-esto' },
+        headers: { 'x-api-key': process.env.PYTHON_API_KEY },
       });
     } catch (e) { console.warn('[node] no se pudo pedir snapshot final a Python:', e.message); }
     server.close();

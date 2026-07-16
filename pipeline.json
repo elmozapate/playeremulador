@@ -2,10 +2,30 @@
     "name": "Setup Root (Root + Apps)ss",
     "steps": [
         {
-            "type": "initial_root",
+            "type": "launch",
             "values": {
-                
+                "bootTimeoutSec": 90
             }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 3
+            }
+        },
+        {
+            "type": "quit",
+            "values": {}
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 3
+            }
+        },
+        {
+            "type": "initial_root",
+            "values": {}
         },
         {
             "type": "wait",

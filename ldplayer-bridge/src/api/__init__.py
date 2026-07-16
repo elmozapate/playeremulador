@@ -5,6 +5,8 @@ from .status import router as status_router
 from .system import router as system_router
 from .endpoints.system import router as warmup_router
 from .windows import router as windows_router
+from .screen import router as screen_router
+from .macros import router as macros_router
 
 router = APIRouter()
 router.include_router(instances_router, prefix="/instances", tags=["Instances"])
@@ -13,4 +15,7 @@ router.include_router(system_router, prefix="/instances", tags=["System"])
 router.include_router(warmup_router, prefix="/instances", tags=["System"])
 router.include_router(debug_router, prefix="/debug", tags=["Debug"])
 router.include_router(windows_router, prefix="/windows", tags=["Windows"])
+router.include_router(screen_router, prefix="/instances", tags=["Screen"])
+router.include_router(macros_router, prefix="/macros", tags=["Macros"])
+
 __all__ = ["router"]

@@ -823,6 +823,32 @@ class ADBController:
         return result
 
     @staticmethod
+    def screenshot(index: int) -> bytes:
+        """PNG crudo de la pantalla actual (adb exec-out screencap -p)."""
+        serial = ADBController.resolve_serial(index)
+        try:
+            result = subprocess.run(
+                [settings.ADB_PATH, "-s", serial, "exec-out", "screencap", "-p"],
+                capture_output=True,
+                timeout=ADBController.ADB_TIMEOUT_S,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(f"Timeout tomando screenshot index={index}")
+        if not result.stdout:
+            raise RuntimeError(f"Screenshot vacío index={index}: {result.stderr.decode(errors='ignore')}")
+        return result.stdout
+    @staticmethod
+    def get_screen_resolution(index: int) -> Dict:
+        """Parsea `wm size`. Prioriza 'Override size' (LDPlayer a veces la
+        reporta distinta de la física)."""
+        output = ADBController.shell(index, "wm size")
+        override = re.search(r"Override size:\s*(\d+)x(\d+)", output)
+        physical = re.search(r"Physical size:\s*(\d+)x(\d+)", output)
+        match = override or physical
+        if not match:
+            raise RuntimeError(f"No se pudo parsear 'wm size' index={index}: {output!r}")
+        return {"width": int(match.group(1)), "height": int(match.group(2))}
+    @staticmethod
     def get_ip_address(index: int) -> Optional[str]:
         output = ADBController.shell(index, "ip -f inet addr show wlan0")
         match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", output)
@@ -894,6 +920,38 @@ class ADBController:
         ADBController.shell(index, "settings put global development_settings_enabled 1")
         return ADBController.shell(index, "settings put global adb_enabled 1")
 
+    # ------------------------------------------------------------------
+    # Descubrimiento del dispositivo de touch (para getevent)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def find_touch_device(index: int) -> Optional[Dict]:
+        """
+        Busca el /dev/input/eventN que reporta ABS_MT_POSITION_X/Y y devuelve
+        también su rango crudo (min/max), necesario para escalar las
+        coordenadas del evento a píxeles reales de pantalla.
+        """
+        output = ADBController.shell(index, "getevent -pl")
+        device_path = None
+        x_range = None
+        y_range = None
+        current_device = None
+        for line in output.splitlines():
+            dev_match = re.match(r"add device \d+: (/dev/input/event\d+)", line)
+            if dev_match:
+                current_device = dev_match.group(1)
+                continue
+            if "ABS_MT_POSITION_X" in line:
+                device_path = current_device
+                m = re.search(r"min\s+(-?\d+),\s*max\s+(-?\d+)", line)
+                if m:
+                    x_range = (int(m.group(1)), int(m.group(2)))
+            if "ABS_MT_POSITION_Y" in line and current_device == device_path:
+                m = re.search(r"min\s+(-?\d+),\s*max\s+(-?\d+)", line)
+                if m:
+                    y_range = (int(m.group(1)), int(m.group(2)))
+        if not device_path:
+            return None
+        return {"device": device_path, "x_range": x_range, "y_range": y_range}
     # ------------------------------------------------------------------
     # Mantenimiento de caches
     # ------------------------------------------------------------------

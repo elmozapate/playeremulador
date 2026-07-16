@@ -118,3 +118,4 @@ serví estático desde la raíz) para ver la demo con tabla de instancias en viv
   `GET /instances/:index/health` (`tools_available`/`ready`/`online`/`status
   === 'ok'`) — falta confirmar el campo exacto contra la respuesta real del
   backend Python.
+

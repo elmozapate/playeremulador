@@ -1,12 +1,10 @@
+// jobRunner.js (corregido)
 'use strict';
 const eventBus = require('../../utils/eventBus');
 const { STEP_TYPES } = require('./stepTypes');
 const { waitForAndroidReady, cancelableSleep } = require('./waitHelpers');
 const jobStore = require('./jobStore');
-const { LDPlayerClient } = require('../LDPlayerClient');
-const client = new LDPlayerClient({ timeoutMs: 180000 }); // Timeout alto para warmup
 
-// Mutex simple: "una encendida a la vez" entre TODOS los jobs
 class Mutex {
   constructor() { this._locked = false; this._queue = []; }
   acquire(timeoutMs = 5 * 60_000) {
@@ -67,7 +65,8 @@ function buildCtx(client, job, index) {
   };
 }
 
-async function warmupBeforeJob(indices = [0, 1, 2]) {
+// ✅ Ahora recibe el cliente como parámetro
+async function warmupBeforeJob(client, indices = [0, 1, 2]) {
   console.log('🔥 Calentando instancias... (puede tomar 2 minutos)');
   try {
     const result = await client._request('POST', '/system/warmup', {
@@ -82,52 +81,58 @@ async function warmupBeforeJob(indices = [0, 1, 2]) {
   }
 }
 
-
 async function runInstance(client, job, index) {
   const inst = job.instances[index];
   inst.status = 'running';
   eventBus.emit('job:instance:status', { jobId: job.id, index, status: 'running' });
   const ctx = buildCtx(client, job, index);
 
-  for (const step of job.steps) {
-    if (job.cancelled) {
-      inst.status = 'cancelled';
-      eventBus.emit('job:instance:status', { jobId: job.id, index, status: 'cancelled' });
-      return;
-    }
-    const def = STEP_TYPES[step.type];
-    inst.currentStep = step.type;
-    eventBus.emit('job:step', { jobId: job.id, index, step: step.type, status: 'start', ts: Date.now() });
+  try {
+    for (const step of job.steps) {
+      if (job.cancelled) {
+        inst.status = 'cancelled';
+        eventBus.emit('job:instance:status', { jobId: job.id, index, status: 'cancelled' });
+        return;
+      }
+      const def = STEP_TYPES[step.type];
+      inst.currentStep = step.type;
+      eventBus.emit('job:step', { jobId: job.id, index, step: step.type, status: 'start', ts: Date.now() });
 
-    if (!def) {
-      inst.steps.push({ type: step.type, ok: false, detail: 'tipo de step desconocido' });
-      eventBus.emit('job:step', { jobId: job.id, index, step: step.type, status: 'error', detail: 'tipo desconocido' });
-      inst.status = 'failed';
-      eventBus.emit('job:instance:status', { jobId: job.id, index, status: 'failed' });
-      return;
-    }
+      if (!def) {
+        inst.steps.push({ type: step.type, ok: false, detail: 'tipo de step desconocido' });
+        eventBus.emit('job:step', { jobId: job.id, index, step: step.type, status: 'error', detail: 'tipo desconocido' });
+        inst.status = 'failed';
+        eventBus.emit('job:instance:status', { jobId: job.id, index, status: 'failed' });
+        return;
+      }
 
-    let result;
-    try {
-      result = await def.exec(index, step.values || {}, ctx);
-    } catch (err) {
-      result = { ok: false, detail: err.message, abort: true };
-    }
-    inst.steps.push({ type: step.type, ...result });
-    eventBus.emit('job:step', {
-      jobId: job.id, index, step: step.type,
-      status: result.ok ? 'ok' : 'error', detail: result.detail, ts: Date.now(),
-    });
+      let result;
+      try {
+        result = await def.exec(index, step.values || {}, ctx);
+      } catch (err) {
+        result = { ok: false, detail: err.message, abort: true };
+      }
+      inst.steps.push({ type: step.type, ...result });
+      eventBus.emit('job:step', {
+        jobId: job.id, index, step: step.type,
+        status: result.ok ? 'ok' : 'error', detail: result.detail, ts: Date.now(),
+      });
 
-    if (!result.ok && result.abort) {
-      inst.status = 'aborted';
-      eventBus.emit('job:instance:status', { jobId: job.id, index, status: 'aborted' });
-      return;
+      if (!result.ok && result.abort) {
+        inst.status = 'aborted';
+        eventBus.emit('job:instance:status', { jobId: job.id, index, status: 'aborted' });
+        return;
+      }
+    }
+    inst.currentStep = null;
+    inst.status = 'done';
+    eventBus.emit('job:instance:status', { jobId: job.id, index, status: 'done' });
+  } finally {
+    // ✅ Liberación segura del mutex para este índice
+    if (powerReleasers.has(index)) {
+      ctx.releasePower(index);
     }
   }
-  inst.currentStep = null;
-  inst.status = 'done';
-  eventBus.emit('job:instance:status', { jobId: job.id, index, status: 'done' });
 }
 
 async function runJob(client, jobId) {
@@ -163,4 +168,4 @@ function cancelJob(jobId) {
   return job;
 }
 
-module.exports = { runJob, cancelJob, warmupBeforeJob };  // ← añade warmupBeforeJob
+module.exports = { runJob, cancelJob, warmupBeforeJob };
