@@ -11,6 +11,7 @@ const buildStatusRouter = require('./routes/status');
 const buildServiceRouter = require('./routes/service');
 const buildEventsRouter = require('./routes/events');
 const buildAgentRouter = require('./routes/agent');
+const buildDebugRouter = require('./routes/debug');
 const deviceRegistry = require('./services/deviceRegistry');
 const corsOptions = {
   origin: '*',
@@ -35,19 +36,16 @@ function createServer({ manager } = {}) {
   app.use('/api/instances', buildInstancesRouter(client, poller));
   app.use('/api/instances', buildSystemRouter(client, poller));
   app.use('/api/status', buildStatusRouter(client, poller));
+  app.use('/api/debug', buildDebugRouter(client));
   app.use('/api/agent', buildAgentRouter());
   app.use('/events', buildEventsRouter());
   app.use('/api/pipeline', buildPipelineRouter(client));
-
   if (manager) {
     app.use('/api/service', buildServiceRouter(manager));
   }
   app.get('/api/status/combined', async (req, res) => {
     const instances = (await client.listInstances?.()) ?? [];
     const agents = deviceRegistry.listDevices();
-    // mismo shape que antes (instances + agents) pero ahora cada instancia
-    // ya trae su agente correlacionado si existe (ver withAgent en instances.js
-    // -- acá lo repetimos por si esta ruta se llama antes de pasar por ese router).
     const arr = Array.isArray(instances) ? instances : instances?.instances || [];
     const withAgents = arr.map((inst) => {
       const index = inst.index ?? inst.Index ?? inst.idx;

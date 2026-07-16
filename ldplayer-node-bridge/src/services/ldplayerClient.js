@@ -1,9 +1,5 @@
 'use strict';
 const config = require('../config');
-/**
- * Error tipado para respuestas no-2xx de la API Python.
- * FastAPI devuelve {"detail": "..."} en sus HTTPException, lo exponemos tal cual.
- */
 class LDPlayerApiError extends Error {
   constructor(message, { status, detail, url, method } = {}) {
     super(message);
@@ -14,31 +10,6 @@ class LDPlayerApiError extends Error {
     this.method = method;
   }
 }
-/**
- * Cliente 1:1 contra la API de ldplayer-bridge (FastAPI).
- * Cada método corresponde exactamente a una ruta del backend Python:
- *
- *   GET    /api/v1/instances                    -> listInstances()
- *   POST   /api/v1/instances/quitall             -> quitAllInstances()
- *   GET    /api/v1/instances/{index}             -> getInstance(index)
- *   POST   /api/v1/instances/{index}/launch      -> launch(index)
- *   POST   /api/v1/instances/{index}/reboot      -> reboot(index)
- *   POST   /api/v1/instances/{index}/quit        -> quit(index)
- *   GET    /api/v1/instances/{index}/health      -> getHealth(index)
- *   POST   /api/v1/instances/{index}/install     -> installApp(index, apkPath)
- *   POST   /api/v1/instances/{index}/run         -> runApp(index, packageName)
- *   POST   /api/v1/instances/{index}/modify      -> modify(index, { cpu, memory, resolution })
- *   GET    /api/v1/status/all                    -> getAllStatus()
- *   GET    /api/v1/status/{index}                -> getInstanceStatus(index)
- *   GET    /                                      -> ping()
- *
- * Métodos de sistema (api/system.py del lado Python), todos bajo el mismo
- * prefix /instances/{index}/... :
- *   battery, bluetooth, wifi, mobile-data, airplane-mode, gps, geo,
- *   rotation-lock, brightness, screen-timeout, volume, dnd, screen,
- *   input/*, apps/* (uninstall, force-stop, clear-data, list, current,
- *   permissions, play-protect, run-reliable)
- */
 class LDPlayerClient {
   constructor({ apiBaseUrl, rootUrl, timeoutMs } = {}) {
     this.apiBaseUrl = (apiBaseUrl || config.python.apiBaseUrl).replace(/\/+$/, '');
@@ -89,7 +60,6 @@ class LDPlayerClient {
     }
     return data;
   }
-  // ---- Healthcheck de servicio ------------------------------------------
   async ping() {
     try {
       await this._request('GET', '/', { baseUrl: this.rootUrl });
@@ -98,7 +68,6 @@ class LDPlayerClient {
       return false;
     }
   }
-  // ---- Instancias ---------------------------------------------------------
   listInstances() {
     return this._request('GET', '/instances');
   }
@@ -126,10 +95,6 @@ class LDPlayerClient {
   runApp(index, packageName) {
     return this._request('POST', `/instances/${index}/run`, { body: { package_name: packageName } });
   }
-  /**
-   * @param {number} index
-   * @param {{cpu?: number, memory?: number, resolution?: string}} params resolution: "width,height,dpi"
-   */
   modify(index, { cpu, memory, resolution } = {}) {
     return this._request('POST', `/instances/${index}/modify`, {
       body: { cpu: cpu ?? null, memory: memory ?? null, resolution: resolution ?? null },
@@ -145,17 +110,12 @@ class LDPlayerClient {
       body: { package_name: packageName },
     });
   }
-  // ---- Status (cache del monitor de background en Python) -----------------
   getAllStatus() {
     return this._request('GET', '/status/all');
   }
   getInstanceStatus(index) {
     return this._request('GET', `/status/${index}`);
   }
-
-  // ==========================================================================
-  // Sistema: batería
-  // ==========================================================================
   getBattery(index) {
     return this._request('GET', `/instances/${index}/battery`);
   }
@@ -168,10 +128,6 @@ class LDPlayerClient {
   resetBattery(index) {
     return this._request('POST', `/instances/${index}/battery/reset`);
   }
-
-  // ==========================================================================
-  // Sistema: radios
-  // ==========================================================================
   setBluetooth(index, enable) {
     return this._request('POST', `/instances/${index}/bluetooth`, { body: { enable } });
   }
@@ -190,10 +146,6 @@ class LDPlayerClient {
   setAirplaneMode(index, enable) {
     return this._request('POST', `/instances/${index}/airplane-mode`, { body: { enable } });
   }
-
-  // ==========================================================================
-  // Sistema: ubicación / sensores
-  // ==========================================================================
   setGps(index, enable) {
     return this._request('POST', `/instances/${index}/gps`, { body: { enable } });
   }
@@ -203,10 +155,6 @@ class LDPlayerClient {
   setRotationLock(index, locked) {
     return this._request('POST', `/instances/${index}/rotation-lock`, { body: { locked } });
   }
-
-  // ==========================================================================
-  // Sistema: interfaz (pantalla, volumen, DND)
-  // ==========================================================================
   setBrightness(index, level) {
     return this._request('POST', `/instances/${index}/brightness`, { body: { level } });
   }
@@ -228,10 +176,6 @@ class LDPlayerClient {
   getScreenStatus(index) {
     return this._request('GET', `/instances/${index}/screen`);
   }
-
-  // ==========================================================================
-  // Sistema: input (teclas, texto, gestos)
-  // ==========================================================================
   pressKey(index, keycode) {
     return this._request('POST', `/instances/${index}/input/key`, { body: { keycode } });
   }
@@ -251,10 +195,6 @@ class LDPlayerClient {
       body: { x, y, duration_ms: durationMs },
     });
   }
-
-  // ==========================================================================
-  // Sistema: apps extra (no cubiertas por /instances/{index}/{install,run,kill})
-  // ==========================================================================
   uninstallApp(index, packageName) {
     return this._request('POST', `/instances/${index}/apps/uninstall`, {
       body: { package_name: packageName },
@@ -290,21 +230,11 @@ class LDPlayerClient {
   setPlayProtect(index, disable) {
     return this._request('POST', `/instances/${index}/apps/play-protect`, { body: { disable } });
   }
-  /**
-   * Variante robusta de runApp: confirma foreground vía ADB y hace fallback
-   * automático si ldconsole runapp no lo logra en timeoutS segundos.
-   * @param {number} index
-   * @param {string} packageName
-   * @param {{activity?: string, timeoutS?: number}} opts
-   */
   runAppReliable(index, packageName, { activity, timeoutS = 6.0 } = {}) {
     return this._request('POST', `/instances/${index}/apps/run-reliable`, {
       body: { package_name: packageName, activity: activity ?? null, timeout_s: timeoutS },
     });
   }
-  // ======================================================================
-  // ROOT / Depuración
-  // ======================================================================
   getRootStatus(index) {
     return this._request('GET', `/instances/${index}/root/status`);
   }
@@ -327,6 +257,23 @@ class LDPlayerClient {
   }
   makeReady(index) {
     return this._request('POST', `/instances/${index}/ready`);
+  }
+  // ====================================================================
+  // Debug / configuración runtime del servicio Python (modo verbose,
+  // TTL del health cache, intervalo del monitor). Todo se persiste en
+  // disco del lado Python (ver core/runtime_state.py).
+  // ====================================================================
+  getDebugStatus() {
+    return this._request('GET', '/debug/status');
+  }
+  toggleDebug(enable) {
+    return this._request('POST', '/debug/toggle', { body: { enable } });
+  }
+  setHealthTtl(seconds) {
+    return this._request('POST', '/debug/health-ttl', { body: { seconds } });
+  }
+  setMonitorInterval(seconds) {
+    return this._request('POST', '/debug/monitor-interval', { body: { seconds } });
   }
 }
 module.exports = { LDPlayerClient, LDPlayerApiError };

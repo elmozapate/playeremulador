@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from config import settings
 from core.ldplayer import LDConsole
 from core.adb import ADBController
+from core.data_store import data_store
 from core.runtime_state import runtime_state
 
 
@@ -13,13 +14,11 @@ class InstanceNotFoundError(Exception):
 
 class InstanceService:
     def __init__(self):
-        self._health_cache: Dict[int, Dict] = {}
-        self._health_ts: Dict[int, float] = {}
-
         runtime_state.log("=" * 70)
         runtime_state.log("[INSTANCE SERVICE] CONFIG")
         runtime_state.log(f"[CONFIG] LDPLAYER_PATH={settings.LDPLAYER_PATH}")
         runtime_state.log(f"[CONFIG] ADB_PATH={settings.ADB_PATH}")
+        runtime_state.log(f"[CONFIG] DATA_DIR={settings.DATA_DIR}")
         runtime_state.log(f"[CONFIG] HEALTH_CACHE_TTL inicial={runtime_state.health_ttl}s")
         runtime_state.log("=" * 70)
 
@@ -42,14 +41,12 @@ class InstanceService:
 
     async def reboot(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.reboot, index)
-        self._health_cache.pop(index, None)
-        self._health_ts.pop(index, None)
+        data_store.delete_health(index)
         ADBController.invalidate_serial(index)
 
     async def quit(self, index: int) -> None:
         await asyncio.to_thread(LDConsole.quit, index)
-        self._health_cache.pop(index, None)
-        self._health_ts.pop(index, None)
+        data_store.delete_health(index)
         ADBController.invalidate_serial(index)
 
     async def install_app(self, index: int, apk_path: str) -> None:
@@ -70,10 +67,19 @@ class InstanceService:
         await asyncio.to_thread(LDConsole.kill_app, index, package_name)
 
     async def get_health(self, index: int, use_cache: bool = True) -> Dict:
+        """
+        v2: el "cache" de health ya no es un dict en memoria (self._health_cache /
+        self._health_ts) — ahora es un archivo en DATA_DIR/health/<index>.json
+        (ver core.data_store). El TTL se sigue evaluando igual, comparando el
+        timestamp guardado en el archivo contra runtime_state.health_ttl.
+        """
         now = time.time()
         ttl = runtime_state.health_ttl
-        if use_cache and index in self._health_cache and (now - self._health_ts.get(index, 0)) < ttl:
-            return self._health_cache[index]
+
+        if use_cache:
+            cached = data_store.read_health(index)
+            if cached and (now - cached.get("updated_at", 0)) < ttl:
+                return cached["health"]
 
         inst = await self.get_instance(index)
         health = {
@@ -88,33 +94,27 @@ class InstanceService:
                 health["battery"] = await asyncio.to_thread(ADBController.get_battery_health, index)
             except Exception as e:
                 health["battery_error"] = str(e)
-        self._health_cache[index] = health
-        self._health_ts[index] = now
+
+        data_store.write_health(index, health)
         return health
 
     def prune_health_cache(self, active_indices: set) -> None:
-        stale = [idx for idx in self._health_cache if idx not in active_indices]
-        if not stale:
-            return
-        for idx in stale:
-            self._health_cache.pop(idx, None)
-            self._health_ts.pop(idx, None)
-        runtime_state.log(f"[instance_service] health cache podado: {stale}")
+        data_store.prune_health(active_indices)
 
     # ==================================================================
     # Batería
     # ==================================================================
     async def set_battery_level(self, index: int, level: int) -> None:
         await asyncio.to_thread(ADBController.set_battery_level, index, level)
-        self._health_cache.pop(index, None)
+        data_store.delete_health(index)
 
     async def set_battery_status(self, index: int, status: str) -> None:
         await asyncio.to_thread(ADBController.set_battery_status, index, status)
-        self._health_cache.pop(index, None)
+        data_store.delete_health(index)
 
     async def reset_battery(self, index: int) -> None:
         await asyncio.to_thread(ADBController.reset_battery, index)
-        self._health_cache.pop(index, None)
+        data_store.delete_health(index)
 
     # ==================================================================
     # Radios: bluetooth / wifi / datos / avión
@@ -292,7 +292,7 @@ class InstanceService:
             LDConsole.restart_with_dev_mode,
             index,
         )
-        self._health_cache.pop(index, None)
+        data_store.delete_health(index)
         ADBController.invalidate_serial(index)
         result = {
             "index": index,
@@ -320,7 +320,7 @@ class InstanceService:
         No toca resolución ni root — solo ajusta CPU/RAM.
         """
         await asyncio.to_thread(LDConsole.modify, index, 3, 3072, None, None)
-        self._health_cache.pop(index, None)
+        data_store.delete_health(index)
         return {"index": index, "cpu": 3, "memory": 3072}
 
 
