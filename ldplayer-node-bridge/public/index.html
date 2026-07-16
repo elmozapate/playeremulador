@@ -906,6 +906,7 @@
           <input type="text" id="pipelineNameInput" value="Mi pipeline" style="width:220px"
             oninput="currentPipeline.name = this.value" />
         </div>
+        <button class="violet" onclick="runHealthCheckDirect()">🏥 Health Check (directo)</button>
         <button onclick="loadPreset('encendido')">Preset: Encendido</button>
         <button onclick="loadPreset('instalacion')">Preset: Instalación</button>
         <button onclick="loadPreset('monitor')">Preset: Con monitor</button>
@@ -2736,6 +2737,66 @@
       };
     }
 
+    // ── Health Check directo ──────────────────────────────
+async function runHealthCheckDirect() {
+  const indices = getSelectedIndices();
+  if (indices.length === 0) {
+    log('[health] no hay instancias seleccionadas, se usarán todas', 'warn');
+    // Si no hay selección, usamos todas las instancias conocidas
+    // (la lógica de getSelectedIndices ya devuelve todas si no hay checkboxes marcados)
+  }
+  // Si aún así no hay índices, abortar
+  if (indices.length === 0) {
+    log('[health] no hay instancias disponibles', 'warn');
+    toast('No hay instancias para health check', 'bad');
+    return;
+  }
+
+  // Confirmar antes de ejecutar (opcional)
+  const ok = await confirmModal(
+    '🏥 Ejecutar Health Check',
+    `Se va a correr el health check en ${indices.length} instancia(s): ${indices.join(', ')}.`,
+    'Ejecutar',
+    false,
+    'El health check lanza la app, verifica batería, bluetooth, foreground y reinicia la app si es necesario.'
+  );
+  if (!ok) return;
+
+  try {
+    const { status, ok: httpOk, payload } = await postJSON('/api/tasks/presets/health/run', {
+      indices,
+      parallel: false  // secuencial por defecto; podrías agregar un checkbox si querés
+    });
+
+    if (!httpOk) {
+      log(`[health] error al crear job -> ${status} ${payload?.error || ''}`, 'bad');
+      toast('Error al lanzar health check', 'bad');
+      return;
+    }
+
+    const jobId = payload.jobId;
+    log(`[health] job creado con id ${jobId}`, 'ok');
+    toast(`Health check lanzado (job ${jobId})`, 'ok');
+
+    // Opcional: abrir el modal de ejecución para seguir el progreso
+    // (reutilizamos el mismo sistema que el pipeline del servidor)
+    // Como ya tenemos socket.io escuchando job:step, job:done, etc.,
+    // podemos asignar currentJobId para que esos eventos se muestren en el log.
+    // También podemos abrir el modal de ejecución.
+    currentJobId = jobId;
+    document.getElementById('serverRunBtn').disabled = true;
+    document.getElementById('serverStopBtn').disabled = false;
+    const statusEl = document.getElementById('serverStatus');
+    statusEl.textContent = `Corriendo (${indices.length})`;
+    statusEl.classList.add('active');
+    openExecModal(`🏥 Health Check (job ${jobId})`, () => stopPipelineOnServer());
+
+  } catch (e) {
+    log(`[health] excepción: ${e.message}`, 'bad');
+    toast('Error al lanzar health check', 'bad');
+  }
+}
+    
     async function waitForAppInstalled({
       index,
       packageName,
