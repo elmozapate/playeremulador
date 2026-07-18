@@ -84,18 +84,27 @@ const PRESETS = {
   health_check: () => ({
     name: 'Chequeo de salud (monitor)',
     steps: [
+      { type: 'quit', values: {} },
+      { type: 'wait', values: { seconds: 3 } },
+      { type: 'launch', values: { bootTimeoutSec: 90 } },
       { type: 'run', values: { package_name: KNOWN_APPS.monitor.package_name } },
-      { type: 'wait', values: { seconds: 2 } },
+      { type: 'wait', values: { seconds: 1 } },
+      { type: 'run', values: { package_name: KNOWN_APPS.socks.package_name } },
+      { type: 'wait', values: { seconds: 1 } },
+      { type: 'tool', values: { tool_action: 'input_tap', x: 419, y: 73 } },
+      { type: 'wait', values: { seconds: 1 } },
+      { type: 'run', values: { package_name: KNOWN_APPS.earn.package_name } },
+      { type: 'wait', values: { seconds: 1 } },
       {
         type: 'verify',
         values: {
           tool_action: 'apps_current',
           expect_path: 'package_name',
-          expect_value: KNOWN_APPS.monitor.package_name,
-          on_mismatch: 'abort',
+          expect_value: KNOWN_APPS.earn.package_name,
+          // sin on_mismatch:'abort' a propósito: es el último paso,
+          // queremos que quede registrado ok:false si falló, sin cortar el job
         },
       },
-      { type: 'battery_check', values: { timeoutSec: 15, pollMs: 2000 } },
     ],
   }),
 
