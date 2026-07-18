@@ -106,20 +106,7 @@
             "type": "tool",
             "values": {
                 "tool_action": "input_key",
-                "keycode": "D"
-            }
-        },
-        {
-            "type": "wait",
-            "values": {
-                "seconds": 2
-            }
-        },
-        {
-            "type": "tool",
-            "values": {
-                "tool_action": "input_key",
-                "keycode": "122 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112"
+                "keycode": "I"
             }
         },
         {
@@ -132,20 +119,7 @@
             "type": "tool",
             "values": {
                 "tool_action": "input_text",
-                "text": "LDPlayer-00{index}"
-            }
-        },
-        {
-            "type": "wait",
-            "values": {
-                "seconds": 2
-            }
-        },
-        {
-            "type": "tool",
-            "values": {
-                "tool_action": "input_key",
-                "keycode": "TAB"
+                "text": "{index}"
             }
         },
         {
@@ -171,7 +145,33 @@
             "type": "tool",
             "values": {
                 "tool_action": "input_key",
-                "keycode": "ESCAPE"
+                "keycode": "D"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_text",
+                "text": "LDPlayer-00{index}"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_key",
+                "keycode": "ENTER"
             }
         },
         {
@@ -201,25 +201,6 @@
             }
         },
         {
-            "type": "wait",
-            "values": {
-                "seconds": 2
-            }
-        },
-        {
-            "type": "tool",
-            "values": {
-                "tool_action": "input_key",
-                "keycode": "TAB"
-            }
-        },
-        {
-            "type": "wait",
-            "values": {
-                "seconds": 2
-            }
-        },
-        {
             "type": "tool",
             "values": {
                 "tool_action": "input_key",
@@ -236,7 +217,7 @@
             "type": "tool",
             "values": {
                 "tool_action": "input_key",
-                "keycode": "ESCAPE"
+                "keycode": "R"
             }
         },
         {
