@@ -237,4 +237,29 @@ class TouchRecorder:
         )
         return [{k: v for k, v in g.items() if not k.startswith("_")} for g in self.gestures]
         
-        
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+    @property
+    def elapsed_ms(self) -> Optional[int]:
+        if self._started_at is None:
+            return None
+        return int((time.time() - self._started_at) * 1000)
+
+    def peek_gestures(self) -> List[Dict]:
+        """Copia de los gestos capturados hasta ahora, SIN detener la
+        captura ni tocar el proceso/threads. `self.gestures` solo crece por
+        `append()` desde el thread de lectura, así que un slice acá es
+        seguro (protegido por el GIL) sin necesitar lock."""
+        return [{k: v for k, v in g.items() if not k.startswith("_")} for g in self.gestures]
+
+    def stats(self) -> Dict:
+        """Contadores de diagnóstico + estado, para health-check en vivo
+        sin afectar la captura en curso."""
+        return {
+            "running": self._running,
+            "raw_line_count": self._raw_line_count,
+            "gestures_count": len(self.gestures),
+            "unmatched_logged": self._unmatched_logged,
+        }
