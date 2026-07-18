@@ -1,4 +1,4 @@
- """
+"""
 Wrapper de bajo nivel sobre adb. Bloqueante; despachar con asyncio.to_thread
 desde código async.
 
