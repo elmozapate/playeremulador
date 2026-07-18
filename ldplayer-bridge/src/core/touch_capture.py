@@ -45,6 +45,7 @@ import re
 import subprocess
 import threading
 import time
+from collections import Counter
 from typing import Callable, Dict, List, Optional
 
 from config import settings
@@ -96,6 +97,10 @@ class TouchRecorder:
         # se lograron clasificar como gesto.
         self._raw_line_count = 0
         self._unmatched_logged = 0
+        self._started_at: Optional[float] = None
+        self._code_counts: Counter = Counter()
+
+
 
     def _scale(self, raw_x, raw_y) -> Optional[Dict]:
         if raw_x is None or raw_y is None:
@@ -172,6 +177,7 @@ class TouchRecorder:
                     runtime_state.log(f"[TouchCapture] línea no reconocida: {line!r}")
                 continue
             _dev, ev_type, ev_code, ev_value = m.groups()
+            self._code_counts[(ev_type, ev_code)] += 1
             if ev_type == "EV_ABS" and ev_code == "ABS_MT_POSITION_X":
                 self._cur_x = int(ev_value, 16)
             elif ev_type == "EV_ABS" and ev_code == "ABS_MT_POSITION_Y":
@@ -218,8 +224,10 @@ class TouchRecorder:
                 f"Revisar el log de stderr justo arriba de este mensaje."
             )
         runtime_state.log_always(
-            f"[TouchCapture] getevent corriendo OK (pid={self._proc.pid}) "
-            f"device={self.device} serial={self.serial}"
+            f"[TouchCapture] captura detenida device={self.device}: "
+            f"{self._raw_line_count} líneas raw leídas, "
+            f"{len(self.gestures)} gestos clasificados, "
+            f"eventos vistos: {dict(self._code_counts.most_common(10))}"
         )
         self._started_at = time.time()
 
