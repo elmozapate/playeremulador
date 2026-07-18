@@ -2655,17 +2655,34 @@
       {
         id: 'initial_root', label: '🌱 Perfil: Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)',
         fields: [
-          { id: 'maxAttempts', label: 'Reintentos si falla', type: 'number', value: 3, min: 1, required: true },
+          { id: 'maxAttempts', label: 'Reintentos si falla el request', type: 'number', value: 3, min: 1, required: true },
+          { id: 'rebootIfRootMissing', label: 'Rebootear si root no quedó activo', type: 'checkbox', value: true },
         ],
         exec: async (index, v, ctx) => {
-          const result = await withStepRetry(async (attempt) => {
+          const attempt = await withStepRetry(async (n) => {
             const r = await postJSON(`/api/instances/${index}/initial-root`);
             return {
               ok: r.ok,
-              detail: r.payload?.error || `status ${r.status}${attempt > 1 ? ` (intento ${attempt})` : ''}`,
+              detail: r.payload?.error || `status ${r.status}${n > 1 ? ` (intento ${n})` : ''}`,
+              rootActive: r.payload?.root_active,
             };
           }, { maxAttempts: Number(v.maxAttempts || 3), delayMs: 30000, ctx, label: 'initial-root' });
-          return { ...result, abort: !result.ok };
+
+          if (!attempt.ok) return { ...attempt, abort: true };
+
+          if (attempt.rootActive === false && v.rebootIfRootMissing) {
+            ctx.log('initial-root: root no quedó activo tras el primer boot, rebooteando para reintentar montaje de su');
+            const rb = await postJSON(`/api/instances/${index}/reboot`);
+            if (!rb.ok) return { ok: false, detail: `reboot post-root falló (status ${rb.status})`, abort: true };
+            try {
+              await ctx.waitForBoot(index, 90000);
+            } catch (e) {
+              return { ok: false, detail: e.message, abort: true };
+            }
+            return { ok: true, detail: 'root activado tras reboot adicional' };
+          }
+
+          return { ok: true, detail: attempt.rootActive === false ? 'root no activo (sin reboot configurado)' : 'root activo' };
         },
       },
       {

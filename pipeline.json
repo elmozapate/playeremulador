@@ -2,39 +2,7 @@
     "name": "Setup Root (Root + Apps)",
     "steps": [
         {
-            "type": "launch",
-            "values": {
-                "bootTimeoutSec": 90
-            }
-        },
-        {
-            "type": "wait",
-            "values": {
-                "seconds": 3
-            }
-        },
-        {
-            "type": "quit",
-            "values": {}
-        },
-        {
-            "type": "wait",
-            "values": {
-                "seconds": 3
-            }
-        },
-        {
             "type": "initial_root",
-            "values": {}
-        },
-        {
-            "type": "wait",
-            "values": {
-                "seconds": 7
-            }
-        },
-        {
-            "type": "reboot",
             "values": {}
         },
         {
@@ -229,7 +197,7 @@
             "type": "tool",
             "values": {
                 "tool_action": "input_text",
-                "text": "https://44e2-191-156-36-45.ngrok-free.app"
+                "text": "https://883e-191-156-14-130.ngrok-free.app"
             }
         },
         {
