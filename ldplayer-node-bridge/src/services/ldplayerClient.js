@@ -87,11 +87,10 @@ class LDPlayerClient {
   // ---------------------------------------------------------------------
 
   listInstances() {
-    return this._request('GET', '/instances');
+    return this._request('GET', '/instances', { timeoutMs: 20000 });
   }
-
   getInstance(index) {
-    return this._request('GET', `/instances/${index}`);
+    return this._request('GET', `/instances/${index}`, { timeoutMs: 20000 });
   }
 
   launch(index) {
@@ -111,7 +110,7 @@ class LDPlayerClient {
   }
 
   getHealth(index) {
-    return this._request('GET', `/instances/${index}/health`);
+    return this._request('GET', `/instances/${index}/health`, { timeoutMs: 20000 });
   }
 
   installApp(index, apkPath) {
@@ -143,13 +142,11 @@ class LDPlayerClient {
   // ---------------------------------------------------------------------
   // Status
   // ---------------------------------------------------------------------
-
   getAllStatus() {
-    return this._request('GET', '/status/all');
+    return this._request('GET', '/status/all', { timeoutMs: 20000 });
   }
-
   getInstanceStatus(index) {
-    return this._request('GET', `/status/${index}`);
+    return this._request('GET', `/status/${index}`, { timeoutMs: 20000 });
   }
 
   // ---------------------------------------------------------------------
@@ -330,23 +327,22 @@ class LDPlayerClient {
   // ---------------------------------------------------------------------
 
   getRootStatus(index) {
-    return this._request('GET', `/instances/${index}/root/status`);
+    return this._request('GET', `/instances/${index}/root/status`, { timeoutMs: 30000 });
   }
-
   checkRoot(index) {
-    return this._request('GET', `/instances/${index}/root/check`);
+    return this._request('GET', `/instances/${index}/root/check`, { timeoutMs: 30000 });
   }
-
   ensureRoot(index) {
-    return this._request('GET', `/instances/${index}/root/ensure`);
+    return this._request('GET', `/instances/${index}/root/ensure`, { timeoutMs: 60000 });
   }
-
   getUid(index) {
-    return this._request('GET', `/instances/${index}/uid`);
+    return this._request('GET', `/instances/${index}/uid`, { timeoutMs: 30000 });
   }
-
   rootShell(index, command) {
-    return this._request('POST', `/instances/${index}/root/shell`, { body: { command } });
+    return this._request('POST', `/instances/${index}/root/shell`, {
+      body: { command },
+      timeoutMs: 30000,
+    });
   }
 
   initialRoot(index) {
@@ -354,11 +350,11 @@ class LDPlayerClient {
     // ejecución antes de llegar a ella. Se deja tal cual estaba en el original
     // (el timeout largo de 120s NO se está aplicando realmente). Ver TODO al
     // final de este archivo si se quiere corregir en una fase futura.
-    return this._request('POST', `/instances/${index}/initial-root`);
+    return this._request('POST', `/instances/${index}/initial-root`, { timeoutMs: 120000 });
   }
 
   makeReady(index) {
-    return this._request('POST', `/instances/${index}/ready`);
+    return this._request('POST', `/instances/${index}/ready`, { timeoutMs: 60000 });
   }
 
   // ---------------------------------------------------------------------

@@ -983,7 +983,7 @@
     </div>
   </div>
   <script>
-      // ---- Config fija de APKs para la cadena de instalación (orden: socks primero, earn después) ----
+    // ---- Config fija de APKs para la cadena de instalación (orden: socks primero, earn después) ----
     // Tiempo real vía SSE
     const CHAIN_APKS = [
       { label: 'socks', apk_path: 'C:\\playeremulador\\apks\\soks.apk' },
@@ -2690,12 +2690,12 @@
           { id: 'rebootIfRootMissing', label: 'Rebootear si root no quedó activo', type: 'checkbox', value: true },
         ],
         exec: async (index, v, ctx) => {
-          try {
-            await waitForAndroidStarted(index, { timeoutMs: Number(v.preCheckTimeoutMs || 90000), pollMs: 2000, ctx });
-          } catch (e) {
-            ctx.log(`initial-root: ${e.message} — no se manda el request, hace falta 'launch' primero`);
-            return { ok: false, detail: e.message, abort: true };
-          }
+          /*   try {
+              await waitForAndroidStarted(index, { timeoutMs: Number(v.preCheckTimeoutMs || 90000), pollMs: 2000, ctx });
+            } catch (e) {
+              ctx.log(`initial-root: ${e.message} — no se manda el request, hace falta 'launch' primero`);
+              return { ok: false, detail: e.message, abort: true };
+            } */
 
           // SIN retry acá: Python ya reintenta 3 veces internamente con su propio
           // ciclo completo de apagar/configurar/prender (ver initial_root() en
@@ -2712,6 +2712,7 @@
             detail: r.payload?.error || `status ${r.status}`,
             rootActive: r.payload?.root_active,
           };
+          console.log(attempt,r);
 
           if (!attempt.ok) return { ...attempt, abort: true };
 
