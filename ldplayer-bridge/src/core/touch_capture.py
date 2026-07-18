@@ -50,9 +50,14 @@ from typing import Callable, Dict, List, Optional
 from config import settings
 from core.runtime_state import runtime_state
 
-# Colon tolerante a espacio opcional antes: algunos guests alinean la
-# columna del device path y dejan un espacio extra antes de ':'.
-_LINE_RE = re.compile(r"^\[\s*[\d.]+\]\s*(/dev/input/event\d+)\s*:\s*(\S+)\s+(\S+)\s+(\S+)\s*$")
+# El device path SOLO aparece cuando `getevent` escucha varios
+# dispositivos a la vez (para desambiguar de dónde vino cada línea).
+# Como acá siempre le pasamos UN device puntual como argumento
+# (`getevent -lt <device>`), Android omite ese prefijo por ser
+# innecesario — por eso el grupo del device path es opcional.
+_LINE_RE = re.compile(
+    r"^\[\s*[\d.]+\]\s*(?:(/dev/input/event\d+)\s*:\s*)?(\S+)\s+(\S+)\s+(\S+)\s*$"
+)
 
 TAP_MAX_DISTANCE_PX = 12
 TAP_MAX_MS = 200
@@ -196,7 +201,7 @@ class TouchRecorder:
                     self._unmatched_logged += 1
                     runtime_state.log_always(f"[TouchCapture] línea no reconocida: {line!r}")
                 continue
-            _dev, ev_type, ev_code, ev_value = m.groups()
+            _dev, ev_type, ev_code, ev_value = m.groups()  # _dev puede ser None
             self._code_counts[(ev_type, ev_code)] += 1
 
             if ev_type == "EV_ABS" and ev_code == "ABS_MT_POSITION_X":
