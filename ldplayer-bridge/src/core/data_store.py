@@ -33,6 +33,7 @@ class DataStore:
         self.status_dir = os.path.join(base_dir, "status")
         self.health_dir = os.path.join(base_dir, "health")
         self.config_dir = os.path.join(base_dir, "config")
+        self.snapshot_path = os.path.join(self.status_dir, "shutdown_snapshot.json")  # <-- NUEVO
         self.logs_dir = os.path.join(base_dir, "logs")
         self._log_lock = threading.Lock()
         for d in (self.status_dir, self.health_dir, self.config_dir, self.logs_dir):
