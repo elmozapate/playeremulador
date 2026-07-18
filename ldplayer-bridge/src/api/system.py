@@ -3,7 +3,7 @@ from models import RootShellRequest
 import asyncio
 
 from fastapi import APIRouter, HTTPException
-
+from services.touch_service import touch_service, TouchServiceError
 from core.ldplayer import LDConsoleError
 from models.schemas import (
     WarmupRequest,
@@ -370,6 +370,23 @@ async def set_play_protect(index: int, body: PlayProtectRequest):
         await task_queue.enqueue(index, instance_service.set_play_protect, index, body.disable)
         estado = "desactivado" if body.disable else "activado"
         return ActionResponse(success=True, message=f"Play Protect {estado}", index=index)
+    except Exception as e:
+        _raise_for(e)
+# ======================================================================
+# Fase 2: escucha de toques reales del dispositivo (percepción, no inyección)
+# ======================================================================
+@router.post("/{index}/touch/start", response_model=TouchStatusResponse)
+async def start_touch_listening(index: int):
+    try:
+        return await touch_service.start(index)
+    except Exception as e:
+        _raise_for(e)
+
+
+@router.post("/{index}/touch/stop", response_model=TouchStopResponse)
+async def stop_touch_listening(index: int):
+    try:
+        return await touch_service.stop(index)
     except Exception as e:
         _raise_for(e)
 

@@ -136,3 +136,20 @@ class MoveWindowRequest(BaseModel):
     height: int = Field(..., gt=0)
 class WorkModeRequest(BaseModel):
     also_screen_off: bool = False
+
+
+# ======================================================================
+# Fase 2: escucha de toques reales del dispositivo
+# ======================================================================
+class TouchStatusResponse(BaseModel):
+    index: int
+    listening: bool
+    device: Optional[str] = None
+    serial: Optional[str] = None
+
+
+class TouchStopResponse(BaseModel):
+    index: int
+    listening: bool
+    gestures: List[Dict[str, Any]]
+    count: int
