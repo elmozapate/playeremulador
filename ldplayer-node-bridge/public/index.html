@@ -2709,19 +2709,26 @@
             },
           },
           { id: 'apk_path', label: 'Ruta del APK (o manual)', type: 'text', placeholder: 'C:\\playeremulador\\apks\\app.apk' },
+          { id: 'maxAttempts', label: 'Reintentos si falla el envío', type: 'number', value: 3, min: 1, required: true },
         ],
-        exec: async (index, v) => {
+        exec: async (index, v, ctx) => {
           if (!v.apk_path) {
             return { ok: false, detail: "sin ruta de APK" };
           }
-          const r = await postJSON(
-            `/api/instances/${index}/install`,
-            { apk_path: v.apk_path }
-          );
-          if (!r.ok) {
+          const sent = await withStepRetry(async (attempt) => {
+            const r = await postJSON(
+              `/api/instances/${index}/install`,
+              { apk_path: v.apk_path }
+            );
+            return {
+              ok: r.ok,
+              detail: r.payload?.error || `status ${r.status}${attempt > 1 ? ` (intento ${attempt})` : ''}`,
+            };
+          }, { maxAttempts: Number(v.maxAttempts || 3), delayMs: 8000, ctx, label: `install:${v.apk_path}` });
+          if (!sent.ok) {
             return {
               ok: false,
-              detail: r.payload?.error || `status ${r.status}`,
+              detail: sent.detail,
             };
           }
           if (!v.known_app) {
@@ -2766,8 +2773,7 @@
             detail: `Aplicación instalada correctamente(${appk.package_name})`,
           };
         }
-      },
-      {
+      }, {
         id: 'run',
         label: '▶️ Abrir app',
         fields: [
