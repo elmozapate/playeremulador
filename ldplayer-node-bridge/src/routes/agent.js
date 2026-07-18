@@ -11,7 +11,33 @@ const { consoleLog } = require('../clienteCommonJS');
 // propio lock y se puede autorizar a varias instancias en simultáneo.
 const CONTINUE_TTL_MS = 30_000;
 const authorizedContinues = new Map(); // index -> ts de autorización
+function resolveInstanceIndex(body = {}) {
+  // 1. Si viene en el body, usarlo.
+  if (body.instanceIndex !== undefined && body.instanceIndex !== null) {
+    const index = Number(body.instanceIndex);
+    if (!Number.isFinite(index)) {
+      throw new Error('instanceIndex debe ser un número válido');
+    }
+    return index;
+  }
 
+  // 2. Si no viene, intentar obtenerlo del deviceId.
+  if (typeof body.deviceId === 'string') {
+    // LDPlayer-003 -> ["LDPlayer", "003"]
+    const parts = body.deviceId.split('-');
+
+    if (parts.length > 1) {
+      const index = Number(parts[1]);
+
+      if (Number.isFinite(index)) {
+        return index;
+      }
+    }
+  }
+
+  // 3. No se pudo determinar.
+  return null;
+}
 setInterval(() => {
   const cutoff = Date.now() - CONTINUE_TTL_MS;
   for (const [index, ts] of authorizedContinues.entries()) {
@@ -23,9 +49,11 @@ function buildAgentRouter() {
   const router = express.Router();
 
   router.post('/register', (req, res) => {
-    const { appVersion, ua, meta, instanceIndex } = req.body || {};
+    const { deviceId, appVersion, ua, meta, instanceIndex } = req.body || {};
+
     const validIndex = instanceIndex !== undefined && instanceIndex !== null
-      ? Number(instanceIndex) : undefined;
+      ? Number(instanceIndex) : resolveInstanceIndex(deviceId);
+    consoleLog(validIndex)
     if (instanceIndex !== undefined && instanceIndex !== null && isNaN(validIndex)) {
       return res.status(400).json({ error: 'instanceIndex debe ser un número válido' });
     }
