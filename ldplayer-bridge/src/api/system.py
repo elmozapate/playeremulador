@@ -26,6 +26,7 @@ from models.schemas import (
     ToggleRequest,
     VolumeRequest,
     TouchStatusResponse,
+    TouchStopResponse,
 
 )
 from services.instance_service import InstanceNotFoundError, instance_service
