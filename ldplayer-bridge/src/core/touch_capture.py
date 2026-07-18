@@ -5,7 +5,7 @@ gestos (tap/swipe/long_press) tal como el usuario los hace manualmente
 sobre la ventana de LDPlayer, y guardarlos como una "task" reproducible
 (ver services/macro_service.py).
 
-Clasificación al soltar (BTN_TOUCH UP):
+Clasificación al soltar:
   - movimiento < TAP_MAX_DISTANCE_PX y duración < TAP_MAX_MS      -> tap
   - movimiento < TAP_MAX_DISTANCE_PX y duración >= LONG_PRESS_MIN -> long_press
   - cualquier otro caso                                           -> swipe
@@ -16,30 +16,29 @@ ADBController.find_touch_device). En la mayoría de instancias LDPlayer
 esos rangos ya coinciden 1:1 con la resolución, pero si notás desfasaje
 en los taps grabados, comparar x_range/y_range contra la resolución real.
 
-FIX (este archivo, ronda de hardening por "start/stop devuelve array vacío"):
-  1. `shell -tt` en vez de `shell`: fuerza asignación de PTY. Sin esto, el
-     stdout de `getevent` dentro del guest no es una TTY y muchas libc lo
-     bufferizan por BLOQUE en vez de por línea — los eventos se quedan
-     atascados del lado Android y nunca llegan a Python hasta llenar el
-     buffer (que en una sesión corta de un par de touches no se llena
-     nunca), y al hacer stop()/terminate() se pierden. Con PTY forzado,
-     el guest bufferiza por línea y los eventos salen en tiempo real.
-  2. `bufsize=0` en el Popen: sin esto, el lado Python TAMBIÉN bufferiza
-     el pipe (~8KB por defecto para streams binarios), duplicando el
-     mismo problema aunque el guest ya mande línea por línea.
-  3. `stderr` ya NO se descarta a DEVNULL: se lee en un thread aparte y
-     se loguea con runtime_state.log_always(), para que un fallo
-     inmediato de `getevent` (device path inválido, permiso denegado,
-     etc.) sea visible en vez de traducirse en "start/stop, 0 gestos"
-     sin ninguna pista de por qué.
-  4. Chequeo de arranque: start() espera un instante corto y verifica
-     que el proceso siga vivo; si murió de entrada, levanta
-     TouchCaptureError con el detalle en vez de devolver éxito falso.
-  5. Contador de líneas raw leídas vs gestos clasificados, logueado en
-     stop(): permite diferenciar "no llegó nada de adb" (raw=0, revisar
-     causa #1/#2/#3) de "llegaron eventos pero no matchean como
-     tap/swipe" (raw>0, gestures=0 -> revisar BTN_TOUCH/ABS_MT en el
-     regex o el dispositivo detectado).
+FIX v1 (buffering, "start/stop devuelve array vacío"):
+  - `shell -tt` fuerza PTY: evita que el guest bufferice getevent por
+    bloque en vez de por línea.
+  - `bufsize=0` en el Popen: evita que Python bufferice el pipe del lado
+    de acá.
+  - stderr ya no se descarta; se loguea si `getevent` falla de entrada.
+  - Contador de líneas raw vs gestos clasificados, para diagnóstico.
+
+FIX v2 (este archivo, "226 líneas raw leídas, 0 gestos clasificados"):
+  - El fix v1 solucionó el buffering: los eventos SÍ están llegando.
+    El problema pasó a ser de clasificación: la máquina de estados solo
+    reconocía BTN_TOUCH DOWN/UP para marcar inicio/fin de un toque. Los
+    dispositivos táctiles virtuales de LDPlayer suelen implementar
+    multitouch "protocolo B" (tipo Android estándar), donde el fin de
+    un toque se señaliza con ABS_MT_TRACKING_ID = -1 (0xffffffff) y NO
+    necesariamente emiten BTN_TOUCH UP. Ahora se contempla también esa
+    señal como equivalente a BTN_TOUCH DOWN/UP.
+  - Se agrega logging de las primeras N líneas RAW completas (no solo
+    las no reconocidas) cuando debug está ON, para poder ver el
+    protocolo real que manda el dispositivo si esto vuelve a fallar.
+  - Se corrige el log de _code_counts, que había quedado mal ubicado
+    dentro de start() (corría a los 0.6s con casi nada capturado) — 
+    ahora se loguea al final, en stop(), reflejando toda la sesión.
 """
 import re
 import subprocess
@@ -63,6 +62,14 @@ LONG_PRESS_MIN_MS = 500
 # inmediato (device inválido, "no devices/emulators found", permiso
 # denegado) antes de darlo por "arrancó bien".
 STARTUP_CHECK_S = 0.6
+
+# Cuántas líneas RAW completas logueamos siempre (con debug ON) para
+# poder ver el protocolo real de eventos si hace falta re-diagnosticar.
+RAW_LOG_LIMIT = 60
+
+# Valor con el que Android señaliza "se levantó el dedo" en
+# ABS_MT_TRACKING_ID bajo multitouch protocolo B.
+_MT_TRACKING_ID_UP = 0xFFFFFFFF
 
 
 class TouchCaptureError(RuntimeError):
@@ -93,14 +100,15 @@ class TouchRecorder:
         self._down_at: Optional[float] = None
         self._points: List[Dict] = []
 
-        # Diagnóstico: cuántas líneas crudas llegaron de adb vs cuántas
-        # se lograron clasificar como gesto.
+        # Estado para multitouch protocolo B (ABS_MT_TRACKING_ID).
+        self._lift_pending = False
+
+        # Diagnóstico.
         self._raw_line_count = 0
         self._unmatched_logged = 0
+        self._raw_logged = 0
         self._started_at: Optional[float] = None
         self._code_counts: Counter = Counter()
-
-
 
     def _scale(self, raw_x, raw_y) -> Optional[Dict]:
         if raw_x is None or raw_y is None:
@@ -149,6 +157,13 @@ class TouchRecorder:
     def _reset_touch(self) -> None:
         self._down_at = None
         self._points = []
+        self._lift_pending = False
+
+    def _start_touch_if_needed(self) -> None:
+        if self._down_at is None:
+            self._down_at = time.time()
+            self._points = []
+        self._lift_pending = False
 
     def _read_stderr(self) -> None:
         assert self._proc and self._proc.stderr
@@ -168,28 +183,47 @@ class TouchRecorder:
             if not line:
                 continue
             self._raw_line_count += 1
+
+            # Log de las primeras N líneas COMPLETAS (matcheen o no), solo
+            # con debug ON, para poder ver el protocolo real si hace falta.
+            if self._raw_logged < RAW_LOG_LIMIT:
+                self._raw_logged += 1
+                runtime_state.log(f"[TouchCapture] raw#{self._raw_logged}: {line!r}")
+
             m = _LINE_RE.match(line)
             if not m:
-                # Logueamos solo las primeras para no inundar, pero sirve
-                # para ver el formato real si el regex no matchea.
                 if self._unmatched_logged < 3:
                     self._unmatched_logged += 1
-                    runtime_state.log(f"[TouchCapture] línea no reconocida: {line!r}")
+                    runtime_state.log_always(f"[TouchCapture] línea no reconocida: {line!r}")
                 continue
             _dev, ev_type, ev_code, ev_value = m.groups()
             self._code_counts[(ev_type, ev_code)] += 1
+
             if ev_type == "EV_ABS" and ev_code == "ABS_MT_POSITION_X":
                 self._cur_x = int(ev_value, 16)
             elif ev_type == "EV_ABS" and ev_code == "ABS_MT_POSITION_Y":
                 self._cur_y = int(ev_value, 16)
+            elif ev_type == "EV_ABS" and ev_code == "ABS_MT_TRACKING_ID":
+                # Multitouch protocolo B: nuevo ID = dedo baja; 0xffffffff = dedo sube.
+                try:
+                    track_id = int(ev_value, 16)
+                except ValueError:
+                    track_id = None
+                if track_id == _MT_TRACKING_ID_UP:
+                    self._lift_pending = True
+                elif track_id is not None:
+                    self._start_touch_if_needed()
             elif ev_type == "EV_KEY" and ev_code == "BTN_TOUCH":
+                # Protocolo A / legacy: algunos dispositivos SÍ emiten esto,
+                # en paralelo o en vez de ABS_MT_TRACKING_ID.
                 if ev_value == "DOWN":
-                    self._down_at = time.time()
-                    self._points = []
+                    self._start_touch_if_needed()
                 elif ev_value == "UP":
                     self._finish_gesture()
             elif ev_type == "EV_SYN" and ev_code == "SYN_REPORT" and self._down_at is not None:
                 self._commit_point()
+                if self._lift_pending:
+                    self._finish_gesture()
 
     def start(self) -> None:
         if self._running:
@@ -197,22 +231,19 @@ class TouchRecorder:
         self._running = True
         self._raw_line_count = 0
         self._unmatched_logged = 0
-        self._started_at: Optional[float] = None
+        self._raw_logged = 0
+        self._code_counts = Counter()
         self._proc = subprocess.Popen(
-            # "-tt" fuerza PTY: evita que el guest bufferice por bloque
-            # en vez de por línea (causa raíz más probable de "0 gestos").
             [settings.ADB_PATH, "-s", self.serial, "shell", "-tt", "getevent", "-lt", self.device],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            bufsize=0,  # sin buffering del lado Python: entrega inmediata
+            bufsize=0,
         )
         self._thread = threading.Thread(target=self._read_loop, daemon=True)
         self._thread.start()
         self._stderr_thread = threading.Thread(target=self._read_stderr, daemon=True)
         self._stderr_thread.start()
 
-        # Chequeo rápido de arranque: si murió casi al toque (device
-        # inválido, sin permisos, etc.) lo sabemos ahora, no en el stop().
         time.sleep(STARTUP_CHECK_S)
         if self._proc.poll() is not None:
             self._running = False
@@ -223,13 +254,11 @@ class TouchRecorder:
                 f"para device={self.device} serial={self.serial}. "
                 f"Revisar el log de stderr justo arriba de este mensaje."
             )
-        runtime_state.log_always(
-            f"[TouchCapture] captura detenida device={self.device}: "
-            f"{self._raw_line_count} líneas raw leídas, "
-            f"{len(self.gestures)} gestos clasificados, "
-            f"eventos vistos: {dict(self._code_counts.most_common(10))}"
-        )
         self._started_at = time.time()
+        runtime_state.log_always(
+            f"[TouchCapture] getevent corriendo OK (pid={self._proc.pid}) "
+            f"device={self.device} serial={self.serial}"
+        )
 
     def stop(self) -> List[Dict]:
         self._running = False
@@ -243,10 +272,11 @@ class TouchRecorder:
         runtime_state.log_always(
             f"[TouchCapture] captura detenida device={self.device}: "
             f"{self._raw_line_count} líneas raw leídas, "
-            f"{len(self.gestures)} gestos clasificados"
+            f"{len(self.gestures)} gestos clasificados, "
+            f"eventos vistos: {dict(self._code_counts.most_common(10))}"
         )
         return [{k: v for k, v in g.items() if not k.startswith("_")} for g in self.gestures]
-        
+
     @property
     def is_running(self) -> bool:
         return self._running
@@ -259,9 +289,8 @@ class TouchRecorder:
 
     def peek_gestures(self) -> List[Dict]:
         """Copia de los gestos capturados hasta ahora, SIN detener la
-        captura ni tocar el proceso/threads. `self.gestures` solo crece por
-        `append()` desde el thread de lectura, así que un slice acá es
-        seguro (protegido por el GIL) sin necesitar lock."""
+        captura. self.gestures solo crece por append() desde el thread de
+        lectura, así que un slice acá es seguro (protegido por el GIL)."""
         return [{k: v for k, v in g.items() if not k.startswith("_")} for g in self.gestures]
 
     def stats(self) -> Dict:
@@ -272,4 +301,5 @@ class TouchRecorder:
             "raw_line_count": self._raw_line_count,
             "gestures_count": len(self.gestures),
             "unmatched_logged": self._unmatched_logged,
+            "code_counts": dict(self._code_counts.most_common(10)),
         }
