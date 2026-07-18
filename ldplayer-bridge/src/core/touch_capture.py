@@ -191,6 +191,7 @@ class TouchRecorder:
         self._running = True
         self._raw_line_count = 0
         self._unmatched_logged = 0
+        self._started_at: Optional[float] = None
         self._proc = subprocess.Popen(
             # "-tt" fuerza PTY: evita que el guest bufferice por bloque
             # en vez de por línea (causa raíz más probable de "0 gestos").
@@ -220,6 +221,7 @@ class TouchRecorder:
             f"[TouchCapture] getevent corriendo OK (pid={self._proc.pid}) "
             f"device={self.device} serial={self.serial}"
         )
+        self._started_at = time.time()
 
     def stop(self) -> List[Dict]:
         self._running = False
