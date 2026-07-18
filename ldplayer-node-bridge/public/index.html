@@ -1440,6 +1440,25 @@
       const { status, payload } = await postJSON(`/api/instances/${index}/kill`, { package_name: result.package_name });
       log(`[instances] kill #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
     }
+
+    // ------------------------------------------------------------------
+    // Reintento genérico para steps que pueden fallar por timeouts
+    // transitorios (launch/reboot/initial-root tardan mucho del lado de
+    // Python y un solo fallo de red no debería tirar la instancia entera).
+    // ------------------------------------------------------------------
+    async function withStepRetry(runOnce, { maxAttempts = 3, delayMs = 20000, ctx, label } = {}) {
+      let lastResult = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        lastResult = await runOnce(attempt);
+        if (lastResult.ok) return lastResult;
+        if (attempt < maxAttempts) {
+          if (ctx?.log) ctx.log(`${label}: intento ${attempt}/${maxAttempts} falló (${lastResult.detail}) — reintentando en ${delayMs / 1000}s`);
+          await sleep(delayMs);
+        }
+      }
+      // se agotaron los reintentos: recién ahí es un fallo real
+      return lastResult;
+    }
     // ==================================================================
     // PERFILES — Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)
     //           y Ready (3 núcleos + 3072MB)
@@ -2587,33 +2606,42 @@
         id: 'launch', label: '🟢 Encender (launch) + esperar a que Tools esté disponible',
         fields: [
           { id: 'bootTimeoutSec', label: 'Timeout de boot (seg)', type: 'number', value: 90, min: 10, required: true },
+          { id: 'maxAttempts', label: 'Reintentos si falla', type: 'number', value: 3, min: 1, required: true },
         ],
         exec: async (index, v, ctx) => {
           await ctx.acquirePower(index);
-          const r = await postJSON(`/api/instances/${index}/launch`);
-          if (!r.ok) { ctx.releasePower(index); return { ok: false, detail: `launch falló (status ${r.status})`, abort: true }; }
-          try {
-            await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000);
-          } catch (e) {
-            ctx.releasePower(index);
-            return { ok: false, detail: e.message, abort: true };
-          }
-          return { ok: true, detail: 'Tools disponible' };
+          const result = await withStepRetry(async (attempt) => {
+            const r = await postJSON(`/api/instances/${index}/launch`);
+            if (!r.ok) return { ok: false, detail: `launch falló (status ${r.status}, intento ${attempt})` };
+            try {
+              await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000);
+              return { ok: true, detail: 'Tools disponible' };
+            } catch (e) {
+              return { ok: false, detail: e.message };
+            }
+          }, { maxAttempts: Number(v.maxAttempts || 3), delayMs: 20000, ctx, label: 'launch' });
+          if (!result.ok) ctx.releasePower(index);
+          return { ...result, abort: !result.ok };
         },
-      }, {
+      },
+      {
         id: 'reboot', label: '🔁 Reboot + esperar a que Tools esté disponible',
         fields: [
           { id: 'bootTimeoutSec', label: 'Timeout de boot (seg)', type: 'number', value: 90, min: 10, required: true },
+          { id: 'maxAttempts', label: 'Reintentos si falla', type: 'number', value: 3, min: 1, required: true },
         ],
         exec: async (index, v, ctx) => {
-          const r = await postJSON(`/api/instances/${index}/reboot`);
-          if (!r.ok) return { ok: false, detail: `reboot falló (status ${r.status})`, abort: true };
-          try {
-            await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000);
-          } catch (e) {
-            return { ok: false, detail: e.message, abort: true };
-          }
-          return { ok: true, detail: 'Tools disponible' };
+          const result = await withStepRetry(async (attempt) => {
+            const r = await postJSON(`/api/instances/${index}/reboot`);
+            if (!r.ok) return { ok: false, detail: `reboot falló (status ${r.status}, intento ${attempt})` };
+            try {
+              await ctx.waitForBoot(index, Number(v.bootTimeoutSec || 90) * 1000);
+              return { ok: true, detail: 'Tools disponible' };
+            } catch (e) {
+              return { ok: false, detail: e.message };
+            }
+          }, { maxAttempts: Number(v.maxAttempts || 3), delayMs: 20000, ctx, label: 'reboot' });
+          return { ...result, abort: !result.ok };
         },
       },
       {
@@ -2626,11 +2654,18 @@
       },
       {
         id: 'initial_root', label: '🌱 Perfil: Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)',
-        fields: [],
-        exec: async (index) => {
-          await sleep(15000)
-          const r = await postJSON(`/api/instances/${index}/initial-root`);
-          return { ok: r.ok, detail: r.payload?.error || `status ${r.status}` };
+        fields: [
+          { id: 'maxAttempts', label: 'Reintentos si falla', type: 'number', value: 3, min: 1, required: true },
+        ],
+        exec: async (index, v, ctx) => {
+          const result = await withStepRetry(async (attempt) => {
+            const r = await postJSON(`/api/instances/${index}/initial-root`);
+            return {
+              ok: r.ok,
+              detail: r.payload?.error || `status ${r.status}${attempt > 1 ? ` (intento ${attempt})` : ''}`,
+            };
+          }, { maxAttempts: Number(v.maxAttempts || 3), delayMs: 30000, ctx, label: 'initial-root' });
+          return { ...result, abort: !result.ok };
         },
       },
       {
@@ -2826,7 +2861,8 @@
               ),
           };
         },
-      }, {
+      },
+      {
         id: 'kill', label: '✖️ Cerrar app',
         fields: [
           {
@@ -2942,7 +2978,8 @@
           }
           return { ok: true, detail: JSON.stringify(payload) };
         },
-      }];
+      }
+    ];
     let currentPipeline = { name: 'Mi pipeline', steps: [] };
     function defaultValuesForType(type) {
       const stepType = PIPELINE_STEP_TYPES.find((t) => t.id === type);
@@ -3657,4 +3694,5 @@
     es.addEventListener('status:error', (e) => log(`[status-error] ${e.data}`));
   </script>
 </body>
+
 </html>
