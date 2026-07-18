@@ -47,8 +47,11 @@ class InstanceModelStore {
       const record = instanceRecordStore.get(model.index);
       if (!record) return;
       if (record.name) model.name = record.name;
-      if (record.health && typeof record.health === 'object') {
-        model.root.ready = record.health.adb_ready ?? record.health.ready ?? null;
+      if (record.profile && typeof record.profile === 'object' && 'root' in record.profile) {
+        model.root.ready = record.profile.root ?? null;
+        if (record.profile.updated_at) {
+          model.root.checkedAt = record.profile.updated_at * 1000;
+        }
       }
       if (Array.isArray(record.tasks)) model.tasks = record.tasks.slice(-25);
       if (Array.isArray(record.events)) {
@@ -96,7 +99,7 @@ class InstanceModelStore {
         if (inst.name) model.name = inst.name;
       }
     });
-// 6) Eventos que Python empuja por el WS (más rápido que esperar el próximo poll)
+    // 6) Eventos que Python empuja por el WS (más rápido que esperar el próximo poll)
     eventBus.on('python:bridge:instance-event', (payload) => {
       if (!payload || payload.index === undefined) return;
       const model = this._get(payload.index);
@@ -139,8 +142,12 @@ class InstanceModelStore {
       } else if (action === 'reboot') {
         model.pushEvent('action', 'reboot solicitado');
       } else if (action === 'initial-root' && result) {
-        model.root.initialRootDone = true;
+        model.root.initialRootDone = !!result.success;
+        model.root.ready = 'root_active' in result ? !!result.root_active : model.root.ready;
         model.root.checkedAt = Date.now();
+        if (result.root_error) {
+          model.pushEvent('root', `initial-root: root no quedó activo (${result.root_error})`, { level: 'warn' });
+        }
       }
       this._broadcast(model);
     });

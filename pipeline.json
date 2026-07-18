@@ -1,5 +1,5 @@
 {
-    "name": "Setup Root (Root + Apps)ss",
+    "name": "Setup Root (Root + Apps)",
     "steps": [
         {
             "type": "launch",

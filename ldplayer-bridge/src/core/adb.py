@@ -1,4 +1,4 @@
-"""
+ """
 Wrapper de bajo nivel sobre adb. Bloqueante; despachar con asyncio.to_thread
 desde código async.
 
@@ -8,7 +8,7 @@ Historial de este archivo:
       garantiza esa relación con el puerto ADB real.
 - v2: resolve_serial() con cache + reintento, pero seguía intentando la
       fórmula como PRIMER paso.
-- v3 (este archivo): descubrimiento dinámico. Antes de suponer nada,
+- v3: descubrimiento dinámico. Antes de suponer nada,
       preguntamos al sistema operativo qué puerto TCP está escuchando el
       proceso real de LDPlayer asociado a ese índice (pid / vbox_pid que
       entrega `ldconsole list2`). La fórmula vieja queda solo como último
@@ -21,6 +21,33 @@ Historial de este archivo:
       salen con debug ON); descubrimientos y errores usan
       runtime_state.log_always() (siempre visibles). Se agrega prune()
       para podar caches de índices que ya no existen.
+- v5: fix en _CONNECTION_ERROR_MARKERS. Se saca "not found"
+      porque es un substring demasiado genérico: hace match con salidas de
+      comando legítimas como "su: not found" (cuando root todavía no está
+      listo tras un boot) o "cmd: not found", y eso disparaba un ciclo
+      completo de invalidate_serial() + resolve_serial(force=True)
+      innecesario (re-descubrimiento por proceso + reconexión + huella de
+      identidad) cada vez que is_root()/root_shell() fallaban por una razón
+      que no tenía nada que ver con el transporte ADB. Los marcadores
+      específicos "device not found" y "no devices/emulators found" ya
+      cubren los casos reales de conexión.
+- v6 (este archivo): ronda de hardening adicional, sin cambiar
+      comportamiento de compatibilidad hacia afuera (misma firma de
+      métodos, mismos valores de retorno en el camino feliz):
+        1. "closed" -> "connection closed" en _CONNECTION_ERROR_MARKERS:
+           "closed" a secas es igual de genérico que el viejo "not found"
+           y podía matchear salidas de comando que no tienen nada que ver
+           con que el transporte ADB se haya caído.
+        2. Un timeout de subprocess (_TimedOut, returncode=-1) ahora SÍ
+           se trata como error de conexión y dispara el reintento con
+           serial fresco en shell()/_run_adb_on_device(). Antes un timeout
+           no matcheaba ningún marcador de texto y se propagaba directo
+           como RuntimeError sin reintentar, aunque un timeout suele ser
+           justamente un síntoma de serial/transporte en mal estado.
+        3. is_root() ya no traga la excepción en silencio total: la
+           loguea (solo con debug ON, vía runtime_state.log) antes de
+           devolver False, para poder diferenciar en logs "no hay root"
+           de "no se pudo ni preguntar". El valor de retorno no cambia.
 
 Requiere `psutil` para el descubrimiento por proceso. Si no está instalado,
 se usa un parser de `netstat -ano` como fallback (menos robusto pero sin
@@ -102,14 +129,19 @@ class ADBController:
     # justifican invalidar cache + reintentar. Todo lo demás es un fallo
     # legítimo del comando (ej. "su -c id" sin root, "am start" de una app
     # inexistente) y NO debe reintentarse.
+    #
+    # IMPORTANTE: no agregar marcadores genéricos como "not found" acá.
+    # "su: not found" (root no listo todavía tras un boot), "cmd: not found",
+    # etc. son fallos legítimos del comando y contienen ese substring, lo
+    # que dispara reconexiones falsas carísimas (discovery por proceso +
+    # huella de identidad, cada llamada adb con ADB_TIMEOUT_S=15s).
     _CONNECTION_ERROR_MARKERS = (
         "device offline",
         "device not found",
-        "not found",
         "no devices/emulators found",
         "protocol fault",
         "connection reset",
-        "closed",
+        "connection closed",
         "device unauthorized",
     )
     @staticmethod
@@ -131,6 +163,13 @@ class ADBController:
     def _is_connection_error(stderr: str) -> bool:
         low = (stderr or "").lower()
         return any(marker in low for marker in ADBController._CONNECTION_ERROR_MARKERS)
+
+    @staticmethod
+    def _is_timeout(result) -> bool:
+        """Un timeout de subprocess (returncode=-1, ver _run_adb) también
+        cuenta como problema de transporte/serial y debe disparar retry,
+        aunque su mensaje no matchee ningún marcador de texto."""
+        return getattr(result, "returncode", 0) == -1
 
     @staticmethod
     def _get_devices() -> list[str]:
@@ -502,7 +541,7 @@ class ADBController:
         result = ADBController._run_adb("-s", serial, "shell", command)
         if result.returncode == 0:
             return result.stdout
-        if not ADBController._is_connection_error(result.stderr):
+        if not ADBController._is_connection_error(result.stderr) and not ADBController._is_timeout(result):
             # Fallo legítimo del comando, no del transporte ADB: NO reintentar.
             raise RuntimeError(
                 f"ADB shell error index={index} serial={serial}: {result.stderr.strip()}"
@@ -550,7 +589,7 @@ class ADBController:
         result = ADBController._run_adb("-s", serial, *args)
         if result.returncode == 0:
             return result
-        if not ADBController._is_connection_error(result.stderr):
+        if not ADBController._is_connection_error(result.stderr) and not ADBController._is_timeout(result):
             return result  # fallo legítimo (ej. "Failure [INSTALL_FAILED_...]"): no reintentar
         runtime_state.log_always(
             f"[ADB] comando con fallo de conexión index={index} "
@@ -859,11 +898,16 @@ class ADBController:
     # ------------------------------------------------------------------
     @staticmethod
     def is_root(index: int) -> bool:
-        """Comprueba si la instancia tiene acceso root efectivo."""
+        """Comprueba si la instancia tiene acceso root efectivo.
+        Nota: sigue devolviendo False ante cualquier error (mismo
+        comportamiento de siempre), pero ahora loguea el motivo real
+        (solo con debug ON) para poder distinguir en logs "no hay root"
+        de "no se pudo ni preguntar" (ADB caído, timeout, etc.)."""
         try:
             output = ADBController.shell(index, "su -c id")
             return "uid=0(root)" in output
-        except Exception:
+        except Exception as e:
+            runtime_state.log(f"[ADB] is_root index={index} no se pudo determinar: {e}")
             return False
 
     @staticmethod
