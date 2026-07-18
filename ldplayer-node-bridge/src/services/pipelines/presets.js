@@ -74,11 +74,61 @@ const PRESETS = {
         { type: 'tool', values: { tool_action: 'battery_get' } },
         { type: 'verify', values: { tool_action: 'bluetooth_get', expect_path: 'enabled', expect_value: false } },
         { type: 'tool', values: { tool_action: 'apps_current' } },
-         { type: 'run', values: { package_name: target.package_name } },
+        { type: 'run', values: { package_name: target.package_name } },
         { type: 'note', values: { text: `Chequeo de salud completo (${target.package_name})` } },
       ],
     };
   },
+  // en services/pipelines/presets.js, dentro del objeto PRESETS:
+
+  health_check: () => ({
+    name: 'Chequeo de salud (monitor)',
+    steps: [
+      { type: 'run', values: { package_name: KNOWN_APPS.monitor.package_name } },
+      { type: 'wait', values: { seconds: 2 } },
+      {
+        type: 'verify',
+        values: {
+          tool_action: 'apps_current',
+          expect_path: 'package_name',
+          expect_value: KNOWN_APPS.monitor.package_name,
+          on_mismatch: 'abort',
+        },
+      },
+      { type: 'battery_check', values: { timeoutSec: 15, pollMs: 2000 } },
+    ],
+  }),
+
+  health_recovery: () => ({
+    name: 'Recuperación de salud (quit + launch + pipeline)',
+    steps: [
+      { type: 'quit', values: {} },
+      { type: 'wait', values: { seconds: 3 } },
+      { type: 'launch', values: { bootTimeoutSec: 90 } },
+      { type: 'run', values: { package_name: KNOWN_APPS.monitor.package_name } },
+      { type: 'wait', values: { seconds: 1 } },
+      { type: 'kill', values: { package_name: KNOWN_APPS.monitor.package_name } },
+      { type: 'wait', values: { seconds: 5 } },
+      { type: 'run', values: { package_name: KNOWN_APPS.socks.package_name } },
+      { type: 'wait', values: { seconds: 1 } },
+      { type: 'tool', values: { tool_action: 'input_tap', x: 419, y: 73 } },
+      { type: 'wait', values: { seconds: 1 } },
+      { type: 'kill', values: { package_name: KNOWN_APPS.socks.package_name } },
+      { type: 'wait', values: { seconds: 1 } },
+      { type: 'run', values: { package_name: KNOWN_APPS.earn.package_name } },
+      { type: 'wait', values: { seconds: 1 } },
+      {
+        type: 'verify',
+        values: {
+          tool_action: 'apps_current',
+          expect_path: 'package_name',
+          expect_value: KNOWN_APPS.earn.package_name,
+          // sin on_mismatch:'abort' a propósito: es el último paso,
+          // queremos que quede registrado ok:false si falló, sin cortar el job
+        },
+      },
+    ],
+  }),
   setup_completo: () => ({
     name: 'Setup completo (Root + Apps)',
     steps: [
@@ -103,7 +153,7 @@ const PRESETS = {
     steps: [
       { type: 'launch', values: { bootTimeoutSec: 90 } },
       { type: 'wait', values: { seconds: 5 } },
-      { type: 'initial_root', values: { } },
+      { type: 'initial_root', values: {} },
       { type: 'wait_root_ready', values: { timeoutSec: 120, pollSec: 3, graceSec: 5 } },
       { type: 'wait', values: { seconds: 10 } },
       { type: 'quit', values: {} },

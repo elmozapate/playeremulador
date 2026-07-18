@@ -74,7 +74,40 @@ const STEP_TYPES = {
     },
   },
 
+  // en services/pipelines/stepTypes.js, agregar al objeto STEP_TYPES:
 
+  battery_check: {
+    label: '🔋 Chequeo de batería (con timeout)',
+    async exec(index, v, ctx) {
+      const timeoutMs = Number(v.timeoutSec || 15) * 1000;
+      const pollMs = Number(v.pollMs || 2000);
+      const deadline = Date.now() + timeoutMs;
+      let lastErr = null;
+      let lastData = null;
+      while (Date.now() < deadline) {
+        if (ctx.isCancelled()) return { ok: false, detail: 'cancelado', abort: true };
+        try {
+          const battery = await ctx.client.getBattery(index);
+          lastData = battery;
+          // válido = trae level (número) y status (string), como en el ejemplo pedido
+          if (battery && typeof battery.level === 'number' && battery.status) {
+            return { ok: true, detail: JSON.stringify(battery) };
+          }
+        } catch (err) {
+          lastErr = err;
+        }
+        await ctx.sleep(pollMs);
+      }
+      return {
+        ok: false,
+        detail: `sin respuesta de batería válida tras ${timeoutMs}ms` +
+          (lastData ? ` - última data: ${JSON.stringify(lastData)}` : '') +
+          (lastErr ? ` - último error: ${lastErr.message}` : ''),
+        abort: true,
+      };
+    },
+  },
+   
   initial_root: {
     label: '🌱 Perfil: Root Inicial',
     async exec(index, v, ctx) {

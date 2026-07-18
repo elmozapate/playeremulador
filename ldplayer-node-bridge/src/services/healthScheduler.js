@@ -13,13 +13,15 @@ class HealthScheduler {
     this.opts = { ...config.healthCheck, ...opts };
     this._timer = null;
     this._running = false;
+    this._queue = [];   // orden estable de índices a rotar
+    this._cursor = 0;   // puntero round-robin
   }
 
   start() {
     if (!this.opts.enabled || this._running) return;
     this._running = true;
     this._scheduleNext();
-    console.log(`[health] chequeo periódico activado cada ${this.opts.intervalMs}ms (en cadena, no paralelo)`);
+    console.log(`[health] round-robin activado: 1 instancia cada ${this.opts.intervalMs}ms`);
   }
 
   stop() {
@@ -49,6 +51,35 @@ class HealthScheduler {
     }
   }
 
+  _syncQueue(indices) {
+    const sorted = [...indices].sort((a, b) => a - b);
+    this._queue = this._queue.filter((i) => sorted.includes(i));
+    for (const i of sorted) {
+      if (!this._queue.includes(i)) this._queue.push(i);
+    }
+  }
+
+  _nextIndex() {
+    if (this._queue.length === 0) return null;
+    const index = this._queue[this._cursor % this._queue.length];
+    this._cursor = (this._cursor + 1) % this._queue.length;
+    return index;
+  }
+
+  async _runJobAndWait(presetId, params, index) {
+    const preset = buildPreset(presetId, params);
+    const job = jobStore.createJob({
+      name: preset.name,
+      steps: preset.steps,
+      indices: [index],
+      parallel: false,
+      meta: { presetId, scheduled: true },
+    });
+    eventBus.emit('job:created', { jobId: job.id, name: job.name, indices: job.indices });
+    await runJob(this.client, job.id);
+    return job.instances[index];
+  }
+
   async _tick() {
     try {
       const indices = await this._getActiveIndices();
@@ -56,63 +87,39 @@ class HealthScheduler {
         console.log('[health] sin instancias activas, se salta este ciclo');
         return;
       }
+      this._syncQueue(indices);
+      const index = this._nextIndex();
+      if (index === null) return;
 
-      const toOpen = [];
-      const toRelaunch = [];
+      const { action } = instanceModelStore.decideHealthAction(index);
 
-      for (const index of indices) {
-        const { action, model } = instanceModelStore.decideHealthAction(index);
-        switch (action) {
-          case 'open-monitor':
-            toOpen.push(index);
-            break;
-          case 'relaunch':
-            toRelaunch.push(index);
-            model?.pushEvent('health-scheduler', 'apagado inesperado detectado, se intentará re-encender antes del próximo chequeo');
-            console.log(`[health] instancia ${index}: se apagó sin orden (posible caída) -> se reintenta encender`);
-            break;
-          case 'skip-never-started':
-            console.log(`[health] instancia ${index}: nunca se encendió, se salta este ciclo`);
-            break;
-          case 'skip-expected-off':
-            console.log(`[health] instancia ${index}: apagada a propósito (quit), se salta este ciclo`);
-            break;
-          default:
-            console.log(`[health] instancia ${index}: sin datos suficientes, se salta este ciclo`);
+      if (action === 'skip-never-started' || action === 'skip-expected-off' || action === 'skip-unknown') {
+        console.log(`[health] instancia ${index}: ${action}, se salta este turno`);
+        return;
+      }
+      if (action === 'relaunch') {
+        console.log(`[health] instancia ${index}: se apagó sin orden -> relanzando antes de chequear`);
+        try {
+          await this.client.launch(index);
+        } catch (err) {
+          console.warn(`[health] no se pudo relanzar instancia ${index}: ${err.message}`);
+          return; // no tiene sentido chequear si ni siquiera prendió
         }
       }
 
-      // Las que se apagaron solas: se reencienden ahora, pero el chequeo
-      // de salud recién las va a tomar en el PRÓXIMO ciclo (para no pisar
-      // el boot con el chequeo en el mismo tick).
-      for (const index of toRelaunch) {
-        this.client.launch(index).catch((err) => {
-          console.warn(`[health] no se pudo relanzar instancia ${index}: ${err.message}`);
-        });
-      }
+      console.log(`[health] instancia ${index}: iniciando chequeo`);
+      const result = await this._runJobAndWait('health_check', {}, index);
 
-      if (toOpen.length === 0) {
-        console.log('[health] ninguna instancia prendida y lista para chequear en este ciclo');
+      if (result.status === 'done') {
+        console.log(`[health] instancia ${index}: chequeo OK (monitor en primer plano + batería respondió)`);
         return;
       }
 
-      const preset = buildPreset('health', {
-        package_name: this.opts.packageName || undefined,
-        apk_path: this.opts.apkPath || undefined,
-      });
-      const job = jobStore.createJob({
-        name: preset.name,
-        steps: preset.steps,
-        indices: toOpen,
-        parallel: false,
-        meta: { presetId: 'health', scheduled: true },
-      });
-      eventBus.emit('job:created', { jobId: job.id, name: job.name, indices: job.indices });
-      console.log(`[health] chequeo programado jobId=${job.id} indices=${JSON.stringify(toOpen)}`);
-      await runJob(this.client, job.id);
-      console.log(`[health] chequeo programado jobId=${job.id} finalizado con estado=${job.status}`);
+      console.warn(`[health] instancia ${index}: chequeo falló (status=${result.status}) -> ejecutando recuperación`);
+      const recovery = await this._runJobAndWait('health_recovery', {}, index);
+      console.log(`[health] instancia ${index}: recuperación finalizada con estado=${recovery.status}`);
     } catch (err) {
-      console.error(`[health] error en el chequeo programado: ${err.message}`);
+      console.error(`[health] error en el chequeo del turno: ${err.message}`);
     } finally {
       this._scheduleNext();
     }

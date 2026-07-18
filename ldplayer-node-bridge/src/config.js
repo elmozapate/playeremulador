@@ -43,7 +43,8 @@ const config = {
   healthCheck: {
     enabled: bool(process.env.HEALTH_CHECK_ENABLED, true),
     // 10 minutos por defecto
-    intervalMs: parseInt(process.env.HEALTH_CHECK_INTERVAL_MS || '600000', 10),
+    enabled: bool(process.env.HEALTH_CHECK_ENABLED, true),
+    intervalMs: parseInt(process.env.HEALTH_CHECK_INTERVAL_MS || '120000', 10),
     // vacío = usa KNOWN_APPS.monitor (com.chataolutions.app) del preset
     packageName: process.env.HEALTH_CHECK_PACKAGE || '',
     apkPath: process.env.HEALTH_CHECK_APK_PATH || '',
