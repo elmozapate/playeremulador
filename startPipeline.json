@@ -1,0 +1,72 @@
+{
+    "name": "Start APks pipeline",
+    "steps": [
+        {
+            "type": "run",
+            "values": {
+                "known_app": "",
+                "package_name": "com.chataolutions.app"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 5
+            }
+        },
+        {
+            "type": "run",
+            "values": {
+                "known_app": "",
+                "package_name": "net.typeblog.socks"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 1
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 419,
+                "y": 73
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 1
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 435,
+                "y": 671
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 1
+            }
+        },
+        {
+            "type": "run",
+            "values": {
+                "known_app": "",
+                "package_name": "com.brd.earnrewards"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 1
+            }
+        }
+    ]
+}
