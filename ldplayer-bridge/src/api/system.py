@@ -25,6 +25,8 @@ from models.schemas import (
     TextRequest,
     ToggleRequest,
     VolumeRequest,
+    TouchStatusResponse,
+
 )
 from services.instance_service import InstanceNotFoundError, instance_service
 from services.task_queue import task_queue
