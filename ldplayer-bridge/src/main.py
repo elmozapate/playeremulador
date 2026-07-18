@@ -40,4 +40,19 @@ async def root():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host=settings.API_HOST, port=settings.API_PORT, reload=True)
+    # reload=True hace que Uvicorn vigile el filesystem y reinicie TODO el
+    # proceso apenas detecta un archivo modificado. El problema: este mismo
+    # backend escribe constantemente en disco (logs/service.log en cada log,
+    # status/all.json cada monitor_interval, health/<index>.json,
+    # instances/<index>.json) — si DATA_DIR cae bajo el árbol que Uvicorn
+    # vigila, el proceso termina auto-reiniciándose por sus propios logs,
+    # matando requests en curso a mitad de camino (initial-root, reboot,
+    # etc.). Por default queda apagado; se puede reactivar para desarrollo
+    # con la env var PY_RELOAD=1.
+    reload_enabled = os.getenv("PY_RELOAD", "0") == "1"
+    uvicorn.run(
+        "main:app",
+        host=settings.API_HOST,
+        port=settings.API_PORT,
+        reload=reload_enabled,
+    )
