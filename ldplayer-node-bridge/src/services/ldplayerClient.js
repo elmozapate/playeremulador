@@ -269,6 +269,13 @@ class LDPlayerClient {
     });
   }
 
+  startTouchListening(index) {
+    return this._request('POST', `/instances/${index}/touch/start`);
+  }
+
+  stopTouchListening(index) {
+    return this._request('POST', `/instances/${index}/touch/stop`);
+  }
   // ---------------------------------------------------------------------
   // Apps
   // ---------------------------------------------------------------------

@@ -1538,6 +1538,53 @@
         body.appendChild(tr);
       }
     }
+
+    async function startTouchCapture(index) {
+      try {
+        const res = await fetch(`/api/instances/${index}/touch/start`, { method: 'POST' });
+        const data = await res.json();
+        log(`[touch] #${index} → grabación iniciada, dispositivo: ${data.device}`, 'ok');
+        // Podrías cambiar el estado de los botones acá si querés evitar iniciar dos veces
+        // Ej: document.getElementById('startTouchBtn-' + index).disabled = true;
+      } catch (e) {
+        log(`[touch] #${index} → error al iniciar grabación: ${e.message}`, 'bad');
+      }
+    }
+
+    async function stopTouchCapture(index) {
+      try {
+        const stopRes = await fetch(`/api/instances/${index}/touch/stop`, { method: 'POST' });
+        const { gestures, count } = await stopRes.json();
+        log(`[touch] #${index} → grabación detenida, ${count} gestos capturados`, 'ok');
+        // Acá podés mostrar los gestos, por ejemplo en un modal, o en la consola:
+        console.log('Gestos:', gestures);
+        showGesturesModal(index, gestures)
+        // Si querés mostrarlos en un modal, podés llamar a una función similar a showInstanceState o abrir un modal genérico.
+      } catch (e) {
+        log(`[touch] #${index} → error al detener grabación: ${e.message}`, 'bad');
+      }
+    }
+
+    function showGesturesModal(index, gestures) {
+      modalBox.innerHTML = '';
+      const title = document.createElement('p');
+      title.className = 'modal-title';
+      title.textContent = `Gestos grabados — instancia #${index}`;
+      modalBox.appendChild(title);
+
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(gestures, null, 2);
+      modalBox.appendChild(pre);
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'ghost';
+      closeBtn.textContent = 'Cerrar';
+      closeBtn.onclick = () => closeModal();
+      modalBox.appendChild(closeBtn);
+
+      modalOverlay.classList.add('show');
+    }
+
     async function openAppFormModal(appId) {
       const existing = appId ? KNOWN_APPS.find((a) => a.id === appId) : null;
       const result = await showModal({
@@ -3692,6 +3739,8 @@
             <button class="small teal" onclick="makeReadyInstance(${inst.index})" title="3 núcleos + 3072MB">✅ Ready</button>
             <button class="small teal" onclick="openTools(${inst.index})" ${isUp ? '' : 'disabled'} title="${toolsTitle}">🛠️ Tools</button>
             <button class="small" onclick="showInstanceState(${inst.index})" title="Ver todo lo que sabemos de esta instancia (local + backend)">ℹ️ Estado</button>
+            <button class="small" onclick="startTouchCapture(${inst.index})" ${isUp ? '' : 'disabled'}>🎬 Grabar toques</button>
+            <button class="small" onclick="stopTouchCapture(${inst.index})" ${isUp ? '' : 'disabled'}>⏹️ Detener</button>
           </td>`;
         body.appendChild(tr);
         if (quickAppSelections[inst.index]) {
