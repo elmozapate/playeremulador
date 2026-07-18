@@ -12,6 +12,8 @@ const { consoleLog } = require('../clienteCommonJS');
 const CONTINUE_TTL_MS = 30_000;
 const authorizedContinues = new Map(); // index -> ts de autorización
 function resolveInstanceIndex(body = {}) {
+      consoleLog('validIndex entro')
+
   // 1. Si viene en el body, usarlo.
   if (body.instanceIndex !== undefined && body.instanceIndex !== null) {
     const index = Number(body.instanceIndex);
@@ -52,7 +54,7 @@ function buildAgentRouter() {
     const { deviceId, appVersion, ua, meta, instanceIndex } = req.body || {};
 
     const validIndex = instanceIndex !== undefined && instanceIndex !== null
-      ? Number(instanceIndex) : resolveInstanceIndex(deviceId);
+      ? Number(instanceIndex) : resolveInstanceIndex(req.body);
     consoleLog(validIndex)
     if (instanceIndex !== undefined && instanceIndex !== null && isNaN(validIndex)) {
       return res.status(400).json({ error: 'instanceIndex debe ser un número válido' });
