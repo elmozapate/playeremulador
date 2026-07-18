@@ -20,13 +20,24 @@ class SseHub {
       'agent:continue:index',
       'agent:heartbeat',
       'instance-model:update',
-       'agent:continue',
+      'agent:continue',
       'agent:register',
-      'pipeline:step', 
+      'pipeline:step',
       'pipeline:batch',
     ].forEach((event) => {
       eventBus.on(event, forward(event));
     });
+
+    // 'instance-event' (touch-event, touch-discarded, y cualquier otro
+    // notify_instance_event(...) futuro de Python) NO tiene un módulo
+    // store intermedio como instance-model:update -> instanceModelStore.js.
+    // pythonBridgeSocket.js emite esto namespaced como
+    // `python:bridge:instance-event` (ver su `eventBus.emit(`python:bridge:${msg.type}`, ...)`),
+    // así que hay que escuchar el nombre CON el prefijo y reenviar al
+    // browser bajo el nombre pelado, para que el listener del
+    // EventSource no tenga que conocer el detalle de implementación
+    // del bridge (mismo criterio que ya se usa para instance-model:update).
+    eventBus.on('python:bridge:instance-event', (payload) => this.broadcast('instance-event', payload));
   }
   addClient(res) {
     res.writeHead(200, {

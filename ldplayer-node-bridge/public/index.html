@@ -985,6 +985,10 @@
   <script>
     // ---- Config fija de APKs para la cadena de instalación (orden: socks primero, earn después) ----
     // Tiempo real vía SSE
+    const es = new EventSource('/events');
+    const socket = io({ path: '/socket.io' });
+    const touchRecordingState = {};
+    let touchPollTimer = null;
     const CHAIN_APKS = [
       { label: 'socks', apk_path: 'C:\\playeremulador\\apks\\soks.apk' },
       { label: 'earn', apk_path: 'C:\\playeremulador\\apks\\earn.apk' },
@@ -1538,14 +1542,79 @@
         body.appendChild(tr);
       }
     }
+    function applyTouchRowState(index) {
+      const state = touchRecordingState[index];
+      const startBtn = document.getElementById(`touch-start-${index}`);
+      const stopBtn = document.getElementById(`touch-stop-${index}`);
+      const cancelBtn = document.getElementById(`touch-cancel-${index}`);
+      const badge = document.getElementById(`touch-badge-${index}`);
+      if (!startBtn || !stopBtn || !cancelBtn || !badge) return; // fila no está montada (filtro de búsqueda la ocultó)
+
+      const isUp = instancesByIndex[index]?.android_started === true;
+      const isRecording = !!(state && state.listening);
+
+      startBtn.disabled = !isUp || isRecording;
+      stopBtn.disabled = !isRecording;
+      cancelBtn.disabled = !isRecording;
+
+      if (isRecording) {
+        const secs = state.elapsed_ms != null ? (state.elapsed_ms / 1000).toFixed(1) : '?';
+        badge.textContent = `🔴 REC ${state.gestures_count ?? 0} · ${secs}s`;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function ensureTouchPolling() {
+      if (touchPollTimer) return;
+      touchPollTimer = setInterval(pollTouchStatuses, 1000);
+    }
+
+    function stopTouchPollingIfIdle() {
+      const stillRecording = Object.values(touchRecordingState).some((s) => s.listening);
+      if (!stillRecording && touchPollTimer) {
+        clearInterval(touchPollTimer);
+        touchPollTimer = null;
+      }
+    }
+
+    async function pollTouchStatuses() {
+      const recordingIndices = Object.keys(touchRecordingState)
+        .filter((i) => touchRecordingState[i].listening);
+      if (recordingIndices.length === 0) {
+        stopTouchPollingIfIdle();
+        return;
+      }
+      await Promise.all(recordingIndices.map(async (index) => {
+        try {
+          const res = await fetch(`/api/instances/${index}/touch/status`);
+          if (!res.ok) {
+            // 404 típico: la captura murió del lado Python sin que Node se
+            // enterara (crash de getevent, reboot de la instancia, etc.)
+            log(`[touch] #${index} → status no disponible (${res.status}), se asume detenida`, 'bad');
+            delete touchRecordingState[index];
+            applyTouchRowState(Number(index));
+            return;
+          }
+          const data = await res.json();
+          touchRecordingState[index] = data;
+          applyTouchRowState(Number(index));
+        } catch (e) {
+          log(`[touch] #${index} → error consultando status: ${e.message}`, 'bad');
+        }
+      }));
+      stopTouchPollingIfIdle();
+    }
 
     async function startTouchCapture(index) {
       try {
         const res = await fetch(`/api/instances/${index}/touch/start`, { method: 'POST' });
         const data = await res.json();
+        touchRecordingState[index] = { ...data, gestures_count: 0, elapsed_ms: 0 };
+        applyTouchRowState(index);
+        ensureTouchPolling();
         log(`[touch] #${index} → grabación iniciada, dispositivo: ${data.device}`, 'ok');
-        // Podrías cambiar el estado de los botones acá si querés evitar iniciar dos veces
-        // Ej: document.getElementById('startTouchBtn-' + index).disabled = true;
       } catch (e) {
         log(`[touch] #${index} → error al iniciar grabación: ${e.message}`, 'bad');
       }
@@ -1555,13 +1624,48 @@
       try {
         const stopRes = await fetch(`/api/instances/${index}/touch/stop`, { method: 'POST' });
         const { gestures, count } = await stopRes.json();
+        delete touchRecordingState[index];
+        applyTouchRowState(index);
+        stopTouchPollingIfIdle();
         log(`[touch] #${index} → grabación detenida, ${count} gestos capturados`, 'ok');
-        // Acá podés mostrar los gestos, por ejemplo en un modal, o en la consola:
         console.log('Gestos:', gestures);
-        showGesturesModal(index, gestures)
-        // Si querés mostrarlos en un modal, podés llamar a una función similar a showInstanceState o abrir un modal genérico.
+        showGesturesModal(index, gestures);
       } catch (e) {
         log(`[touch] #${index} → error al detener grabación: ${e.message}`, 'bad');
+      }
+    }
+
+    async function cancelTouchCapture(index) {
+      // Confirm porque es destructivo y no hay vuelta atrás (a diferencia
+      // de stop, acá los gestos NO se devuelven ni se muestran).
+      if (!confirm(`¿Cancelar y descartar la grabación de toques de la instancia #${index}?`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/instances/${index}/touch/cancel`, { method: 'POST' });
+        const { discarded_count } = await res.json();
+        delete touchRecordingState[index];
+        applyTouchRowState(index);
+        stopTouchPollingIfIdle();
+        log(`[touch] #${index} → grabación cancelada, ${discarded_count} gestos descartados`, 'ok');
+      } catch (e) {
+        log(`[touch] #${index} → error al cancelar grabación: ${e.message}`, 'bad');
+      }
+    }
+
+    async function syncActiveTouchCaptures() {
+      try {
+        const res = await fetch('/api/instances/touch/active');
+        const { active } = await res.json();
+        for (const entry of active) {
+          touchRecordingState[entry.index] = { ...entry, listening: true };
+        }
+        if (active.length > 0) {
+          ensureTouchPolling();
+          log(`[touch] recuperadas ${active.length} captura(s) activa(s) tras refresh`, 'ok');
+        }
+      } catch (e) {
+        log(`[touch] no se pudo sincronizar capturas activas: ${e.message}`, 'bad');
       }
     }
 
@@ -3726,27 +3830,33 @@
           <td>${androidBadge}</td>
           <td>${inst.battery ? `${inst.battery.level ?? '?'}% (${inst.battery.status ?? '?'})` : '-'}</td>
           <td class="quickapp-cell">${quickAppBlock}</td>
-          <td class="actions">
-            <button class="small" onclick="instanceAction(${inst.index}, 'launch')">Launch</button>
-            <button class="small" onclick="instanceAction(${inst.index}, 'reboot')">Reboot</button>
-            <button class="small" onclick="instanceAction(${inst.index}, 'quit')">Quit</button>
-            <button class="small" onclick="installApk(${inst.index})">Install APK</button>
-            <button class="small" onclick="runApp(${inst.index})">Abrir app</button>
-            <button class="small" onclick="modifyInstance(${inst.index})">Modify</button>
-            <button class="small" onclick="cloneInstance(${inst.index})">Clone</button>
-            <button class="small" onclick="killApp(${inst.index})">Kill app</button>
-            <button class="small violet" onclick="initialRootInstance(${inst.index})" title="Root ON + debug ADB ON + 6 núcleos + 8192MB + 540x960">🌱 Root Inicial</button>
-            <button class="small teal" onclick="makeReadyInstance(${inst.index})" title="3 núcleos + 3072MB">✅ Ready</button>
-            <button class="small teal" onclick="openTools(${inst.index})" ${isUp ? '' : 'disabled'} title="${toolsTitle}">🛠️ Tools</button>
-            <button class="small" onclick="showInstanceState(${inst.index})" title="Ver todo lo que sabemos de esta instancia (local + backend)">ℹ️ Estado</button>
-            <button class="small" onclick="startTouchCapture(${inst.index})" ${isUp ? '' : 'disabled'}>🎬 Grabar toques</button>
-            <button class="small" onclick="stopTouchCapture(${inst.index})" ${isUp ? '' : 'disabled'}>⏹️ Detener</button>
-          </td>`;
+         <td class="actions">
+             <button class="small" onclick="instanceAction(${inst.index}, 'launch')">Launch</button>
+             <button class="small" onclick="instanceAction(${inst.index}, 'reboot')">Reboot</button>
+             <button class="small" onclick="instanceAction(${inst.index}, 'quit')">Quit</button>
+             <button class="small" onclick="installApk(${inst.index})">Install APK</button>
+             <button class="small" onclick="runApp(${inst.index})">Abrir app</button>
+             <button class="small" onclick="modifyInstance(${inst.index})">Modify</button>
+             <button class="small" onclick="cloneInstance(${inst.index})">Clone</button>
+             <button class="small" onclick="killApp(${inst.index})">Kill app</button>
+             <button class="small violet" onclick="initialRootInstance(${inst.index})" title="Root ON + debug ADB ON + 6 núcleos + 8192MB + 540x960">🌱 Root Inicial</button>
+             <button class="small teal" onclick="makeReadyInstance(${inst.index})" title="3 núcleos + 3072MB">✅ Ready</button>
+             <button class="small teal" onclick="openTools(${inst.index})" ${isUp ? '' : 'disabled'} title="${toolsTitle}">🛠️ Tools</button>
+             <button class="small" onclick="showInstanceState(${inst.index})" title="Ver todo lo que sabemos de esta instancia (local + backend)">ℹ️ Estado</button>
+             <span id="touch-badge-${inst.index}" class="badge rec" style="display:none;"></span>
+             <button id="touch-start-${inst.index}" class="small" onclick="startTouchCapture(${inst.index})" ${isUp ? '' : 'disabled'}>🎬 Grabar toques</button>
+             <button id="touch-stop-${inst.index}" class="small" onclick="stopTouchCapture(${inst.index})" disabled>⏹️ Detener</button>
+             <button id="touch-cancel-${inst.index}" class="small bad" onclick="cancelTouchCapture(${inst.index})" disabled title="Cancela y descarta los gestos grabados">❌ Cancelar</button>
+           </td>`;
         body.appendChild(tr);
         if (quickAppSelections[inst.index]) {
           const sel = document.getElementById(`qa-${inst.index}`);
           if (sel) sel.value = quickAppSelections[inst.index];
         }
+        // El render reconstruye toda la tabla en cada poll de instancias,
+        // así que hay que reaplicar el estado de grabación (disabled/badge)
+        // a los botones recién creados o se pierde al primer refresco.
+        applyTouchRowState(inst.index);
       }
     }
     // Carga inicial
@@ -3759,7 +3869,6 @@
     // MODO SERVIDOR — delega la ejecución del pipeline al Task Manager de
     // Node (/api/tasks). Progreso vía Socket.IO.
     // ==================================================================
-    const socket = io({ path: '/socket.io' });
     let currentJobId = null;
     function jobLineClass(status) {
       if (status === 'error' || status === 'failed' || status === 'aborted') return 'bad';
@@ -3844,7 +3953,6 @@
       document.getElementById('serverStopBtn').disabled = true;
       await postJSON(`/api/tasks/${currentJobId}/cancel`);
     }
-    const es = new EventSource('/events');
     es.addEventListener('status:update', (e) => renderInstances(JSON.parse(e.data).instances));
     es.addEventListener('python:state', (e) => {
       const { state } = JSON.parse(e.data);
@@ -3863,6 +3971,36 @@
     });
     es.addEventListener('instance:action', (e) => log(`[action] ${e.data}`));
     es.addEventListener('status:error', (e) => log(`[status-error] ${e.data}`));
+    es.addEventListener('instance-event', (e) => {
+      const payload = JSON.parse(e.data);
+      const { index, event, detail } = payload;
+
+      if (event === 'touch-event') {
+        // Gesto individual en tiempo real mientras se graba. Sube el
+        // contador más rápido que el polling de /touch/status (1s),
+        // pero solo si ya sabemos que esa instancia está grabando --
+        // si por lo que sea llega antes que la respuesta de
+        // startTouchCapture, lo ignoramos en vez de crear estado a medias.
+        if (touchRecordingState[index]) {
+          touchRecordingState[index].gestures_count =
+            (touchRecordingState[index].gestures_count || 0) + 1;
+          applyTouchRowState(index);
+        }
+        return;
+      }
+
+      if (event === 'touch-discarded') {
+        log(`[touch] #${index} → grabación descartada (${payload.discarded_count} gestos)`, 'bad');
+        delete touchRecordingState[index];
+        applyTouchRowState(index);
+        stopTouchPollingIfIdle();
+        return;
+      }
+
+      // Otros 'event' de instance-event que Python pueda emitir a futuro
+      // (notify_instance_event genérico) caen acá sin romper nada.
+      if (detail) log(`[instance] #${index} → ${event}: ${detail}`);
+    });
   </script>
 </body>
 

@@ -276,6 +276,22 @@ class LDPlayerClient {
   stopTouchListening(index) {
     return this._request('POST', `/instances/${index}/touch/stop`);
   }
+
+  getTouchStatus(index) {
+    return this._request('GET', `/instances/${index}/touch/status`);
+  }
+
+  cancelTouchListening(index) {
+    return this._request('POST', `/instances/${index}/touch/cancel`);
+  }
+
+  listActiveTouchCaptures() {
+    // Vive fuera del namespace /instances/:index porque en Python este
+    // endpoint no cuelga de un index puntual (lista TODAS las capturas
+    // activas del proceso). Mismo prefix /instances porque el router
+    // FastAPI de touch está montado ahí completo.
+    return this._request('GET', '/instances/touch/active');
+  }
   // ---------------------------------------------------------------------
   // Apps
   // ---------------------------------------------------------------------

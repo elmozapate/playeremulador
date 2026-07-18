@@ -129,3 +129,14 @@ async def notify_root_status(index: int, ready: bool, uid: Optional[str] = None)
 async def notify_window_event(hwnd: int, event: str, detail: Optional[Dict[str, Any]] = None) -> None:
     """event: 'window_created' | 'window_closed' | 'window_state_changed'"""
     await bridge.broadcast("window-event", {"hwnd": hwnd, "event": event, **(detail or {})})
+
+async def notify_touch_discarded(index: int, discarded_count: int) -> None:
+    """Avisa a Node que una captura de touch fue cancelada y sus gestos
+    descartados. Reusa el mismo canal 'instance-event' que ya usa
+    touch_service._on_gesture() para 'touch-event' -- así el front puede
+    filtrar por 'event' dentro del mismo listener que ya tiene, en vez de
+    necesitar un tipo de mensaje WS nuevo."""
+    await bridge.broadcast(
+        "instance-event",
+        {"index": index, "event": "touch-discarded", "discarded_count": discarded_count},
+    )

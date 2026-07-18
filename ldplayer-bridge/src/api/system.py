@@ -393,6 +393,25 @@ async def stop_touch_listening(index: int):
     except Exception as e:
         _raise_for(e)
 
+@router.get("/{index}/touch/status", response_model=TouchLiveStatusResponse)
+async def get_touch_status(index: int):
+    try:
+        return await touch_service.status(index)
+    except Exception as e:
+        _raise_for(e)
+
+
+@router.post("/{index}/touch/cancel", response_model=TouchCancelResponse)
+async def cancel_touch_listening(index: int):
+    try:
+        return await touch_service.cancel(index)
+    except Exception as e:
+        _raise_for(e)
+
+
+@router.get("/touch/active", response_model=TouchActiveListResponse)
+async def list_active_touch_captures():
+    return await touch_service.list_active()
 
 # ======================================================================
 # run_app confiable — complementa el /run "rápido" de instances.py

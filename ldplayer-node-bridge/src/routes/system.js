@@ -17,7 +17,7 @@ function buildSystemRouter(client, poller) {
   };
   const emitAction = (action, index, result) => {
     eventBus.emit('instance:action', { action, index, result, ts: Date.now() });
-    poller.refreshNow().catch(() => {});
+    poller.refreshNow().catch(() => { });
   };
   const idx = (req) => {
     const n = Number(req.params.index);
@@ -191,10 +191,32 @@ function buildSystemRouter(client, poller) {
     emitAction('touch:start', idx(req), result);
     return result;
   }));
+
   router.post('/:index/touch/stop', handle(async (req) => {
     const result = await client.stopTouchListening(idx(req));
     emitAction('touch:stop', idx(req), result);
     return result;
+  }));
+
+  // Estado en vivo de una captura activa (no la detiene, no emite acción
+  // porque es solo lectura, igual que getBattery/getWifi).
+  router.get('/:index/touch/status', handle(async (req) => {
+    return await client.getTouchStatus(idx(req));
+  }));
+
+  // Cancela y DESCARTA los gestos capturados. Separado de /touch/stop
+  // a propósito -- ver nota abajo sobre el WS.
+  router.post('/:index/touch/cancel', handle(async (req) => {
+    const result = await client.cancelTouchListening(idx(req));
+    emitAction('touch:cancel', idx(req), result);
+    return result;
+  }));
+
+  // Lista global de índices con captura activa. Ruta de 2 segmentos
+  // (touch/active) vs. las de arriba que son de 3 (:index/touch/xxx) --
+  // no colisionan en Express sin importar el orden de registro.
+  router.get('/touch/active', handle(async (req) => {
+    return await client.listActiveTouchCaptures();
   }));
 
   router.post('/:index/apps/uninstall', handle(async (req) => {

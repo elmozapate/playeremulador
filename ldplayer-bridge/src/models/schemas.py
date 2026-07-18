@@ -153,3 +153,32 @@ class TouchStopResponse(BaseModel):
     listening: bool
     gestures: List[Dict[str, Any]]
     count: int
+
+class TouchLiveStatusResponse(BaseModel):
+    index: int
+    listening: bool
+    device: Optional[str] = None
+    serial: Optional[str] = None
+    gestures_count: int = 0
+    raw_line_count: int = 0
+    elapsed_ms: Optional[int] = None
+
+
+class TouchActiveEntry(BaseModel):
+    index: int
+    device: str
+    serial: str
+    gestures_count: int
+    raw_line_count: int
+    elapsed_ms: int
+
+
+class TouchActiveListResponse(BaseModel):
+    active: List[TouchActiveEntry]
+    count: int
+
+
+class TouchCancelResponse(BaseModel):
+    index: int
+    listening: bool
+    discarded_count: int
