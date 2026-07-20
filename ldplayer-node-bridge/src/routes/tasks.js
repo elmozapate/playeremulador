@@ -42,7 +42,7 @@ function buildTasksRouter(client) {
     res.status(202).json({ ok: true, jobId: job.id });
   });
   router.post('/', (req, res) => {
-    const { name, steps, indices, parallel, meta, client_request_id } = req.body || {};
+    const { name, steps, indices, parallel, meta, variables, client_request_id } = req.body || {};
 
     // deduplicación por client_request_id (válido por 10s)
     if (client_request_id) {
@@ -67,7 +67,7 @@ function buildTasksRouter(client) {
     if (!Array.isArray(indices) || indices.length === 0 || indices.some((i) => !Number.isFinite(Number(i)))) {
       return res.status(400).json({ error: 'indices requerido (array de números finitos)' });
     }
-    const job = jobStore.createJob({ name, steps, indices: indices.map(Number), parallel: !!parallel, meta });
+    const job = jobStore.createJob({ name, steps, indices: indices.map(Number), parallel: !!parallel, meta, variables });
     if (client_request_id) {
       recentJobs.set(client_request_id, { jobId: job.id, job, timestamp: Date.now() });
     }

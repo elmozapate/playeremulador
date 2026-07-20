@@ -3,6 +3,7 @@
 const eventBus = require('../../utils/eventBus');
 const { STEP_TYPES } = require('./stepTypes');
 const { waitForAndroidReady, cancelableSleep } = require('./waitHelpers');
+const { resolveStepValues } = require('./variables');
 const jobStore = require('./jobStore');
 
 class Mutex {

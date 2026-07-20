@@ -1,0 +1,330 @@
+{
+    "name": "login ip/port/user/pass",
+    "parallel": false,
+    "indices": [
+        0,
+        1,
+        2
+    ],
+    "variables": [
+        {
+            "ip": "192.168.1.10",
+            "port": "8080",
+            "username": "user01",
+            "password": "pass01"
+        },
+        {
+            "ip": "192.168.1.11",
+            "port": "8080",
+            "username": "user02",
+            "password": "pass02"
+        }
+    ],
+    "steps": [
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 101,
+                "y": 358
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2.268
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 109,
+                "y": 493
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 0.177
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 109,
+                "y": 493
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_text",
+                "text": "{{ip}}"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 1.884
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 417,
+                "y": 597
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2.239
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 49,
+                "y": 465
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2.244
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 110,
+                "y": 483
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 0.200
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 110,
+                "y": 483
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_text",
+                "text": "{{port}}"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 1.151
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 425,
+                "y": 597
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 3.215
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_swipe",
+                "x1": 244,
+                "y1": 807,
+                "x2": 211,
+                "y2": 285,
+                "duration_ms": 1756
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 1.898
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 496,
+                "y": 554
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2.147
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 107,
+                "y": 638
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 6.502
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 97,
+                "y": 497
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 0.140
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 97,
+                "y": 497
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_text",
+                "text": "{{username}}"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 1.775
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 413,
+                "y": 595
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2.831
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 61,
+                "y": 716
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 2.434
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 98,
+                "y": 497
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 0.157
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 98,
+                "y": 497
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_text",
+                "text": "{{password}}"
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 1.935
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 408,
+                "y": 598
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 3.193
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 422,
+                "y": 78
+            }
+        },
+        {
+            "type": "wait",
+            "values": {
+                "seconds": 3.631
+            }
+        },
+        {
+            "type": "tool",
+            "values": {
+                "tool_action": "input_tap",
+                "x": 417,
+                "y": 687
+            }
+        }
+    ]
+}

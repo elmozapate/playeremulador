@@ -1,6 +1,6 @@
 'use strict';
 const crypto = require('crypto');
-
+const { normalizeVariables } = require('./variables');
 const jobs = new Map();
 const JOB_TTL_MS = 30 * 60_000; // 30 min tras terminar
 const CLEANUP_MS = 5 * 60_000;
@@ -11,8 +11,9 @@ function newId() {
     : `job-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function createJob({ name, steps, indices, parallel, meta }) {
+function createJob({ name, steps, indices, parallel, meta, variables }) {
   const id = newId();
+  const varsByIndex = normalizeVariables(indices, variables);
   const job = {
     id,
     name: name || 'Pipeline',
@@ -20,7 +21,7 @@ function createJob({ name, steps, indices, parallel, meta }) {
     indices: indices || [],
     parallel: !!parallel,
     meta: meta || {},
-    status: 'queued', // queued | running | done | cancelled | error
+    status: 'queued', 
     createdAt: Date.now(),
     startedAt: null,
     finishedAt: null,
@@ -28,9 +29,10 @@ function createJob({ name, steps, indices, parallel, meta }) {
     instances: Object.fromEntries(
       (indices || []).map((i) => [i, {
         index: i,
-        status: 'queued', // queued | running | done | failed | aborted | cancelled
+        status: 'queued', 
         currentStep: null,
         steps: [],
+        vars: varsByIndex[i] || {},
       }])
     ),
   };
