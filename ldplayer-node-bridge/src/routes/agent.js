@@ -59,8 +59,13 @@ function buildAgentRouter() {
     if (instanceIndex !== undefined && instanceIndex !== null && isNaN(validIndex)) {
       return res.status(400).json({ error: 'instanceIndex debe ser un número válido' });
     }
-    const device = deviceRegistry.registerDevice({ appVersion, ua, meta, requestedInstanceIndex: validIndex });
-    consoleLog(`[agent] 🆕 REGISTER deviceId=${device.deviceId} instance=${device.instanceIndex ?? '?'} appVersion=${appVersion ?? '?'}`);
+    const existing = typeof deviceId === 'string' && deviceId ? deviceRegistry.getDevice(deviceId) : null;
+    const device = deviceRegistry.registerDevice({ deviceId, appVersion, ua, meta, requestedInstanceIndex: validIndex });
+    if (existing) {
+      consoleLog(`[agent] ♻️ RE-REGISTER (ya existía) deviceId=${device.deviceId} instance=${device.instanceIndex ?? '?'} appVersion=${appVersion ?? '?'}`);
+    } else {
+      consoleLog(`[agent] 🆕 REGISTER deviceId=${device.deviceId} instance=${device.instanceIndex ?? '?'} appVersion=${appVersion ?? '?'}`);
+    }
     return res.status(201).json({ ok: true, deviceId: device.deviceId, instanceIndex: device.instanceIndex, serverTime: Date.now() });
   });
 

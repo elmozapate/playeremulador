@@ -108,36 +108,39 @@ function _consumePendingIndex() {
 
 // --- Registro (primera conexión) ---------------------------------------
 
-function registerDevice({ appVersion, ua, meta, requestedInstanceIndex } = {}) {
-  const deviceId =
-    typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `dev-${now()}-${Math.random().toString(16).slice(2)}`;
+ function registerDevice({ deviceId: requestedDeviceId, appVersion, ua, meta, requestedInstanceIndex } = {}) {
+  const existing = typeof requestedDeviceId === 'string' && requestedDeviceId
+    ? devices.get(requestedDeviceId)
+    : null;
 
-  let instanceIndex = null;
+  const deviceId = existing
+    ? existing.deviceId
+    : (typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `dev-${now()}-${Math.random().toString(16).slice(2)}`);
+
+  let instanceIndex = existing ? existing.instanceIndex : null;
   if (requestedInstanceIndex !== undefined && requestedInstanceIndex !== null && requestedInstanceIndex !== '') {
     const n = Number(requestedInstanceIndex);
     if (Number.isFinite(n)) instanceIndex = n;
-  }
-  if (instanceIndex === null) {
+  } else if (instanceIndex === null) {
     instanceIndex = _consumePendingIndex();
   }
 
-  const record = emptyRecord(deviceId);
+  const record = existing || emptyRecord(deviceId);
   record.instanceIndex = instanceIndex;
-  record.appVersion = appVersion || null;
-  record.ua = ua || null;
-  record.meta = meta || {};
+  record.appVersion = appVersion || record.appVersion || null;
+  record.ua = ua || record.ua || null;
+  record.meta = meta || record.meta || {};
   record.registered = true;
-  record.registeredAt = now();
+  record.registeredAt = existing ? existing.registeredAt : now();
+  record.lastSeen = now();
   record.status = 'registered';
   record.event = 'register';
   devices.set(deviceId, record);
   if (instanceIndex !== null) {
-    // Eliminar posible entrada anterior con el mismo índice (seguridad)
     const oldDeviceId = deviceByIndex.get(instanceIndex);
     if (oldDeviceId && oldDeviceId !== deviceId) {
-      // Si otro dispositivo tenía este índice, lo desvinculamos (no debería ocurrir)
       const oldRecord = devices.get(oldDeviceId);
       if (oldRecord) {
         oldRecord.instanceIndex = null;
