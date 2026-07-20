@@ -9,12 +9,13 @@ const { attachSocketIO } = require('./sockets');
 const eventBus = require('./utils/eventBus');
 const pythonBridgeSocket = require('./services/pythonBridgeSocket');
 const { warmupBeforeJob } = require('./services/pipelines/jobRunner');
+const buildHealthMonitorRouter = require('./routes/healthMonitor');
 
 async function main() {
   const manager = config.pythonProcess.manage ? new PythonServiceManager() : null;
   const { app, client, poller, windowService } = createServer({ manager });
   const healthScheduler = new HealthScheduler(client, poller);
-
+  app.use('/api/health-monitor', buildHealthMonitorRouter(healthScheduler));
   eventBus.on('python:state', ({ state }) => console.log(`[python] estado -> ${state}`));
   eventBus.on('python:log', ({ stream, line }) => console.log(`[python:${stream}] ${line}`));
   eventBus.on('status:error', ({ message }) => console.warn(`[status-poller] ${message}`));

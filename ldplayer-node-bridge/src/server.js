@@ -83,7 +83,9 @@ function createServer({ manager } = {}) {
   });
 
   app.use(express.static(require('path').resolve(__dirname, '..', 'public')));
-
+  app.get('/instance-console', (req, res) => {
+    res.sendFile(require('path').resolve(__dirname, '..', 'public', 'instance-console.html'));
+  });
   app.use((err, req, res, next) => {
     res.status(err.status || 500).json({ error: err.message || 'Error interno' });
   });

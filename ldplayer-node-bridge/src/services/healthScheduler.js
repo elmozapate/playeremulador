@@ -13,25 +13,63 @@ class HealthScheduler {
     this.opts = { ...config.healthCheck, ...opts };
     this._timer = null;
     this._running = false;
-    this._queue = [];   // orden estable de índices a rotar
-    this._cursor = 0;   // puntero round-robin
+    this._queue = [];
+    this._cursor = 0;
+    this._currentIndex = null;
+    this._lastTickAt = null;
+    this._lastResult = null;
+    this._nextTickAt = null;
   }
-
-  start() {
-    if (!this.opts.enabled || this._running) return;
+  getStatus() {
+    return {
+      enabled: this.opts.enabled,
+      running: this._running,
+      intervalMs: this.opts.intervalMs,
+      queue: [...this._queue],
+      cursor: this._cursor,
+      currentIndex: this._currentIndex,
+      lastTickAt: this._lastTickAt,
+      lastResult: this._lastResult,
+      nextTickAt: this._nextTickAt,
+    };
+  }
+  setInterval(ms) {
+    const n = Number(ms);
+    if (!Number.isFinite(n) || n < 1000) {
+      throw new Error('intervalMs debe ser un número >= 1000');
+    }
+    this.opts.intervalMs = n;
+    if (this._running) {
+      if (this._timer) clearTimeout(this._timer);
+      this._scheduleNext();
+    }
+    return this.getStatus();
+  }
+  async runNow() {
+    if (this._timer) clearTimeout(this._timer);
+    await this._tick();
+    return this.getStatus();
+  }
+  start({ force = false } = {}) {
+    if ((!this.opts.enabled && !force) || this._running) return this.getStatus();
     this._running = true;
+    this.opts.enabled = true;
     this._scheduleNext();
     console.log(`[health] round-robin activado: 1 instancia cada ${this.opts.intervalMs}ms`);
+    return this.getStatus();
   }
-
   stop() {
     this._running = false;
+    this.opts.enabled = false;
     if (this._timer) clearTimeout(this._timer);
     this._timer = null;
+    this._nextTickAt = null;
+    this._currentIndex = null;
+    return this.getStatus();
   }
-
   _scheduleNext() {
     if (!this._running) return;
+    this._nextTickAt = Date.now() + this.opts.intervalMs;
     this._timer = setTimeout(() => this._tick(), this.opts.intervalMs);
   }
 
@@ -79,22 +117,24 @@ class HealthScheduler {
     await runJob(this.client, job.id);
     return job.instances[index];
   }
-
   async _tick() {
+    this._lastTickAt = Date.now();
+    let index = null;
     try {
       const indices = await this._getActiveIndices();
       if (indices.length === 0) {
         console.log('[health] sin instancias activas, se salta este ciclo');
+        this._lastResult = { ok: true, skipped: true, reason: 'sin-instancias' };
         return;
       }
       this._syncQueue(indices);
-      const index = this._nextIndex();
+      index = this._nextIndex();
       if (index === null) return;
-
+      this._currentIndex = index;
       const { action } = instanceModelStore.decideHealthAction(index);
-
       if (action === 'skip-never-started' || action === 'skip-expected-off' || action === 'skip-unknown') {
         console.log(`[health] instancia ${index}: ${action}, se salta este turno`);
+        this._lastResult = { ok: true, index, skipped: true, reason: action };
         return;
       }
       if (action === 'relaunch') {
@@ -103,24 +143,26 @@ class HealthScheduler {
           await this.client.launch(index);
         } catch (err) {
           console.warn(`[health] no se pudo relanzar instancia ${index}: ${err.message}`);
-          return; // no tiene sentido chequear si ni siquiera prendió
+          this._lastResult = { ok: false, index, reason: 'relaunch-failed', error: err.message };
+          return;
         }
       }
-
       console.log(`[health] instancia ${index}: iniciando chequeo`);
       const result = await this._runJobAndWait('health_check', {}, index);
-
       if (result.status === 'done') {
         console.log(`[health] instancia ${index}: chequeo OK (monitor en primer plano + batería respondió)`);
+        this._lastResult = { ok: true, index, reason: 'chequeo-ok' };
         return;
       }
-
       console.warn(`[health] instancia ${index}: chequeo falló (status=${result.status}) -> ejecutando recuperación`);
       const recovery = await this._runJobAndWait('health_recovery', {}, index);
       console.log(`[health] instancia ${index}: recuperación finalizada con estado=${recovery.status}`);
+      this._lastResult = { ok: recovery.status === 'done', index, reason: 'recuperacion', status: recovery.status };
     } catch (err) {
       console.error(`[health] error en el chequeo del turno: ${err.message}`);
+      this._lastResult = { ok: false, index, reason: 'error', error: err.message };
     } finally {
+      this._currentIndex = null;
       this._scheduleNext();
     }
   }
