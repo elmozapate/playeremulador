@@ -925,6 +925,14 @@
         <button id="serverStopBtn" class="ghost" onclick="stopPipelineOnServer()" disabled>■ Detener (servidor)</button>
         <span class="chain-status-pill" id="serverStatus">Inactivo</span>
       </div>
+      <div class="step-subfields-divider" style="margin-top:1rem;">🔤 Variables por instancia — usalas en cualquier
+        campo de texto de un paso como <code>{{nombre}}</code> (ej: <code>{{ip}}</code>, <code>{{username}}</code>)</div>
+      <div class="row" style="margin-top:.5rem;">
+        <button class="teal" onclick="addVariableColumn()">+ Agregar variable</button>
+        <button class="ghost" onclick="renderVariablesTable()">🔄 Actualizar filas (según instancias conocidas)</button>
+        <span class="hint">Una fila por instancia detectada. Vacío = sin reemplazo, se manda el texto tal cual.</span>
+      </div>
+      <div id="pipelineVariablesTable" style="margin-top:.6rem;"></div>
       <div id="pipelineStepsList" style="margin-top: 1rem; display:flex; flex-direction:column; gap:.6rem;"></div>
       <div class="row" style="margin-top:.8rem;">
         <select id="newStepTypeSelect"></select>
@@ -3254,6 +3262,68 @@
       }
     ];
     let currentPipeline = { name: 'Mi pipeline', steps: [] };
+    // ==================================================================
+    // VARIABLES POR INSTANCIA — para el pipeline runner. Cada columna es
+    // un nombre de variable (ip, port, username, password, ...), cada fila
+    // una instancia. Se usa como {{nombre}} en cualquier campo de texto
+    // de un paso, tanto en ejecución cliente como al mandar el job al
+    // servidor (se envía en el body como "variables").
+    // ==================================================================
+    let pipelineVariableNames = ['ip', 'port', 'username', 'password'];
+    let pipelineVariables = {}; // { [index]: { nombre: valor } }
+    function setVariableValue(index, varName, value) {
+      if (!pipelineVariables[index]) pipelineVariables[index] = {};
+      pipelineVariables[index][varName] = value;
+    }
+    function renderVariablesTable() {
+      const container = document.getElementById('pipelineVariablesTable');
+      if (!container) return;
+      const indices = lastKnownIndices;
+      if (!indices || indices.length === 0) {
+        container.innerHTML = '<p class="hint">No hay instancias detectadas todavía.</p>';
+        return;
+      }
+      let html = '<div class="table-scroll"><table><thead><tr><th>Instancia</th>';
+      for (const varName of pipelineVariableNames) {
+        html += `<th>${varName} <button class="small ghost" onclick="removeVariableColumn('${varName}')" title="Quitar variable">✕</button></th>`;
+      }
+      html += '</tr></thead><tbody>';
+      for (const index of indices) {
+        html += `<tr><td>#${index}</td>`;
+        for (const varName of pipelineVariableNames) {
+          const val = (pipelineVariables[index] && pipelineVariables[index][varName]) || '';
+          const safeVal = String(val).replace(/"/g, '&quot;');
+          html += `<td><input type="text" value="${safeVal}" style="width:130px" oninput="setVariableValue(${index}, '${varName}', this.value)" /></td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    }
+    async function addVariableColumn() {
+      const result = await showModal({
+        title: 'Agregar variable',
+        subtitle: 'Se va a poder usar en cualquier campo de texto de un paso como {{nombre}}.',
+        confirmLabel: 'Agregar',
+        fields: [{ id: 'name', label: 'Nombre de variable', type: 'text', placeholder: 'ip / port / username / password', required: true }],
+      });
+      if (!result) return;
+      const clean = result.name.trim().replace(/[^\w]/g, '_');
+      if (!clean) return;
+      if (!pipelineVariableNames.includes(clean)) pipelineVariableNames.push(clean);
+      renderVariablesTable();
+      toast(`Variable "${clean}" agregada`, 'ok');
+    }
+    function removeVariableColumn(varName) {
+      pipelineVariableNames = pipelineVariableNames.filter((v) => v !== varName);
+      for (const idx of Object.keys(pipelineVariables)) {
+        delete pipelineVariables[idx][varName];
+      }
+      renderVariablesTable();
+    }
+    function buildVariablesForIndices(indices) {
+      return indices.map((i) => pipelineVariables[i] || {});
+    }
     function defaultValuesForType(type) {
       const stepType = PIPELINE_STEP_TYPES.find((t) => t.id === type);
       if (!stepType) return {};
@@ -3669,14 +3739,25 @@
       }
     }
     function resolveStepValues(rawValues, index) {
+      const vars = pipelineVariables[index] || {};
       const resolved = {};
       for (const [k, v] of Object.entries(rawValues || {})) {
-        resolved[k] = typeof v === 'string' ? v.replaceAll('{index}', String(index)) : v;
+        if (typeof v !== 'string') { resolved[k] = v; continue; }
+        let out = v.replaceAll('{index}', String(index));
+        out = out.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, name) => {
+          const val = vars[name];
+          return (val === undefined || val === null || val === '') ? match : String(val);
+        });
+        resolved[k] = out;
       }
       return resolved;
     }
     async function runPipelineStepsForInstance(index, steps, parallel) {
       try {
+        const vars = pipelineVariables[index];
+        if (vars && Object.keys(vars).length) {
+          log(`[pipeline] #${index} variables: ${JSON.stringify(vars)}`);
+        }
         for (let i = 0; i < steps.length; i++) {
           if (pipelineCancelled) throw new Error('cancelado');
           const step = steps[i];
@@ -3858,6 +3939,8 @@
         // a los botones recién creados o se pierde al primer refresco.
         applyTouchRowState(inst.index);
       }
+      const varsTableEl = document.getElementById('pipelineVariablesTable');
+      if (varsTableEl && varsTableEl.children.length === 0) renderVariablesTable();
     }
     // Carga inicial
     fetch('/api/status/all').then((r) => r.json()).then(renderInstances);
@@ -3924,11 +4007,13 @@
         const parallel = document.getElementById('pipelineParallel').checked;
         const runBtn = document.getElementById('serverRunBtn');
         runBtn.disabled = true; // feedback inmediato, síncrono, antes del await
+        const variables = buildVariablesForIndices(indices);
         const { status, ok, payload } = await postJSON('/api/tasks', {
           name: currentPipeline.name || 'Pipeline',
           steps: currentPipeline.steps,
           indices,
           parallel,
+          variables,
         });
         if (!ok) {
           log(`[job] no se pudo crear el job -> ${status} ${payload?.error ?? ''}`, 'bad');
