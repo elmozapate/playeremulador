@@ -168,6 +168,37 @@
   }
   .empty-state .glyph { font-size: 22px; color: var(--dimmer); margin-bottom: 8px; }
 
+  /* ---------- instance actions ---------- */
+  .actions-cell { display: flex; gap: 4px; flex-wrap: wrap; }
+  .btn.warn-btn { border-color: var(--warn); color: var(--warn); }
+  .btn.warn-btn:hover { background: rgba(245, 166, 35, 0.1); }
+  .btn.danger-btn { border-color: var(--off); color: var(--off); }
+  .btn.danger-btn:hover { background: rgba(240, 87, 107, 0.1); }
+  .btn:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+
+  /* ---------- health monitor panel ---------- */
+  .health-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .health-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--panel-alt);
+    border-bottom: 1px solid var(--border);
+  }
+  .health-title { font-size: 12px; color: var(--info); letter-spacing: 0.02em; }
+  .health-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .health-kv { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 6px 14px; font-size: 12px; }
+  .health-kv .k { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .health-kv .v { color: var(--text); word-break: break-word; }
+  .health-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
   /* ---------- drawer ---------- */
   .scrim {
     position: fixed; inset: 0;
@@ -269,6 +300,26 @@
 </header>
 
 <main>
+  <div class="health-panel" id="healthPanel">
+    <div class="health-head">
+      <span class="health-title">🩺 monitor de salud (round-robin)</span>
+      <span class="pill" id="healthStatePill"><span class="dot" id="healthDot"></span><span id="healthStateLabel">---</span></span>
+    </div>
+    <div class="health-body">
+      <div class="health-kv" id="healthKv"></div>
+      <div class="health-controls">
+        <button class="btn small" id="healthStartBtn">iniciar</button>
+        <button class="btn small" id="healthStopBtn">detener</button>
+        <button class="btn small" id="healthRunNowBtn">correr ahora</button>
+        <div class="field">
+          <label for="healthIntervalInput">intervalo (seg)</label>
+          <input id="healthIntervalInput" type="number" min="1" style="width:70px" />
+        </div>
+        <button class="btn small" id="healthIntervalBtn">aplicar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="meta-row">
     <span id="countLabel">0 instancias</span>
     <span id="lastPoll">—</span>
@@ -284,11 +335,12 @@
         <th>monitor</th>
         <th>root</th>
         <th>actualizado</th>
+        <th>acciones</th>
         <th></th>
       </tr>
     </thead>
     <tbody id="tbody">
-      <tr><td colspan="8"><div class="empty-state"><div class="glyph">···</div>cargando instancias</div></td></tr>
+      <tr><td colspan="9"><div class="empty-state"><div class="glyph">···</div>cargando instancias</div></td></tr>
     </tbody>
   </table>
 </main>
@@ -398,7 +450,7 @@ baseUrlInput.addEventListener('change', () => {
   // -------------------- render table --------------------
   function renderTable() {
     if (!models.length) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="glyph">∅</div>no hay instancias registradas todavía</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="glyph">∅</div>no hay instancias registradas todavía</div></td></tr>`;
       countLabel.textContent = '0 instancias';
       return;
     }
@@ -412,6 +464,13 @@ baseUrlInput.addEventListener('change', () => {
         <td>${monitorCell(m)}</td>
         <td>${rootCell(m)}</td>
         <td class="ts">${esc(relTime(m.updatedAt))}</td>
+        <td class="actions-cell">
+          <button class="btn small" data-action="launch" data-index="${esc(m.index)}" title="encender">▶</button>
+          <button class="btn small" data-action="quit" data-index="${esc(m.index)}" title="apagar">⏻</button>
+          <button class="btn small" data-action="reboot" data-index="${esc(m.index)}" title="reiniciar">↻</button>
+          <button class="btn small warn-btn" data-action="hardreboot" data-index="${esc(m.index)}" title="reinicio forzado (adb reboot)">⚡↻</button>
+          <button class="btn small danger-btn" data-action="hardoff" data-index="${esc(m.index)}" title="apagado forzado (adb reboot -p)">⚡⏻</button>
+        </td>
         <td><button class="btn small" data-info="${esc(m.index)}">info</button></td>
       </tr>
     `).join('');
@@ -419,6 +478,53 @@ baseUrlInput.addEventListener('change', () => {
     tbody.querySelectorAll('[data-info]').forEach((btn) => {
       btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-info')));
     });
+    tbody.querySelectorAll('[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => runInstanceAction(
+        btn.getAttribute('data-action'),
+        btn.getAttribute('data-index'),
+        btn
+      ));
+    });
+  }
+
+  // -------------------- instance actions --------------------
+  async function runInstanceAction(action, index, btn) {
+    const confirmMsgs = {
+      quit: `¿Apagar la instancia #${index}?`,
+      hardreboot: `¿Reinicio FORZADO (adb reboot) de la instancia #${index}? Puede cortar procesos abruptamente.`,
+      hardoff: `¿Apagado FORZADO (adb reboot -p) de la instancia #${index}? Puede cortar procesos abruptamente.`,
+    };
+    if (confirmMsgs[action] && !confirm(confirmMsgs[action])) return;
+
+    const endpoints = {
+      launch: { url: `${baseUrl}/api/instances/${index}/launch` },
+      quit: { url: `${baseUrl}/api/instances/${index}/quit` },
+      reboot: { url: `${baseUrl}/api/instances/${index}/reboot` },
+      hardreboot: { url: `${baseUrl}/api/instances/${index}/root/shell`, body: { command: 'reboot' } },
+      hardoff: { url: `${baseUrl}/api/instances/${index}/root/shell`, body: { command: 'reboot -p' } },
+    };
+    const ep = endpoints[action];
+    if (!ep) return;
+
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      const res = await fetch(ep.url, {
+        method: 'POST',
+        headers: ep.body ? { 'Content-Type': 'application/json' } : undefined,
+        body: ep.body ? JSON.stringify(ep.body) : undefined,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      setTimeout(loadModels, 800);
+    } catch (err) {
+      alert(`acción "${action}" falló en #${index}: ${err.message}`);
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
   }
 
   // -------------------- drawer --------------------
@@ -550,7 +656,7 @@ baseUrlInput.addEventListener('change', () => {
       models.sort((a, b) => a.index - b.index);
       renderTable();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="glyph">⚠</div>no se pudo conectar con ${esc(baseUrl)}<br/><span style="font-size:11px">${esc(err.message)}</span></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="glyph">⚠</div>no se pudo conectar con ${esc(baseUrl)}<br/><span style="font-size:11px">${esc(err.message)}</span></div></td></tr>`;
       countLabel.textContent = '0 instancias';
     }
   }
@@ -618,8 +724,76 @@ async function refreshMonitorStatus() {
     }
   });
 
+  // -------------------- health monitor panel --------------------
+  async function refreshHealthMonitor() {
+    try {
+      const res = await fetch(`${baseUrl}/api/health-monitor/status`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const st = await res.json();
+      $('#healthDot').className = 'dot ' + (st.running ? 'live' : (st.enabled ? 'warn' : ''));
+      $('#healthStateLabel').textContent = st.running ? 'activo' : (st.enabled ? 'pausado' : 'detenido');
+      const lastResult = st.lastResult
+        ? `${st.lastResult.ok ? 'ok' : 'error'} · #${st.lastResult.index ?? '—'} · ${esc(st.lastResult.reason || '')}`
+        : '—';
+      const pairs = [
+        ['cola', esc((st.queue || []).join(', ') || '—')],
+        ['turno actual', st.currentIndex === null || st.currentIndex === undefined ? '—' : `#${esc(st.currentIndex)}`],
+        ['intervalo', `${Math.round(st.intervalMs / 1000)}s`],
+        ['próximo turno', esc(absTime(st.nextTickAt))],
+        ['último chequeo', esc(absTime(st.lastTickAt))],
+        ['resultado', lastResult],
+      ];
+      $('#healthKv').innerHTML = pairs.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${v}</div>`).join('');
+      if (document.activeElement !== $('#healthIntervalInput')) {
+        $('#healthIntervalInput').value = Math.round(st.intervalMs / 1000);
+      }
+    } catch (err) {
+      $('#healthDot').className = 'dot off';
+      $('#healthStateLabel').textContent = 'sin conexión';
+      $('#healthKv').innerHTML = `<div class="k">error</div><div class="v">${esc(err.message)}</div>`;
+    }
+  }
+
+  $('#healthStartBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch(`${baseUrl}/api/health-monitor/start`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await refreshHealthMonitor();
+    } catch (err) { alert(`no se pudo iniciar: ${err.message}`); }
+  });
+  $('#healthStopBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch(`${baseUrl}/api/health-monitor/stop`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await refreshHealthMonitor();
+    } catch (err) { alert(`no se pudo detener: ${err.message}`); }
+  });
+  $('#healthRunNowBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch(`${baseUrl}/api/health-monitor/run-now`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await refreshHealthMonitor();
+    } catch (err) { alert(`no se pudo correr ahora: ${err.message}`); }
+  });
+  $('#healthIntervalBtn').addEventListener('click', async () => {
+    const seconds = Number($('#healthIntervalInput').value);
+    if (!Number.isFinite(seconds) || seconds < 1) { alert('segundos inválido'); return; }
+    try {
+      const res = await fetch(`${baseUrl}/api/health-monitor/interval`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seconds }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      await refreshHealthMonitor();
+    } catch (err) { alert(`no se pudo cambiar el intervalo: ${err.message}`); }
+  });
+
   async function loadAll() {
-    await Promise.all([loadModels(), loadBridge()]);
+    await Promise.all([loadModels(), loadBridge(), refreshHealthMonitor()]);
     lastPoll.textContent = `última actualización: ${new Date().toLocaleTimeString('es-AR')}`;
   }
 

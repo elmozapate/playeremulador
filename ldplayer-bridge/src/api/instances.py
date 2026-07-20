@@ -136,7 +136,7 @@ async def kill_app(index: int, body: KillAppRequest):
 
 @router.post("/{index}/initial-root")
 async def initial_root(index: int):
-    """Deja la instancia lista para desarrollo: root + ADB debug + 6 núcleos / 8192 MB / 540x960."""
+    """Deja la instancia lista para desarrollo: root + ADB debug + 2 núcleos / 2048 MB / 540x960."""
     try:
         result = await task_queue.enqueue(index, instance_service.initial_root, index)
         monitor.invalidate(index)

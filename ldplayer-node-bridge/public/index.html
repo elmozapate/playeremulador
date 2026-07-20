@@ -1399,7 +1399,7 @@
               { value: '1536', label: '1536' },
               { value: '2048', label: '2048' },
               { value: '4096', label: '4096' },
-              { value: '8192', label: '8192' },
+              { value: '2048', label: '2048' },
             ],
           },
           { id: 'resWidth', label: 'Resolución — ancho (px)', type: 'number', placeholder: '1600', min: 0 },
@@ -1476,13 +1476,13 @@
       return lastResult;
     }
     // ==================================================================
-    // PERFILES — Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)
+    // PERFILES — Root Inicial (root + debug + 2 núcleos + 2048MB + 540x960)
     //           y Ready (3 núcleos + 3072MB)
     // ==================================================================
     async function initialRootInstance(index) {
       const ok = await confirmModal(
         `🌱 Root Inicial — instancia #${index}`,
-        'Se van a aplicar: root ON, depuración ADB ON, 6 núcleos, 8192 MB de RAM y resolución 540x960 (tipo mobile).',
+        'Se van a aplicar: root ON, depuración ADB ON, 2 núcleos, 2048 MB de RAM y resolución 540x960 (tipo mobile).',
         'Aplicar Root Inicial',
         false,
         'Si la instancia está encendida, algunos cambios (CPU/RAM/resolución/root) pueden no aplicarse hasta reiniciarla. Se recomienda hacer Quit antes y Launch después.',
@@ -1824,7 +1824,7 @@
       { id: 'play_protect', group: 'Apps', label: '🛡️ Play Protect — activar/desactivar', method: 'post', path: i => `/api/instances/${i}/apps/play-protect`, fields: [{ id: 'disable', label: 'Acción', type: 'select', value: 'true', options: [{ value: 'true', label: 'Desactivar' }, { value: 'false', label: 'Activar' }] }], body: v => ({ disable: v.disable === 'true' }) },
       { id: 'run_reliable', group: 'Apps', label: '🚀 Abrir (modo confiable, con fallback ADB)', method: 'post', path: i => `/api/instances/${i}/apps/run-reliable`, fields: [{ id: 'package_name', label: 'Package name', type: 'text', required: true }, { id: 'activity', label: 'Activity (opcional)', type: 'text' }, { id: 'timeout_s', label: 'Timeout (s)', type: 'number', value: 6 }], body: v => ({ package_name: v.package_name, activity: v.activity || null, timeout_s: Number(v.timeout_s) || 6 }) },
       { id: 'root_status', group: 'Perfiles', label: '🔎 Estado root/ADB — consultar', method: 'get', path: i => `/api/instances/${i}/root/status`, fields: [] },
-      { id: 'initial_root', group: 'Perfiles', label: '🌱 Configurar como Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)', method: 'post', path: i => `/api/instances/${i}/initial-root`, fields: [] },
+      { id: 'initial_root', group: 'Perfiles', label: '🌱 Configurar como Root Inicial (root + debug + 2 núcleos + 2048MB + 540x960)', method: 'post', path: i => `/api/instances/${i}/initial-root`, fields: [] },
       { id: 'make_ready', group: 'Perfiles', label: '✅ Configurar como Ready (3 núcleos + 3072MB)', method: 'post', path: i => `/api/instances/${i}/ready`, fields: [] },
     ];
     let instancesByIndex = {};
@@ -2859,7 +2859,7 @@
         },
       },
       {
-        id: 'initial_root', label: '🌱 Perfil: Root Inicial (root + debug + 6 núcleos + 8192MB + 540x960)',
+        id: 'initial_root', label: '🌱 Perfil: Root Inicial (root + debug + 2 núcleos + 2048MB + 540x960)',
         fields: [
           { id: 'preCheckTimeoutMs', label: 'Timeout esperando Android arriba antes de mandar (ms)', type: 'number', value: 90000, min: 10000, required: true },
           { id: 'requestTimeoutMs', label: 'Timeout del request a Python (ms)', type: 'number', value: 600000, min: 60000, required: true },
@@ -3839,7 +3839,7 @@
              <button class="small" onclick="modifyInstance(${inst.index})">Modify</button>
              <button class="small" onclick="cloneInstance(${inst.index})">Clone</button>
              <button class="small" onclick="killApp(${inst.index})">Kill app</button>
-             <button class="small violet" onclick="initialRootInstance(${inst.index})" title="Root ON + debug ADB ON + 6 núcleos + 8192MB + 540x960">🌱 Root Inicial</button>
+             <button class="small violet" onclick="initialRootInstance(${inst.index})" title="Root ON + debug ADB ON + 2 núcleos + 2048MB + 540x960">🌱 Root Inicial</button>
              <button class="small teal" onclick="makeReadyInstance(${inst.index})" title="3 núcleos + 3072MB">✅ Ready</button>
              <button class="small teal" onclick="openTools(${inst.index})" ${isUp ? '' : 'disabled'} title="${toolsTitle}">🛠️ Tools</button>
              <button class="small" onclick="showInstanceState(${inst.index})" title="Ver todo lo que sabemos de esta instancia (local + backend)">ℹ️ Estado</button>

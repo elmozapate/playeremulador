@@ -395,8 +395,8 @@ class InstanceService:
                 await asyncio.to_thread(
                     LDConsole.modify,
                     index,
-                    4,
-                    8192,
+                    2,
+                    2048,
                     "540,960,240",
                     None,
                 )
@@ -415,8 +415,8 @@ class InstanceService:
 
                 result = {
                     "index": index,
-                    "cpu": 4,
-                    "memory": 8192,
+                    "cpu": 2,
+                    "memory": 2048,
                     "resolution": "540,960,240",
                     "root_requested": True,
                 }
@@ -446,15 +446,15 @@ class InstanceService:
                     instance_record_store.add_event,
                     index,
                     "profile",
-                    "Perfil aplicado: initial-root (cpu=4 mem=8192)",
+                    "Perfil aplicado: initial-root (cpu=2 mem=2048)",
                 )
 
                 await asyncio.to_thread(
                     instance_record_store.record_profile,
                     index,
                     {
-                        "cpu": 4,
-                        "memory": 8192,
+                        "cpu": 2,
+                        "memory": 2048,
                         "resolution": "540,960,240",
                         "root": result.get("root_active"),
                         "adb_debug": 2 if result.get("adb_debugging") else None,
