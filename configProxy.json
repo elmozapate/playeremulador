@@ -46,7 +46,7 @@
         {
             "type": "wait",
             "values": {
-                "seconds": 0.177
+                "seconds": 0.71
             }
         },
         {
@@ -109,7 +109,7 @@
         {
             "type": "wait",
             "values": {
-                "seconds": 0.200
+                "seconds": 0.01
             }
         },
         {
@@ -203,7 +203,7 @@
         {
             "type": "wait",
             "values": {
-                "seconds": 0.140
+                "seconds": 0.01
             }
         },
         {
@@ -266,7 +266,7 @@
         {
             "type": "wait",
             "values": {
-                "seconds": 0.157
+                "seconds": 0.71
             }
         },
         {
