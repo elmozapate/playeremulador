@@ -3356,7 +3356,7 @@
       currentPipeline.steps.forEach((step, i) => {
         list.appendChild(buildStepCard(step, i));
       });
-      pipelineVariableNames = currentPipeline.variables.length
+      pipelineVariableNames = currentPipeline?.variables?.length
         ? Object.keys(currentPipeline.variables[0])
         : [];
 
