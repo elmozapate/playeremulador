@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="es">
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -23,22 +22,17 @@
       --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
       --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-
     * {
       box-sizing: border-box;
     }
-
     body {
       font-family: var(--sans);
       margin: 0;
-      background:
-        radial-gradient(circle at 15% -10%, #1c2129 0%, transparent 45%),
-        var(--bg);
+      background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 1.75rem clamp(1rem, 4vw, 3rem) 3rem;
+      padding: 1.25rem clamp(1rem, 3vw, 2rem) 2rem;
     }
-
     header.topbar {
       display: flex;
       align-items: center;
@@ -49,21 +43,18 @@
       padding-bottom: 1rem;
       margin-bottom: 1.5rem;
     }
-
     .brand {
       display: flex;
       align-items: center;
       gap: .65rem;
     }
-
     .brand .dot {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--accent);
-      box-shadow: 0 0 10px var(--accent);
+      box-shadow: 0 0 5px var(--accent);
     }
-
     .brand h1 {
       font-size: 1rem;
       letter-spacing: .06em;
@@ -72,7 +63,6 @@
       font-weight: 700;
       color: var(--text);
     }
-
     .brand small {
       display: block;
       color: var(--muted);
@@ -80,7 +70,6 @@
       letter-spacing: .04em;
       margin-top: 2px;
     }
-
     .py-status {
       display: flex;
       align-items: center;
@@ -88,7 +77,6 @@
       font-family: var(--mono);
       font-size: .8rem;
     }
-
     .led {
       width: 9px;
       height: 9px;
@@ -96,23 +84,19 @@
       background: var(--muted);
       flex: none;
     }
-
     .led.running {
       background: var(--ok);
       box-shadow: 0 0 8px var(--ok);
     }
-
     .led.stopped {
       background: var(--bad);
       box-shadow: 0 0 8px var(--bad);
     }
-
     .py-status .btns {
       display: flex;
       gap: .35rem;
       margin-left: .5rem;
     }
-
     button {
       font-family: var(--sans);
       cursor: pointer;
@@ -125,82 +109,66 @@
       font-weight: 600;
       transition: border-color .15s ease, background .15s ease, transform .05s ease;
     }
-
     button:hover:not(:disabled) {
       border-color: #3a4150;
       background: #1f242c;
     }
-
     button:active:not(:disabled) {
       transform: translateY(1px);
     }
-
     button:disabled {
       opacity: .35;
       cursor: not-allowed;
     }
-
     button.primary {
       background: linear-gradient(180deg, #ffbf6b, var(--accent));
       color: #241505;
       border-color: var(--accent);
     }
-
     button.primary:hover:not(:disabled) {
       filter: brightness(1.05);
     }
-
     button.violet {
       background: linear-gradient(180deg, #c9b8ff, var(--violet));
       color: #1c1533;
       border-color: var(--violet);
     }
-
     button.violet:hover:not(:disabled) {
       filter: brightness(1.05);
     }
-
     button.teal {
       background: linear-gradient(180deg, #9df0e2, var(--cyan));
       color: #08312b;
       border-color: var(--cyan);
     }
-
     button.teal:hover:not(:disabled) {
       filter: brightness(1.05);
     }
-
     button.danger {
       border-color: #5a2a2a;
       color: #ffb3b3;
     }
-
     button.danger:hover:not(:disabled) {
       background: #2a1616;
     }
-
     button.ghost {
       background: transparent;
     }
-
     button.small {
       padding: .3rem .55rem;
       font-size: .72rem;
     }
-
     section.panel {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 1.1rem 1.25rem;
-      margin-bottom: 1.1rem;
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      margin-bottom: .9rem;
       transition: border-color .15s ease;
     }
-
     section.panel:hover {
       border-color: #2e3540;
     }
-
     .panel-title {
       display: flex;
       align-items: baseline;
@@ -212,7 +180,6 @@
       color: var(--cyan);
       font-weight: 700;
     }
-
     .panel-title .hint {
       color: var(--muted);
       text-transform: none;
@@ -220,39 +187,32 @@
       font-weight: 400;
       font-size: .75rem;
     }
-
     .hint {
       color: var(--muted);
       font-size: .75rem;
     }
-
     .row {
       display: flex;
       gap: .6rem;
       align-items: center;
       flex-wrap: wrap;
     }
-
     .row+.row {
       margin-top: .7rem;
     }
-
     .field {
       display: flex;
       flex-direction: column;
       gap: .25rem;
     }
-
     .field label {
       font-size: .7rem;
       color: var(--muted);
     }
-
     .field .unit {
       color: var(--muted);
       font-size: .7rem;
     }
-
     input[type=number],
     input[type=text],
     select {
@@ -264,31 +224,26 @@
       font-family: var(--mono);
       font-size: .8rem;
     }
-
     input[type=number] {
       width: 78px;
     }
-
     input[type=number]:focus,
     input[type=text]:focus,
     select:focus {
       outline: none;
       border-color: var(--cyan);
     }
-
     button:focus-visible,
     input:focus-visible,
     select:focus-visible {
       outline: 2px solid var(--cyan);
       outline-offset: 1px;
     }
-
     @media (prefers-reduced-motion: reduce) {
       * {
         transition: none !important;
       }
     }
-
     .chain-flow {
       display: flex;
       align-items: center;
@@ -303,19 +258,15 @@
       padding: .55rem .7rem;
       margin-top: .8rem;
     }
-
     .chain-flow .step {
       color: var(--text);
     }
-
     .chain-flow .step.accent {
       color: var(--violet);
     }
-
     .chain-flow .arrow {
       color: var(--accent-dim);
     }
-
     .chain-status-pill {
       font-family: var(--mono);
       font-size: .72rem;
@@ -324,28 +275,23 @@
       border: 1px solid var(--line);
       color: var(--muted);
     }
-
     .chain-status-pill.active {
       color: #241505;
       background: var(--accent);
       border-color: var(--accent);
     }
-
     .chain-status-pill.active.violet-pill {
       color: #1c1533;
       background: var(--violet);
       border-color: var(--violet);
     }
-
     .table-scroll {
       overflow-x: auto;
     }
-
     table {
       border-collapse: collapse;
       width: 100%;
     }
-
     thead th {
       text-align: left;
       font-size: .68rem;
@@ -356,18 +302,15 @@
       border-bottom: 1px solid var(--line);
       white-space: nowrap;
     }
-
     tbody td {
       padding: .5rem .6rem;
       border-bottom: 1px solid #1d222a;
       font-size: .82rem;
       vertical-align: middle;
     }
-
     tbody tr:hover {
       background: #171b21;
     }
-
     .badge {
       display: inline-flex;
       align-items: center;
@@ -375,34 +318,28 @@
       font-family: var(--mono);
       font-size: .72rem;
     }
-
     .badge.on {
       color: var(--ok);
     }
-
     .badge.off {
       color: var(--bad);
     }
-
     .actions {
       display: flex;
       gap: .3rem;
       flex-wrap: wrap;
     }
-
     .quickapp-cell {
       display: flex;
       align-items: center;
       gap: .3rem;
       flex-wrap: wrap;
     }
-
     .quickapp-cell select {
       font-size: .72rem;
       padding: .25rem .35rem;
       max-width: 140px;
     }
-
     #log {
       background: #07090b;
       border: 1px solid var(--line);
@@ -416,31 +353,25 @@
       white-space: pre-wrap;
       line-height: 1.5;
     }
-
     .ok {
       color: var(--ok);
     }
-
     .bad {
       color: var(--bad);
     }
-
     .warn {
       color: var(--warn);
     }
-
     input[type=checkbox] {
       accent-color: var(--accent);
       width: 15px;
       height: 15px;
     }
-
     /* ---------- Paneles colapsables ---------- */
     .panel-header {
       cursor: pointer;
       user-select: none;
     }
-
     .panel-header .chevron {
       margin-left: auto;
       color: var(--muted);
@@ -448,23 +379,18 @@
       transition: transform .15s ease;
       flex: none;
     }
-
     .panel-header.open .chevron {
       transform: rotate(90deg);
     }
-
     .panel-header:hover {
       color: #8ff5e2;
     }
-
     .panel-body {
       display: none;
     }
-
     .panel-body.open {
       display: block;
     }
-
     /* ---------- Toasts ---------- */
     .toast-stack {
       position: fixed;
@@ -475,7 +401,6 @@
       gap: .5rem;
       z-index: 2000;
     }
-
     .toast {
       background: var(--panel-2);
       border: 1px solid var(--line);
@@ -490,24 +415,19 @@
       transition: opacity .18s ease, transform .18s ease;
       max-width: 320px;
     }
-
     .toast.show {
       opacity: 1;
       transform: translateY(0);
     }
-
     .toast.ok {
       border-left-color: var(--ok);
     }
-
     .toast.bad {
       border-left-color: var(--bad);
     }
-
     .toast.warn {
       border-left-color: var(--warn);
     }
-
     /* ---------- Pipeline runner ---------- */
     .step-card {
       border: 1px solid var(--line);
@@ -515,43 +435,36 @@
       background: #10131a;
       padding: .7rem .8rem;
     }
-
     .step-card-head {
       display: flex;
       align-items: center;
       gap: .6rem;
       flex-wrap: wrap;
     }
-
     .step-num {
       font-family: var(--mono);
       color: var(--muted);
       font-size: .75rem;
       min-width: 30px;
     }
-
     .step-card-head select {
       flex: 1;
       min-width: 200px;
     }
-
     .step-card-btns {
       display: flex;
       gap: .25rem;
       margin-left: auto;
     }
-
     .step-fields {
       display: flex;
       gap: .6rem;
       flex-wrap: wrap;
       margin-top: .65rem;
     }
-
     .step-fields .field {
       min-width: 140px;
     }
-
     .step-subfields-divider {
       width: 100%;
       font-size: .68rem;
@@ -562,7 +475,6 @@
       padding-top: .55rem;
       margin-top: .1rem;
     }
-
     /* ---------- Modales ---------- */
     .modal-overlay {
       position: fixed;
@@ -578,12 +490,10 @@
       transition: opacity .15s ease;
       padding: 1rem;
     }
-
     .modal-overlay.show {
       opacity: 1;
       pointer-events: auto;
     }
-
     .modal-box {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -596,11 +506,9 @@
       transform: translateY(6px);
       transition: transform .15s ease;
     }
-
     .modal-overlay.show .modal-box {
       transform: translateY(0);
     }
-
     .modal-title {
       font-size: .82rem;
       text-transform: uppercase;
@@ -609,51 +517,43 @@
       font-weight: 700;
       margin: 0 0 .3rem;
     }
-
     .modal-sub {
       color: var(--muted);
       font-size: .78rem;
       margin: 0 0 1rem;
     }
-
     .modal-field {
       display: flex;
       flex-direction: column;
       gap: .3rem;
       margin-bottom: .8rem;
     }
-
     .modal-field label {
       font-size: .72rem;
       color: var(--muted);
     }
-
     .modal-field input,
     .modal-field select {
       width: 100%;
       padding: .55rem .6rem;
     }
-
     .modal-field.inline-group {
       display: flex;
       flex-direction: row;
       gap: .5rem;
     }
-
     .modal-field.inline-group>div {
       flex: 1;
       display: flex;
       flex-direction: column;
       gap: .3rem;
     }
-
     .modal-btns {
       display: flex;
       justify-content: flex-end;
       gap: .5rem;
       margin-top: 1.1rem;
     }
-
     .modal-error {
       color: var(--bad);
       font-size: .72rem;
@@ -661,7 +561,6 @@
       margin-top: -.4rem;
       margin-bottom: .6rem;
     }
-
     .modal-result {
       background: #07090b;
       border: 1px solid var(--line);
@@ -676,11 +575,9 @@
       white-space: pre-wrap;
       display: none;
     }
-
     .modal-result.show {
       display: block;
     }
-
     .modal-warning {
       background: #2a2210;
       border: 1px solid #5a4a1a;
@@ -690,23 +587,93 @@
       font-size: .78rem;
       margin-bottom: .9rem;
     }
-
     /* ---------- Modal de ejecución (pipelines / cadenas) ---------- */
     #execBox {
       width: min(560px, 100%);
     }
-
     #execStatusText {
       font-family: var(--mono);
     }
-
     #execConsole {
       height: 280px;
       max-height: 280px;
     }
+    /* ================= Layout de 3 columnas ================= */
+    .layout {
+      display: grid;
+      grid-template-columns: 272px minmax(0, 1fr) 300px;
+      gap: 1rem;
+      align-items: start;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: .7rem;
+      position: sticky;
+      top: 1rem;
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--line) transparent;
+      min-width: 0;
+    }
+    .sidebar section.panel,
+    .main-content section.panel {
+      margin-bottom: 0;
+    }
+    .sidebar-left section.panel {
+      padding: .85rem .9rem;
+    }
+    .main-content {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    /* Consola: on/off completo */
+    .sidebar-console.console-hidden {
+      display: none;
+    }
+    /* Consola: minimizada (colapsa el cuerpo, deja solo el header) */
+    #logPanelSection {
+      display: flex;
+      flex-direction: column;
+    }
+    #logPanelSection.minimized #log {
+      display: none;
+    }
+    #logPanelSection.minimized {
+      padding-bottom: .9rem;
+    }
+    #consoleMinimizedPreview {
+      display: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 30vw;
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--muted);
+    }
+    #consoleToggleBtn.primary {
+      background: linear-gradient(180deg, #9df0e2, var(--cyan));
+      color: #08312b;
+      border-color: var(--cyan);
+    }
+    @media (max-width: 1180px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        position: static;
+        max-height: none;
+      }
+      #consoleMinimizedPreview {
+        max-width: 55vw;
+      }
+    }
   </style>
 </head>
-
 <body>
   <script src="/socket.io/socket.io.js"></script>
   <header class="topbar">
@@ -725,9 +692,12 @@
         <button class="small" onclick="serviceAction('stop')">Stop</button>
         <button class="small" onclick="serviceAction('restart')">Restart</button>
         <button class="small violet" onclick="toggleSleepMode()">🌙 Reposo</button>
+        <button class="small" id="consoleToggleBtn" onclick="toggleConsoleSidebar()">🖥️ Consola</button>
       </div>
     </div>
   </header>
+  <div class="layout">
+  <aside class="sidebar sidebar-left" id="sidebarLeft">
   <section class="panel">
     <p class="panel-title panel-header" id="panelApps-header" onclick="togglePanel('panelApps')">
       <span class="chevron">▶</span>
@@ -907,8 +877,6 @@
         <button onclick="loadPreset('setup_root_adb')">Preset: Root Inicial + ADB</button>
         <button onclick="loadPreset('setup_apps')">Preset: Setup Apps (instalación)</button>
         <button onclick="loadPreset('health_check')">🏥 Health Check</button>
-        <button onclick="loadPreset('health_recovery')">🩹 Health Recovery</button>
-        <button onclick="loadPreset('hard_health_recovery')">🔧 Hard Health Recovery</button>
         <button onclick="loadPresetRegistroHealth()">Preset: Registro Health (nombre + server)</button>
         <button onclick="exportPipeline()">⬇ Exportar JSON</button>
         <label class="small"
@@ -944,6 +912,8 @@
       </div>
     </div>
   </section>
+  </aside>
+  <main class="main-content">
   <section class="panel">
     <p class="panel-title">Instancias <span class="hint">— "🛠️ Tools" agrupa batería / radios / ubicación / pantalla /
         input / apps (todo lo que usa ADB). "🌱 Root Inicial" y "✅ Ready" configuran el perfil de recursos/depuración
@@ -970,13 +940,23 @@
       </table>
     </div>
   </section>
-  <section class="panel">
-    <div class="row" style="justify-content:space-between;">
-      <p class="panel-title" style="margin:0;">Log</p>
-      <button class="small ghost" onclick="clearLog()">🧹 Limpiar</button>
+  </main>
+  <aside class="sidebar sidebar-console" id="consoleSidebar">
+  <section class="panel" id="logPanelSection">
+    <div class="row" style="justify-content:space-between; flex-wrap:nowrap;">
+      <div class="row" style="gap:.5rem;">
+        <p class="panel-title" style="margin:0;">Log</p>
+        <span id="consoleMinimizedPreview"></span>
+      </div>
+      <div class="row" style="gap:.3rem;">
+        <button class="small ghost" id="consoleMinimizeBtn" onclick="toggleConsoleMinimized()" title="Minimizar consola">▁</button>
+        <button class="small ghost" onclick="clearLog()">🧹 Limpiar</button>
+      </div>
     </div>
     <div id="log" style="margin-top:.8rem;"></div>
   </section>
+  </aside>
+  </div>
   <!-- Contenedor de modales -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal-box" id="modalBox"></div>
@@ -1044,6 +1024,8 @@
       logEl.innerHTML += span + '\n';
       logEl.scrollTop = logEl.scrollHeight;
       execLog(line, cls);
+      const preview = document.getElementById('consoleMinimizedPreview');
+      if (preview) preview.textContent = line.replace(/<[^>]*>/g, '');
     }
     function clearLog() {
       logEl.innerHTML = '';
@@ -1138,6 +1120,57 @@
         const chevron = header?.querySelector('.chevron');
         if (chevron) chevron.textContent = '▶';
       }
+    }
+    // ==================================================================
+    // LAYOUT — sidebar de consola: activar/desactivar (mostrar/ocultar
+    // por completo) y minimizar/expandir (colapsar solo el cuerpo, para
+    // liberar espacio mientras corre un pipeline sin perder los logs:
+    // el log() sigue escribiendo en #log aunque esté oculto, y el título
+    // muestra un preview de la última línea).
+    // ==================================================================
+    const CONSOLE_VISIBLE_KEY = 'ldbridge_console_visible';
+    const CONSOLE_MINIMIZED_KEY = 'ldbridge_console_minimized';
+    function isMobileLayout() {
+      return window.matchMedia('(max-width: 1180px)').matches;
+    }
+    function toggleConsoleSidebar(forceVisible) {
+      const aside = document.getElementById('consoleSidebar');
+      const btn = document.getElementById('consoleToggleBtn');
+      if (!aside) return;
+      const shouldShow = forceVisible !== undefined ? forceVisible : aside.classList.contains('console-hidden');
+      aside.classList.toggle('console-hidden', !shouldShow);
+      if (btn) btn.classList.toggle('primary', shouldShow);
+      try { localStorage.setItem(CONSOLE_VISIBLE_KEY, shouldShow ? '1' : '0'); } catch { }
+    }
+    function updateConsoleMinimizeBtn(minimized) {
+      const btn = document.getElementById('consoleMinimizeBtn');
+      const preview = document.getElementById('consoleMinimizedPreview');
+      if (btn) {
+        btn.textContent = minimized ? '▔' : '▁';
+        btn.title = minimized ? 'Expandir consola' : 'Minimizar consola';
+      }
+      if (preview) preview.style.display = minimized ? '' : 'none';
+    }
+    function toggleConsoleMinimized(forceMinimized) {
+      const section = document.getElementById('logPanelSection');
+      if (!section) return;
+      const shouldMinimize = forceMinimized !== undefined ? forceMinimized : !section.classList.contains('minimized');
+      section.classList.toggle('minimized', shouldMinimize);
+      updateConsoleMinimizeBtn(shouldMinimize);
+      try { localStorage.setItem(CONSOLE_MINIMIZED_KEY, shouldMinimize ? '1' : '0'); } catch { }
+    }
+    function initLayoutPrefs() {
+      let visible = true;
+      let minimized = false;
+      try {
+        const storedVisible = localStorage.getItem(CONSOLE_VISIBLE_KEY);
+        if (storedVisible !== null) visible = storedVisible === '1';
+        else if (isMobileLayout()) visible = false;
+        const storedMinimized = localStorage.getItem(CONSOLE_MINIMIZED_KEY);
+        if (storedMinimized !== null) minimized = storedMinimized === '1';
+      } catch { }
+      toggleConsoleSidebar(visible);
+      toggleConsoleMinimized(minimized);
     }
     // ==================================================================
     // MODAL DE EJECUCIÓN — usado por las cadenas (encendido / instalación
@@ -1467,7 +1500,6 @@
       const { status, payload } = await postJSON(`/api/instances/${index}/kill`, { package_name: result.package_name });
       log(`[instances] kill #${index} -> ${status} ${payload?.error ? '- ' + payload.error : ''}`);
     }
-
     // ------------------------------------------------------------------
     // Reintento genérico para steps que pueden fallar por timeouts
     // transitorios (launch/reboot/initial-root tardan mucho del lado de
@@ -1560,14 +1592,11 @@
       const cancelBtn = document.getElementById(`touch-cancel-${index}`);
       const badge = document.getElementById(`touch-badge-${index}`);
       if (!startBtn || !stopBtn || !cancelBtn || !badge) return; // fila no está montada (filtro de búsqueda la ocultó)
-
       const isUp = instancesByIndex[index]?.android_started === true;
       const isRecording = !!(state && state.listening);
-
       startBtn.disabled = !isUp || isRecording;
       stopBtn.disabled = !isRecording;
       cancelBtn.disabled = !isRecording;
-
       if (isRecording) {
         const secs = state.elapsed_ms != null ? (state.elapsed_ms / 1000).toFixed(1) : '?';
         badge.textContent = `🔴 REC ${state.gestures_count ?? 0} · ${secs}s`;
@@ -1576,12 +1605,10 @@
         badge.style.display = 'none';
       }
     }
-
     function ensureTouchPolling() {
       if (touchPollTimer) return;
       touchPollTimer = setInterval(pollTouchStatuses, 1000);
     }
-
     function stopTouchPollingIfIdle() {
       const stillRecording = Object.values(touchRecordingState).some((s) => s.listening);
       if (!stillRecording && touchPollTimer) {
@@ -1589,7 +1616,6 @@
         touchPollTimer = null;
       }
     }
-
     async function pollTouchStatuses() {
       const recordingIndices = Object.keys(touchRecordingState)
         .filter((i) => touchRecordingState[i].listening);
@@ -1617,7 +1643,6 @@
       }));
       stopTouchPollingIfIdle();
     }
-
     async function startTouchCapture(index) {
       try {
         const res = await fetch(`/api/instances/${index}/touch/start`, { method: 'POST' });
@@ -1630,7 +1655,6 @@
         log(`[touch] #${index} → error al iniciar grabación: ${e.message}`, 'bad');
       }
     }
-
     async function stopTouchCapture(index) {
       try {
         const stopRes = await fetch(`/api/instances/${index}/touch/stop`, { method: 'POST' });
@@ -1645,7 +1669,6 @@
         log(`[touch] #${index} → error al detener grabación: ${e.message}`, 'bad');
       }
     }
-
     async function cancelTouchCapture(index) {
       // Confirm porque es destructivo y no hay vuelta atrás (a diferencia
       // de stop, acá los gestos NO se devuelven ni se muestran).
@@ -1663,7 +1686,6 @@
         log(`[touch] #${index} → error al cancelar grabación: ${e.message}`, 'bad');
       }
     }
-
     async function syncActiveTouchCaptures() {
       try {
         const res = await fetch('/api/instances/touch/active');
@@ -1679,27 +1701,22 @@
         log(`[touch] no se pudo sincronizar capturas activas: ${e.message}`, 'bad');
       }
     }
-
     function showGesturesModal(index, gestures) {
       modalBox.innerHTML = '';
       const title = document.createElement('p');
       title.className = 'modal-title';
       title.textContent = `Gestos grabados — instancia #${index}`;
       modalBox.appendChild(title);
-
       const pre = document.createElement('pre');
       pre.textContent = JSON.stringify(gestures, null, 2);
       modalBox.appendChild(pre);
-
       const closeBtn = document.createElement('button');
       closeBtn.className = 'ghost';
       closeBtn.textContent = 'Cerrar';
       closeBtn.onclick = () => closeModal();
       modalBox.appendChild(closeBtn);
-
       modalOverlay.classList.add('show');
     }
-
     async function openAppFormModal(appId) {
       const existing = appId ? KNOWN_APPS.find((a) => a.id === appId) : null;
       const result = await showModal({
@@ -1845,27 +1862,22 @@
     }
     function isValidBatteryResponse(response) {
       if (!response || typeof response !== "object") return false;
-
       // Validar respuesta principal
       if (response.ok !== true) return false;
       if (response.status !== 200) return false;
-
       // Validar payload
       const payload = response.payload;
       if (!payload || typeof payload !== "object") return false;
-
       const requiredFields = {
         health: "string",
         level: "number",
         status: "string",
         temperature_c: "number",
       };
-
       for (const [key, type] of Object.entries(requiredFields)) {
         if (!(key in payload)) return false;
         if (typeof payload[key] !== type) return false;
       }
-
       return true;
     }
     async function showInstanceState(index) {
@@ -2878,7 +2890,6 @@
         ],
         exec: async (index, v, ctx) => {
           /* */
-
           // SIN retry acá: Python ya reintenta 3 veces internamente con su propio
           // ciclo completo de apagar/configurar/prender (ver initial_root() en
           // instance_service.py). Reintentar también desde Node solo apila un
@@ -2895,7 +2906,6 @@
             rootActive: r.payload?.root_active,
           };
           console.log(attempt, r);
-
           if (!attempt.ok) return { ...attempt, abort: true };
           try {
             await waitForAndroidStarted(index, { timeoutMs: Number(v.preCheckTimeoutMs || 90000), pollMs: 2000, ctx });
@@ -2920,16 +2930,12 @@
             const resbs = isValidBatteryResponse(rbs)
             if (resbs) {
               console.log(rbs1);
-
               return { ok: true, detail: 'root activado tras reboot adicional' };
-
             }
           } catch (e) {
             ctx.log(`initial-root: ${e.message} — no se manda el request, hace falta 'launch' primero`);
             return { ok: false, detail: e.message, abort: true };
           }
-
-
           /* 
                     if (attempt.rootActive === false && v.rebootIfRootMissing) {
                       ctx.log('initial-root: root no quedó activo tras el primer boot, rebooteando para reintentar montaje de su');
@@ -2942,7 +2948,6 @@
                       }
                       return { ok: true, detail: 'root activado tras reboot adicional' };
                     } */
-
           return { ok: true, detail: attempt.rootActive === false ? 'root no activo (sin reboot configurado)' : 'root activo' };
         },
       },
@@ -3343,7 +3348,6 @@
     }
     function renderPipelineBuilder() {
       console.log(currentPipeline);
-
       const nameInput = document.getElementById('pipelineNameInput');
       if (nameInput && document.activeElement !== nameInput) nameInput.value = currentPipeline.name || '';
       const list = document.getElementById('pipelineStepsList');
@@ -3358,17 +3362,13 @@
       currentPipeline.steps.forEach((step, i) => {
         list.appendChild(buildStepCard(step, i));
       });
-      pipelineVariableNames = currentPipeline.variables.length
+      pipelineVariableNames = currentPipeline?.variables?.length
         ? Object.keys(currentPipeline.variables[0])
         : [];
-
-      // Crea el objeto indexado
       pipelineVariables = currentPipeline.variables.reduce((acc, item, index) => {
         acc[index] = item;
         return acc;
       }, {});
-
-
       renderVariablesTable()
     }
     function buildStepCard(step, i) {
@@ -3536,14 +3536,7 @@
         sel.appendChild(o);
       }
     }
-    // ------------------------------------------------------------------
-    // FIX (duplicación): la rama "health_check" era la única que NO
-    // terminaba en `return`, entonces caía al bloque común de abajo y
-    // el render/toast/log se ejecutaban DOS VECES (eso es lo que se veía
-    // como "el pipeline se duplica"). Ahora todas las ramas comparten el
-    // mismo bloque final, sin repetir nada adentro del if.
-    // ------------------------------------------------------------------
-   function loadPreset(name) {
+    function loadPreset(name) {
       const socks = KNOWN_APPS.find((a) => a.id === 'socks');
       const earn = KNOWN_APPS.find((a) => a.id === 'earn');
       const monitor = KNOWN_APPS.find((a) => a.id === 'monitor');
@@ -3651,68 +3644,13 @@
             },
           ],
         };
-      } else if (name === 'health_recovery') {
-        // NUEVO: espejo del preset backend 'health_recovery' (presets.js).
-        // Sin kill: las apps quedan siempre abiertas en background.
-        currentPipeline = {
-          name: 'Recuperación de salud (quit + launch + pipeline)',
-          steps: [
-            { type: 'quit', values: {} },
-            { type: 'wait', values: { seconds: 3 } },
-            { type: 'launch', values: { bootTimeoutSec: 90 } },
-            { type: 'run', values: { known_app: monitor?.id || '', package_name: monitor?.package_name || '' } },
-            { type: 'wait', values: { seconds: 5 } },
-            { type: 'run', values: { known_app: socks?.id || '', package_name: socks?.package_name || '' } },
-            { type: 'wait', values: { seconds: 1 } },
-            { type: 'tool', values: { tool_action: 'input_tap', x: 419, y: 73 } },
-            { type: 'wait', values: { seconds: 1 } },
-            { type: 'run', values: { known_app: earn?.id || '', package_name: earn?.package_name || '' } },
-            { type: 'wait', values: { seconds: 1 } },
-            {
-              type: 'verify',
-              values: {
-                tool_action: 'apps_current',
-                expect_path: 'package_name',
-                expect_value: earn?.package_name || '',
-              },
-            },
-          ],
-        };
-      } else if (name === 'hard_health_recovery') {
-        // NUEVO: espejo del preset backend 'hard_health_recovery'
-        // (presets.js). Usa root_debug (quit -> root+debug -> launch)
-        // en vez de quit+launch simple. Tampoco mata ninguna app.
-        currentPipeline = {
-          name: 'Recuperación dura (root+debug + pipeline)',
-          steps: [
-            { type: 'root_debug', values: {} },
-            { type: 'run', values: { known_app: monitor?.id || '', package_name: monitor?.package_name || '' } },
-            { type: 'wait', values: { seconds: 5 } },
-            { type: 'run', values: { known_app: socks?.id || '', package_name: socks?.package_name || '' } },
-            { type: 'wait', values: { seconds: 1 } },
-            { type: 'tool', values: { tool_action: 'input_tap', x: 419, y: 73 } },
-            { type: 'wait', values: { seconds: 1 } },
-            { type: 'run', values: { known_app: earn?.id || '', package_name: earn?.package_name || '' } },
-            { type: 'wait', values: { seconds: 1 } },
-            {
-              type: 'verify',
-              values: {
-                tool_action: 'apps_current',
-                expect_path: 'package_name',
-                expect_value: earn?.package_name || '',
-              },
-            },
-          ],
-        };
       } else {
         return;
       }
       renderPipelineBuilder();
       toast(`Preset "${currentPipeline.name}" cargado`, 'ok');
       log(`[pipeline] preset "${name}" cargado`, 'ok');
-    } // ==================================================================
-    // Preset "Registro Health"
-    // ==================================================================
+    }
     async function loadPresetRegistroHealth() {
       const monitor = KNOWN_APPS.find((a) => a.id === 'monitor');
       const result = await showModal({
@@ -3936,7 +3874,6 @@
         finishExecModal('Estado: finalizado');
       }
     }
-    // ---- Render de instancias ----
     function renderInstances(instances) {
       const body = document.getElementById('instancesBody');
       const list = Array.isArray(instances) ? instances : Object.values(instances || {});
@@ -4003,24 +3940,17 @@
           const sel = document.getElementById(`qa-${inst.index}`);
           if (sel) sel.value = quickAppSelections[inst.index];
         }
-        // El render reconstruye toda la tabla en cada poll de instancias,
-        // así que hay que reaplicar el estado de grabación (disabled/badge)
-        // a los botones recién creados o se pierde al primer refresco.
         applyTouchRowState(inst.index);
       }
       const varsTableEl = document.getElementById('pipelineVariablesTable');
       if (varsTableEl && varsTableEl.children.length === 0) renderVariablesTable();
     }
-    // Carga inicial
     fetch('/api/status/all').then((r) => r.json()).then(renderInstances);
     loadKnownApps();
     initStepTypeSelect();
     renderPipelineBuilder();
     initCollapsiblePanels();
-    // ==================================================================
-    // MODO SERVIDOR — delega la ejecución del pipeline al Task Manager de
-    // Node (/api/tasks). Progreso vía Socket.IO.
-    // ==================================================================
+    initLayoutPrefs();
     let currentJobId = null;
     function jobLineClass(status) {
       if (status === 'error' || status === 'failed' || status === 'aborted') return 'bad';
@@ -4059,13 +3989,6 @@
       document.getElementById('serverStatus').classList.remove('active');
       currentJobId = null;
     });
-    // ------------------------------------------------------------------
-    // FIX (duplicación de jobs): el guard `if (currentJobId) return;`
-    // no servía porque currentJobId recién se asignaba DESPUÉS del
-    // `await postJSON(...)`. Un doble click (o UI lenta) alcanzaba a
-    // pasar el guard dos veces y creaba dos jobs. Ahora se usa una
-    // bandera SÍNCRONA (_busy) que se levanta antes de cualquier await.
-    // ------------------------------------------------------------------
     async function runPipelineOnServer() {
       if (currentJobId || runPipelineOnServer._busy) return;
       runPipelineOnServer._busy = true;
@@ -4075,7 +3998,7 @@
         if (!currentPipeline.steps.length) { log('[job] el pipeline no tiene pasos', 'warn'); return; }
         const parallel = document.getElementById('pipelineParallel').checked;
         const runBtn = document.getElementById('serverRunBtn');
-        runBtn.disabled = true; // feedback inmediato, síncrono, antes del await
+        runBtn.disabled = true; 
         const variables = buildVariablesForIndices(indices);
         const { status, ok, payload } = await postJSON('/api/tasks', {
           name: currentPipeline.name || 'Pipeline',
@@ -4128,13 +4051,7 @@
     es.addEventListener('instance-event', (e) => {
       const payload = JSON.parse(e.data);
       const { index, event, detail } = payload;
-
       if (event === 'touch-event') {
-        // Gesto individual en tiempo real mientras se graba. Sube el
-        // contador más rápido que el polling de /touch/status (1s),
-        // pero solo si ya sabemos que esa instancia está grabando --
-        // si por lo que sea llega antes que la respuesta de
-        // startTouchCapture, lo ignoramos en vez de crear estado a medias.
         if (touchRecordingState[index]) {
           touchRecordingState[index].gestures_count =
             (touchRecordingState[index].gestures_count || 0) + 1;
@@ -4142,7 +4059,6 @@
         }
         return;
       }
-
       if (event === 'touch-discarded') {
         log(`[touch] #${index} → grabación descartada (${payload.discarded_count} gestos)`, 'bad');
         delete touchRecordingState[index];
@@ -4150,12 +4066,8 @@
         stopTouchPollingIfIdle();
         return;
       }
-
-      // Otros 'event' de instance-event que Python pueda emitir a futuro
-      // (notify_instance_event genérico) caen acá sin romper nada.
       if (detail) log(`[instance] #${index} → ${event}: ${detail}`);
     });
   </script>
 </body>
-
 </html>

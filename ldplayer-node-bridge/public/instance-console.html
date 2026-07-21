@@ -1,495 +1,882 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>instance-console // ldplayer-bridge</title>
-<style>
-  :root{
-    --bg: #0A0D10;
-    --panel: #12171C;
-    --panel-alt: #171D23;
-    --border: #232B33;
-    --text: #DCE4EA;
-    --dim: #7C8791;
-    --dimmer: #4B545C;
-    --live: #34D399;
-    --warn: #F5A623;
-    --off: #F0576B;
-    --info: #5EC8D8;
-    --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>instance-console // ldplayer-bridge</title>
+  <style>
+    :root {
+      --bg: #0A0D10;
+      --panel: #12171C;
+      --panel-alt: #171D23;
+      --panel-alt-2: #1B222A;
+      --border: #232B33;
+      --text: #DCE4EA;
+      --dim: #7C8791;
+      --dimmer: #4B545C;
+      --live: #34D399;
+      --warn: #F5A623;
+      --off: #F0576B;
+      --info: #5EC8D8;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    }
 
-  * { box-sizing: border-box; }
+    * { box-sizing: border-box; }
 
-  html, body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 13px;
-    line-height: 1.5;
-  }
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.5;
+    }
 
-  ::selection { background: var(--info); color: #06171A; }
+    ::selection { background: var(--info); color: #06171A; }
 
-  /* ---------- top bar ---------- */
-  header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 20px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-  }
+    /* ---------- top bar ---------- */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+      flex-wrap: wrap;
+    }
 
-  .brand {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-right: auto;
-  }
-  .brand .mark { color: var(--info); font-weight: 700; letter-spacing: 0.02em; }
-  .brand .sub { color: var(--dim); font-size: 11px; }
+    .brand { display: flex; align-items: baseline; gap: 8px; margin-right: auto; }
+    .brand .mark { color: var(--info); font-weight: 700; letter-spacing: 0.02em; }
+    .brand .sub { color: var(--dim); font-size: 11px; }
 
-  .field { display: flex; align-items: center; gap: 6px; }
-  .field label { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .field input {
-    background: var(--panel-alt);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 6px 8px;
-    border-radius: 4px;
-    width: 220px;
-    outline: none;
-  }
-  .field input:focus { border-color: var(--info); }
+    .field { display: flex; align-items: center; gap: 6px; }
+    .field label { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .field input {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      width: 220px;
+      outline: none;
+      transition: border-color .12s ease;
+    }
+    .field input:focus { border-color: var(--info); }
 
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    border: 1px solid var(--border);
-    background: var(--panel-alt);
-    white-space: nowrap;
-  }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dimmer); flex-shrink: 0; }
-  .dot.live { background: var(--live); box-shadow: 0 0 0 0 rgba(52,211,153,0.6); animation: pulse 1.8s infinite; }
-  .dot.off { background: var(--off); }
-  .dot.warn { background: var(--warn); }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      background: var(--panel-alt);
+      white-space: nowrap;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dimmer); flex-shrink: 0; }
+    .dot.live { background: var(--live); box-shadow: 0 0 0 0 rgba(52,211,153,0.6); animation: pulse 1.8s infinite; }
+    .dot.off { background: var(--off); }
+    .dot.warn { background: var(--warn); }
 
-  @keyframes pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.55); }
-    70%  { box-shadow: 0 0 0 6px rgba(52,211,153,0); }
-    100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .dot.live { animation: none; }
-  }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.55); }
+      70%  { box-shadow: 0 0 0 6px rgba(52,211,153,0); }
+      100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+    }
+    @media (prefers-reduced-motion: reduce) { .dot.live, .ac-step[data-state="running"] .dot { animation: none; } }
 
-  button {
-    font-family: var(--mono);
-    cursor: pointer;
-  }
+    button { font-family: var(--mono); cursor: pointer; }
 
-  .btn {
-    background: var(--panel-alt);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-  }
-  .btn:hover { border-color: var(--info); color: var(--info); }
-  .btn:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+    .btn {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      transition: border-color .12s ease, color .12s ease, background .12s ease;
+    }
+    .btn:hover { border-color: var(--info); color: var(--info); }
+    .btn:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+    .btn.small { padding: 4px 9px; font-size: 11px; }
+    .btn:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+    .btn.warn-btn { border-color: var(--warn); color: var(--warn); }
+    .btn.warn-btn:hover { background: rgba(245, 166, 35, 0.1); }
+    .btn.danger-btn { border-color: var(--off); color: var(--off); }
+    .btn.danger-btn:hover { background: rgba(240, 87, 107, 0.1); }
+    .btn.primary { background: rgba(94,200,216,0.1); border-color: var(--info); color: var(--info); }
+    .btn.primary:hover { background: rgba(94,200,216,0.18); }
+    .btn.ghost { background: transparent; }
 
-  .btn.small { padding: 4px 9px; font-size: 11px; }
+    /* ---------- main / table ---------- */
+    main { padding: 20px; }
 
-  /* ---------- main / table ---------- */
-  main { padding: 20px; }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+      color: var(--dim);
+      font-size: 11px;
+    }
 
-  .meta-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 10px;
-    color: var(--dim);
-    font-size: 11px;
-  }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    overflow: hidden;
-  }
+    thead th {
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+      font-weight: 600;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-alt);
+    }
 
-  thead th {
-    text-align: left;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--dim);
-    font-weight: 600;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel-alt);
-  }
+    tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(94, 200, 216, 0.04); }
 
-  tbody td {
-    padding: 11px 14px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover { background: rgba(94, 200, 216, 0.04); }
+    .idx { color: var(--info); font-weight: 700; }
+    .name { color: var(--text); }
+    .name .none { color: var(--dimmer); font-style: italic; }
+    .ts { color: var(--dimmer); font-size: 11px; }
 
-  .idx { color: var(--info); font-weight: 700; }
-  .name { color: var(--text); }
-  .name .none { color: var(--dimmer); font-style: italic; }
-  .ts { color: var(--dimmer); font-size: 11px; }
+    .empty-state { padding: 60px 20px; text-align: center; color: var(--dim); }
+    .empty-state .glyph { font-size: 22px; color: var(--dimmer); margin-bottom: 8px; }
 
-  .empty-state {
-    padding: 60px 20px;
-    text-align: center;
-    color: var(--dim);
-  }
-  .empty-state .glyph { font-size: 22px; color: var(--dimmer); margin-bottom: 8px; }
+    /* ---------- instance actions ---------- */
+    .actions-cell { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+    .win-sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 3px; }
 
-  /* ---------- instance actions ---------- */
-  .actions-cell { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
-  .win-sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 3px; }
-  .btn.warn-btn { border-color: var(--warn); color: var(--warn); }
-  .btn.warn-btn:hover { background: rgba(245, 166, 35, 0.1); }
-  .btn.danger-btn { border-color: var(--off); color: var(--off); }
-  .btn.danger-btn:hover { background: rgba(240, 87, 107, 0.1); }
-  .btn:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+    /* ---------- health monitor panel ---------- */
+    .health-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .health-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: var(--panel-alt); border-bottom: 1px solid var(--border);
+    }
+    .health-title { font-size: 12px; color: var(--info); letter-spacing: 0.02em; }
+    .health-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+    .health-kv { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 6px 14px; font-size: 12px; }
+    .health-kv .k { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .health-kv .v { color: var(--text); word-break: break-word; }
+    .health-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-  /* ---------- health monitor panel ---------- */
-  .health-panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin-bottom: 14px;
-    overflow: hidden;
-  }
-  .health-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
-    background: var(--panel-alt);
-    border-bottom: 1px solid var(--border);
-  }
-  .health-title { font-size: 12px; color: var(--info); letter-spacing: 0.02em; }
-  .health-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
-  .health-kv { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 6px 14px; font-size: 12px; }
-  .health-kv .k { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .health-kv .v { color: var(--text); word-break: break-word; }
-  .health-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    /* ---------- assisted init panel ---------- */
+    .assisted-panel {
+      background: var(--panel);
+      border: 1px solid var(--info);
+      border-radius: 6px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .assisted-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: var(--panel-alt); border-bottom: 1px solid var(--border);
+      flex-wrap: wrap; gap: 8px;
+    }
+    .assisted-title { font-size: 12px; color: var(--info); letter-spacing: 0.02em; }
+    .assisted-controls { display: flex; gap: 6px; align-items: center; }
+    .assisted-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
+    .assisted-card { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--panel-alt); }
+    .ac-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+    .ac-idx { color: var(--info); font-weight: 700; }
+    .ac-overall { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); }
+    .ac-overall.ok { color: var(--live); }
+    .ac-overall.fail { color: var(--off); }
+    .ac-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ac-step {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 8px; border-radius: 999px; font-size: 10px;
+      text-transform: uppercase; letter-spacing: .04em;
+      border: 1px solid var(--border); color: var(--dimmer);
+    }
+    .ac-step .dot { width: 6px; height: 6px; }
+    .ac-step[data-state="running"] { color: var(--warn); border-color: var(--warn); }
+    .ac-step[data-state="running"] .dot { background: var(--warn); animation: pulse 1.2s infinite; }
+    .ac-step[data-state="ok"] { color: var(--live); border-color: var(--live); }
+    .ac-step[data-state="ok"] .dot { background: var(--live); }
+    .ac-step[data-state="fail"] { color: var(--off); border-color: var(--off); }
+    .ac-step[data-state="fail"] .dot { background: var(--off); }
+    .ac-empty { padding: 20px; text-align: center; color: var(--dim); font-size: 12px; }
 
-  /* ---------- drawer ---------- */
-  .scrim {
-    position: fixed; inset: 0;
-    background: rgba(4,6,8,0.55);
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.15s ease;
-    z-index: 20;
-  }
-  .scrim.open { opacity: 1; pointer-events: auto; }
+    /* ---------- drawer ---------- */
+    .scrim { position: fixed; inset: 0; background: rgba(4,6,8,0.55); opacity: 0; pointer-events: none; transition: opacity 0.15s ease; z-index: 20; }
+    .scrim.open { opacity: 1; pointer-events: auto; }
 
-  .drawer {
-    position: fixed;
-    top: 0; right: 0; bottom: 0;
-    width: min(460px, 92vw);
-    background: var(--panel);
-    border-left: 1px solid var(--border);
-    transform: translateX(100%);
-    transition: transform 0.18s ease;
-    z-index: 21;
-    display: flex;
-    flex-direction: column;
-  }
-  .drawer.open { transform: translateX(0); }
+    .drawer {
+      position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 92vw);
+      background: var(--panel); border-left: 1px solid var(--border);
+      transform: translateX(100%); transition: transform 0.18s ease; z-index: 21;
+      display: flex; flex-direction: column;
+    }
+    .drawer.open { transform: translateX(0); }
 
-  .drawer-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 18px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel-alt);
-  }
-  .drawer-head h2 { margin: 0; font-size: 14px; }
-  .drawer-head .close { background: transparent; border: none; color: var(--dim); font-size: 16px; }
-  .drawer-head .close:hover { color: var(--off); }
+    .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border); background: var(--panel-alt); }
+    .drawer-head h2 { margin: 0; font-size: 14px; }
+    .drawer-head .close { background: transparent; border: none; color: var(--dim); font-size: 16px; }
+    .drawer-head .close:hover { color: var(--off); }
 
-  .drawer-body { overflow-y: auto; padding: 16px 18px 40px; flex: 1; }
+    .drawer-body { overflow-y: auto; padding: 16px 18px 40px; flex: 1; }
 
-  .section { margin-bottom: 18px; }
-  .section h3 {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--info);
-    margin: 0 0 8px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 6px;
-  }
-  .kv { display: grid; grid-template-columns: 42% 58%; gap: 4px 8px; font-size: 12px; }
-  .kv .k { color: var(--dim); }
-  .kv .v { color: var(--text); word-break: break-word; }
+    .section { margin-bottom: 18px; }
+    .section h3 {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--info);
+      margin: 0 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px;
+    }
+    .kv { display: grid; grid-template-columns: 42% 58%; gap: 4px 8px; font-size: 12px; }
+    .kv .k { color: var(--dim); }
+    .kv .v { color: var(--text); word-break: break-word; }
 
-  .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
-  .log-item {
-    background: var(--panel-alt);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 6px 8px;
-    font-size: 11px;
-  }
-  .log-item .t { color: var(--dimmer); margin-right: 6px; }
+    .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+    .log-item { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; font-size: 11px; }
+    .log-item .t { color: var(--dimmer); margin-right: 6px; }
 
-  .raw-toggle { margin-top: 4px; }
-  pre.raw {
-    background: #06090B;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 10px;
-    font-size: 11px;
-    max-height: 280px;
-    overflow: auto;
-    white-space: pre-wrap;
-    word-break: break-word;
-    display: none;
-  }
-  pre.raw.open { display: block; }
-</style>
+    .raw-toggle { margin-top: 4px; }
+    pre.raw {
+      background: #06090B; border: 1px solid var(--border); border-radius: 4px; padding: 10px;
+      font-size: 11px; max-height: 280px; overflow: auto; white-space: pre-wrap; word-break: break-word; display: none;
+    }
+    pre.raw.open { display: block; }
+
+    /* ---------- modal ---------- */
+    .modal-scrim {
+      position: fixed; inset: 0; background: rgba(4,6,8,0.65);
+      opacity: 0; pointer-events: none; transition: opacity .15s ease;
+      z-index: 40; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-scrim.open { opacity: 1; pointer-events: auto; }
+    .modal-box {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      width: min(420px, 100%); padding: 18px 20px;
+      transform: translateY(8px); transition: transform .15s ease;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+    .modal-scrim.open .modal-box { transform: translateY(0); }
+    .modal-title { margin: 0 0 6px; font-size: 14px; color: var(--text); font-weight: 600; }
+    .modal-sub { margin: 0 0 12px; font-size: 12px; color: var(--dim); line-height: 1.5; white-space: pre-wrap; }
+    .modal-warning {
+      background: rgba(245, 166, 35, 0.08); border: 1px solid rgba(245, 166, 35, 0.35);
+      color: var(--warn); font-size: 11px; padding: 8px 10px; border-radius: 4px; margin-bottom: 12px;
+    }
+    .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+    /* ---------- toasts ---------- */
+    .toast-stack { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+    .toast {
+      background: var(--panel-alt); border: 1px solid var(--border); border-left: 3px solid var(--info);
+      color: var(--text); font-size: 12px; padding: 8px 12px; border-radius: 4px;
+      opacity: 0; transform: translateX(8px); transition: all .2s ease; max-width: 320px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    }
+    .toast.show { opacity: 1; transform: translateX(0); }
+    .toast.ok { border-left-color: var(--live); }
+    .toast.bad { border-left-color: var(--off); }
+    .toast.warn { border-left-color: var(--warn); }
+  </style>
 </head>
+
 <body>
 
-<header>
-  <div class="brand">
-    <span class="mark">instance-console</span>
-    <span class="sub">ldplayer-bridge</span>
-  </div>
-  <span class="pill" id="bridgePill"><span class="dot" id="bridgeDot"></span><span id="bridgeLabel">bridge python: ---</span></span>
-  <span class="pill" id="monitorPill"><span class="dot" id="monitorDot"></span><span id="monitorLabel">sys: ---</span></span>
-  <button class="btn small" id="monitorToggleBtn">activar monitor</button>
-  <button class="btn small" id="workModeToggleBtn">modo trabajo</button>
-  <div class="field">
-    <label for="pyUrlInput">python</label>
-    <input id="pyUrlInput" type="text" value="http://localhost:8000" spellcheck="false" />
-  </div>
-  <div class="field">
-    <label for="pyKeyInput">python key</label>
-    <input id="pyKeyInput" type="password" placeholder="opcional" spellcheck="false" />
-  </div>
-  <div class="field">
-    <label for="baseUrlInput">node</label>
-    <input id="baseUrlInput" type="text" value="http://localhost:4000" spellcheck="false" />
-  </div>
-
-  <button class="btn small" id="refreshBtn">refrescar</button>
-</header>
-
-<main>
-  <div class="health-panel" id="healthPanel">
-    <div class="health-head">
-      <span class="health-title">🩺 monitor de salud (round-robin)</span>
-      <span class="pill" id="healthStatePill"><span class="dot" id="healthDot"></span><span id="healthStateLabel">---</span></span>
+  <header>
+    <div class="brand">
+      <span class="mark">instance-console</span>
+      <span class="sub">ldplayer-bridge</span>
     </div>
-    <div class="health-body">
-      <div class="health-kv" id="healthKv"></div>
-      <div class="health-controls">
-        <button class="btn small" id="healthStartBtn">iniciar</button>
-        <button class="btn small" id="healthStopBtn">detener</button>
-        <button class="btn small" id="healthRunNowBtn">correr ahora</button>
-        <div class="field">
-          <label for="healthIntervalInput">intervalo (seg)</label>
-          <input id="healthIntervalInput" type="number" min="1" style="width:70px" />
+    <span class="pill" id="bridgePill"><span class="dot" id="bridgeDot"></span><span id="bridgeLabel">bridge python: ---</span></span>
+    <span class="pill" id="monitorPill"><span class="dot" id="monitorDot"></span><span id="monitorLabel">sys: ---</span></span>
+    <button class="btn small" id="monitorToggleBtn">activar monitor</button>
+    <button class="btn small" id="workModeToggleBtn">modo trabajo</button>
+    <button class="btn small" id="assistedPanelToggleBtn">🧭 modo asistido</button>
+    <div class="field">
+      <label for="pyUrlInput">python</label>
+      <input id="pyUrlInput" type="text" value="http://localhost:8000" spellcheck="false" />
+    </div>
+    <div class="field">
+      <label for="pyKeyInput">python key</label>
+      <input id="pyKeyInput" type="password" placeholder="opcional" spellcheck="false" />
+    </div>
+    <div class="field">
+      <label for="baseUrlInput">node</label>
+      <input id="baseUrlInput" type="text" value="http://localhost:4000" spellcheck="false" />
+    </div>
+
+    <button class="btn small" id="refreshBtn">refrescar</button>
+  </header>
+
+  <main>
+    <div class="assisted-panel" id="assistedPanel" style="display:none">
+      <div class="assisted-head">
+        <span class="assisted-title">🧭 modo asistido de inicio</span>
+        <div class="assisted-controls">
+          <button class="btn small primary" id="assistedStartBtn">▶ iniciar</button>
+          <button class="btn small danger-btn" id="assistedStopBtn" disabled>■ detener</button>
         </div>
-        <button class="btn small" id="healthIntervalBtn">aplicar</button>
+      </div>
+      <div class="assisted-body" id="assistedBody">
+        <div class="ac-empty">sin ejecuciones todavía. "iniciar" procesa todas las instancias cargadas, una por una.</div>
       </div>
     </div>
+
+    <div class="health-panel" id="healthPanel">
+      <div class="health-head">
+        <span class="health-title">🩺 monitor de salud (round-robin)</span>
+        <span class="pill" id="healthStatePill"><span class="dot" id="healthDot"></span><span id="healthStateLabel">---</span></span>
+      </div>
+      <div class="health-body">
+        <div class="health-kv" id="healthKv"></div>
+        <div class="health-controls">
+          <button class="btn small" id="healthStartBtn">iniciar</button>
+          <button class="btn small" id="healthStopBtn">detener</button>
+          <button class="btn small" id="healthRunNowBtn">correr ahora</button>
+          <div class="field">
+            <label for="healthIntervalInput">intervalo (seg)</label>
+            <input id="healthIntervalInput" type="number" min="1" style="width:70px" />
+          </div>
+          <button class="btn small" id="healthIntervalBtn">aplicar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <span id="countLabel">0 instancias</span>
+      <span id="lastPoll">—</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>idx</th>
+          <th>nombre</th>
+          <th>poder</th>
+          <th>agente</th>
+          <th>monitor</th>
+          <th>root</th>
+          <th>ventana</th>
+          <th>actualizado</th>
+          <th>acciones</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="10"><div class="empty-state"><div class="glyph">···</div>cargando instancias</div></td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <h2 id="drawerTitle">instancia</h2>
+      <button class="close" id="closeDrawer" aria-label="cerrar">✕</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+
+  <div class="modal-scrim" id="modalScrim">
+    <div class="modal-box" id="modalBox"></div>
   </div>
 
-  <div class="meta-row">
-    <span id="countLabel">0 instancias</span>
-    <span id="lastPoll">—</span>
-  </div>
+  <script>
+    (() => {
+      const $ = (sel) => document.querySelector(sel);
+      const tbody = $('#tbody');
+      const countLabel = $('#countLabel');
+      const lastPoll = $('#lastPoll');
+      const baseUrlInput = $('#baseUrlInput');
+      const pyKeyInput = $('#pyKeyInput');
+      const bridgeDot = $('#bridgeDot');
+      const bridgeLabel = $('#bridgeLabel');
+      const scrim = $('#scrim');
+      const drawer = $('#drawer');
+      const drawerTitle = $('#drawerTitle');
+      const drawerBody = $('#drawerBody');
 
-  <table>
-    <thead>
-      <tr>
-        <th>idx</th>
-        <th>nombre</th>
-        <th>poder</th>
-        <th>agente</th>
-        <th>monitor</th>
-        <th>root</th>
-        <th>ventana</th>
-        <th>actualizado</th>
-        <th>acciones</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="tbody">
-      <tr><td colspan="10"><div class="empty-state"><div class="glyph">···</div>cargando instancias</div></td></tr>
-    </tbody>
-  </table>
-</main>
+      let baseUrl = baseUrlInput.value.replace(/\/+$/, '');
+      let pyBaseUrl = $('#pyUrlInput').value.replace(/\/+$/, '') + '/api/v1';
+      let models = [];
+      let pollTimer = null;
+      let monitorActive = false;
+      let monitorTimer = null;
 
-<div class="scrim" id="scrim"></div>
-<aside class="drawer" id="drawer" aria-hidden="true">
-  <div class="drawer-head">
-    <h2 id="drawerTitle">instancia</h2>
-    <button class="close" id="closeDrawer" aria-label="cerrar">✕</button>
-  </div>
-  <div class="drawer-body" id="drawerBody"></div>
-</aside>
+      // -------------------- ventanas (Win32) --------------------
+      let windowsByIndex = {};
+      let workModeActive = false;
+      let currentDrawerIndex = null;
 
-<script>
-(() => {
-  const $ = (sel) => document.querySelector(sel);
-  const tbody = $('#tbody');
-  const countLabel = $('#countLabel');
-  const lastPoll = $('#lastPoll');
-  const baseUrlInput = $('#baseUrlInput');
-  const pyKeyInput = $('#pyKeyInput');
-  const bridgeDot = $('#bridgeDot');
-  const bridgeLabel = $('#bridgeLabel');
-  const scrim = $('#scrim');
-  const drawer = $('#drawer');
-  const drawerTitle = $('#drawerTitle');
-  const drawerBody = $('#drawerBody');
+      // -------------------- modal genérico --------------------
+      const modalScrim = $('#modalScrim');
+      const modalBox = $('#modalBox');
 
-  let baseUrl = baseUrlInput.value.replace(/\/+$/, '');
-  let pyBaseUrl = $('#pyUrlInput').value.replace(/\/+$/, '') + '/api/v1';
-  let models = [];
-  let pollTimer = null;
-  let monitorActive = false;
-  let monitorTimer = null;
+      function closeModal() {
+        modalScrim.classList.remove('open');
+        modalBox.innerHTML = '';
+      }
 
-  // -------------------- ventanas (Win32) --------------------
-  let windowsByIndex = {};
-  let workModeActive = false;
-  let currentDrawerIndex = null;
+      function confirmModal({ title, subtitle, warning, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', danger = false }) {
+        return new Promise((resolve) => {
+          modalBox.innerHTML = '';
+          const t = document.createElement('p'); t.className = 'modal-title'; t.textContent = title;
+          modalBox.appendChild(t);
+          if (subtitle) {
+            const s = document.createElement('p'); s.className = 'modal-sub'; s.textContent = subtitle;
+            modalBox.appendChild(s);
+          }
+          if (warning) {
+            const w = document.createElement('div'); w.className = 'modal-warning'; w.textContent = warning;
+            modalBox.appendChild(w);
+          }
+          const btns = document.createElement('div'); btns.className = 'modal-btns';
+          const cancelBtn = document.createElement('button');
+          cancelBtn.className = 'btn small ghost';
+          cancelBtn.textContent = cancelLabel;
+          cancelBtn.onclick = () => { closeModal(); resolve(false); };
+          const okBtn = document.createElement('button');
+          okBtn.className = 'btn small ' + (danger ? 'danger-btn' : 'primary');
+          okBtn.textContent = confirmLabel;
+          okBtn.onclick = () => { closeModal(); resolve(true); };
+          btns.append(cancelBtn, okBtn);
+          modalBox.appendChild(btns);
+          modalScrim.classList.add('open');
+          setTimeout(() => okBtn.focus(), 30);
+        });
+      }
 
-  function pyHeaders(json) {
-    const h = {};
-    if (pyKeyInput.value) h['x-api-key'] = pyKeyInput.value;
-    if (json) h['Content-Type'] = 'application/json';
-    return h;
-  }
+      function alertModal({ title, subtitle }) {
+        return new Promise((resolve) => {
+          modalBox.innerHTML = '';
+          const t = document.createElement('p'); t.className = 'modal-title'; t.textContent = title;
+          modalBox.appendChild(t);
+          if (subtitle) {
+            const s = document.createElement('p'); s.className = 'modal-sub'; s.textContent = subtitle;
+            modalBox.appendChild(s);
+          }
+          const btns = document.createElement('div'); btns.className = 'modal-btns';
+          const okBtn = document.createElement('button');
+          okBtn.className = 'btn small primary';
+          okBtn.textContent = 'Cerrar';
+          okBtn.onclick = () => { closeModal(); resolve(); };
+          btns.appendChild(okBtn);
+          modalBox.appendChild(btns);
+          modalScrim.classList.add('open');
+          setTimeout(() => okBtn.focus(), 30);
+        });
+      }
 
-  baseUrlInput.addEventListener('change', () => {
-    baseUrl = baseUrlInput.value.replace(/\/+$/, '');
-    loadAll();
-  });
-  $('#pyUrlInput').addEventListener('change', () => {
-    pyBaseUrl = $('#pyUrlInput').value.replace(/\/+$/, '') + '/api/v1';
-    refreshMonitorStatus();
-    loadWindows().then(() => { refreshWorkMode(); renderTable(); });
-  });
-  pyKeyInput.addEventListener('change', () => {
-    loadWindows().then(() => { refreshWorkMode(); renderTable(); });
-  });
-  $('#refreshBtn').addEventListener('click', loadAll);
+      modalScrim.addEventListener('click', (e) => { if (e.target === modalScrim) closeModal(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalScrim.classList.contains('open')) closeModal(); });
 
+      // -------------------- toasts --------------------
+      let toastStack;
+      function ensureToastStack() {
+        if (!toastStack) {
+          toastStack = document.createElement('div');
+          toastStack.className = 'toast-stack';
+          document.body.appendChild(toastStack);
+        }
+        return toastStack;
+      }
+      function toast(message, cls) {
+        const stack = ensureToastStack();
+        const el = document.createElement('div');
+        el.className = `toast ${cls || ''}`;
+        el.textContent = message;
+        stack.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('show'));
+        setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 200); }, 3200);
+      }
 
-  // -------------------- formatting helpers --------------------
-  function relTime(ts) {
-    if (!ts) return '—';
-    const diff = Date.now() - ts;
-    if (diff < 0) return 'ahora';
-    const s = Math.floor(diff / 1000);
-    if (s < 60) return `hace ${s}s`;
-    const m = Math.floor(s / 60);
-    if (m < 60) return `hace ${m}m`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `hace ${h}h`;
-    return `hace ${Math.floor(h / 24)}d`;
-  }
+      // -------------------- modo asistido de inicio --------------------
+      const ASSISTED_APPS = {
+        monitor: { packageName: 'com.chataolutions.app', label: 'Monitor' },
+        socks: { packageName: 'net.typeblog.socks', label: 'SOCKS' },
+      };
+      const ASSISTED_STEPS = [
+        { id: 'window', label: 'ventana' },
+        { id: 'android', label: 'android' },
+        { id: 'playprotect', label: 'play protect' },
+        { id: 'monitor', label: 'monitor' },
+        { id: 'socks', label: 'socks' },
+        { id: 'minimize', label: 'minimizar' },
+      ];
+      let assistedRunning = false;
+      let assistedCancel = false;
+      const assistedStatus = {}; // index -> 'ok' | 'deprecated'
+      const assistedCards = {}; // index -> {stepId: 'pending'|'running'|'ok'|'fail'}
 
-  function absTime(ts) {
-    if (!ts) return '—';
-    try { return new Date(ts).toLocaleString('es-AR'); } catch (_) { return String(ts); }
-  }
+      function assistedLog(index, msg) {
+        console.log(`[asistido] #${index} ${msg}`);
+      }
 
-  function esc(s) {
-    return String(s ?? '').replace(/[&<>"']/g, (c) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
-  }
+      function assistedInitCard(index) {
+        assistedCards[index] = {};
+        ASSISTED_STEPS.forEach((s) => { assistedCards[index][s.id] = 'pending'; });
+        renderAssistedBody();
+      }
 
-  function powerPill(model) {
-    const p = model.power || {};
-    if (p.status === 'on') {
-      return `<span class="pill"><span class="dot live"></span>encendida</span>`;
-    }
-    if (p.status === 'off') {
-      const cause = model.monitor?.lastOffCause;
-      if (cause === 'expected') return `<span class="pill"><span class="dot"></span>apagada</span>`;
-      if (cause === 'crashed') return `<span class="pill"><span class="dot off"></span>caída</span>`;
-      if (cause === 'never-started') return `<span class="pill"><span class="dot"></span>sin iniciar</span>`;
-      return `<span class="pill"><span class="dot warn"></span>apagada</span>`;
-    }
-    return `<span class="pill"><span class="dot"></span>desconocido</span>`;
-  }
+      function assistedSetStep(index, stepId, state) {
+        if (!assistedCards[index]) assistedInitCard(index);
+        assistedCards[index][stepId] = state;
+        renderAssistedBody();
+      }
 
-  function agentCell(model) {
-    const a = model.agent || {};
-    if (!a.deviceId) return `<span class="pill"><span class="dot"></span>sin agente</span>`;
-    const cls = a.alive ? 'live' : '';
-    return `<span class="pill"><span class="dot ${cls}"></span>${a.alive ? 'activo' : 'inactivo'} · ${esc(relTime(a.lastSeen))}</span>`;
-  }
+      function renderAssistedBody() {
+        const body = $('#assistedBody');
+        if (!body) return;
+        const indices = Object.keys(assistedCards);
+        if (!indices.length) {
+          body.innerHTML = `<div class="ac-empty">sin ejecuciones todavía. "iniciar" procesa todas las instancias cargadas, una por una.</div>`;
+          return;
+        }
+        body.innerHTML = indices.map((idx) => {
+          const steps = assistedCards[idx];
+          const stepsHtml = ASSISTED_STEPS.map((s) =>
+            `<span class="ac-step" data-state="${steps[s.id]}"><span class="dot"></span>${s.label}</span>`
+          ).join('');
+          const vals = Object.values(steps);
+          const overallCls = vals.includes('fail') ? 'fail' : (vals.every((v) => v === 'ok') ? 'ok' : '');
+          const overallTxt = vals.includes('fail') ? 'deprecated' : (vals.every((v) => v === 'ok') ? 'ok' : 'en curso');
+          return `<div class="assisted-card">
+            <div class="ac-head"><span class="ac-idx">#${esc(idx)}</span><span class="ac-overall ${overallCls}">${overallTxt}</span></div>
+            <div class="ac-steps">${stepsHtml}</div>
+          </div>`;
+        }).join('');
+      }
 
-  function monitorCell(model) {
-    const m = model.monitor || {};
-    if (m.running) return `<span class="pill"><span class="dot live"></span>abierto</span>`;
-    return `<span class="pill"><span class="dot"></span>cerrado</span>`;
-  }
+      async function assistedWaitWindow(index, timeoutMs = 30000) {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+          if (assistedCancel) throw new Error('cancelado');
+          const win = await fetchWindowInfo(index);
+          if (win && win.hwnd) return win;
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        return null;
+      }
 
-  function rootCell(model) {
-    const r = model.root || {};
-    if (r.ready === true) return `<span class="pill"><span class="dot live"></span>listo</span>`;
-    if (r.ready === false) return `<span class="pill"><span class="dot off"></span>no listo</span>`;
-    return `<span class="pill"><span class="dot"></span>?</span>`;
-  }
+      async function assistedWaitAndroid(index, timeoutMs = 90000) {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+          if (assistedCancel) throw new Error('cancelado');
+          try {
+            const res = await fetch(`${baseUrl}/api/instances/${index}/health`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.android_started === true) return true;
+            }
+          } catch (_) { }
+          await new Promise((r) => setTimeout(r, 3000));
+        }
+        return false;
+      }
 
-  function windowPill(win) {
-    if (!win) return `<span class="pill"><span class="dot off"></span>sin vincular</span>`;
-    const labels = { normal: 'normal', maximized: 'maximizada', minimized: 'minimizada', hidden: 'oculta' };
-    const cls = win.state === 'maximized' ? 'live' : win.state === 'minimized' ? 'warn' : win.state === 'hidden' ? 'off' : '';
-    return `<span class="pill"><span class="dot ${cls}"></span>${esc(labels[win.state] || win.state || '?')}</span>`;
-  }
+      async function assistedWaitAppForeground(index, packageName, timeoutMs = 30000) {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+          if (assistedCancel) throw new Error('cancelado');
+          try {
+            const res = await fetch(`${baseUrl}/api/instances/${index}/apps/current`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.package_name === packageName) return true;
+            }
+          } catch (_) { }
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+        return false;
+      }
 
-  // -------------------- render table --------------------
-  function renderTable() {
-    if (!models.length) {
-      tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="glyph">∅</div>no hay instancias registradas todavía</div></td></tr>`;
-      countLabel.textContent = '0 instancias';
-      return;
-    }
-    countLabel.textContent = `${models.length} instancia${models.length === 1 ? '' : 's'}`;
-    tbody.innerHTML = models.map((m) => {
-      const win = windowsByIndex[m.index];
-      const hwnd = win ? win.hwnd : '';
-      return `
+      async function assistedCloseWindowAndRetry(index) {
+        const win = windowsByIndex[index] || (await fetchWindowInfo(index));
+        if (win && win.hwnd) {
+          try { await fetch(`${pyBaseUrl}/windows/${win.hwnd}/close`, { method: 'POST', headers: pyHeaders() }); } catch (_) { }
+        }
+        try { await fetch(`${baseUrl}/api/instances/${index}/quit`, { method: 'POST' }); } catch (_) { }
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+
+      // corre un paso con confirmación manual (modal) + 1 reintento (cerrando ventana entre medio)
+      async function assistedStep(index, stepId, label, actionFn, confirmFn, onRetryFn) {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          if (assistedCancel) throw new Error('cancelado');
+          assistedSetStep(index, stepId, 'running');
+          assistedLog(index, `${label} (intento ${attempt}/2)`);
+          await actionFn();
+          const detected = await confirmFn();
+          let confirmed = false;
+          if (detected) {
+            confirmed = await confirmModal({
+              title: `#${index} — ${label}`,
+              subtitle: 'Confirmá visualmente en la ventana de la instancia antes de continuar.',
+              confirmLabel: 'Sí, confirmar',
+              cancelLabel: 'No, reintentar',
+            });
+          }
+          if (confirmed) {
+            assistedSetStep(index, stepId, 'ok');
+            assistedLog(index, `${label} OK`);
+            return true;
+          }
+          assistedLog(index, `${label} NO confirmado`);
+          if (attempt < 2) {
+            assistedSetStep(index, stepId, 'running');
+            if (onRetryFn) await onRetryFn();
+            else await assistedCloseWindowAndRetry(index);
+          } else {
+            assistedSetStep(index, stepId, 'fail');
+          }
+        }
+        return false;
+      }
+
+      async function runAssistedInitForInstance(index) {
+        if (assistedCancel) return;
+        assistedLog(index, 'iniciando modo asistido');
+
+        const okWindow = await assistedStep(
+          index, 'window', 'apertura de ventana',
+          async () => { await fetch(`${baseUrl}/api/instances/${index}/launch`, { method: 'POST' }); },
+          async () => !!(await assistedWaitWindow(index)),
+        );
+        if (!okWindow) { assistedStatus[index] = 'deprecated'; assistedLog(index, 'DEPRECATED (ventana)'); return; }
+
+        const okAndroid = await assistedStep(
+          index, 'android', 'inicio de Android',
+          async () => { },
+          async () => assistedWaitAndroid(index),
+        );
+        if (!okAndroid) { assistedStatus[index] = 'deprecated'; assistedLog(index, 'DEPRECATED (android)'); return; }
+
+        const okPP = await assistedStep(
+          index, 'playprotect', 'Play Protect desactivado',
+          async () => {
+            await fetch(`${baseUrl}/api/instances/${index}/apps/play-protect`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ disable: true }),
+            });
+          },
+          async () => true, // no hay endpoint de verificación directa; se confirma a mano
+        );
+        if (!okPP) { assistedStatus[index] = 'deprecated'; assistedLog(index, 'DEPRECATED (playprotect)'); return; }
+
+        const okMonitor = await assistedStep(
+          index, 'monitor', `app ${ASSISTED_APPS.monitor.label} conectada`,
+          async () => {
+            await fetch(`${baseUrl}/api/instances/${index}/run`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ package_name: ASSISTED_APPS.monitor.packageName }),
+            });
+          },
+          async () => assistedWaitAppForeground(index, ASSISTED_APPS.monitor.packageName),
+        );
+        if (!okMonitor) { assistedStatus[index] = 'deprecated'; assistedLog(index, 'DEPRECATED (monitor)'); return; }
+
+        const okSocks = await assistedStep(
+          index, 'socks', `app ${ASSISTED_APPS.socks.label} configurada`,
+          async () => {
+            await fetch(`${baseUrl}/api/instances/${index}/run`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ package_name: ASSISTED_APPS.socks.packageName }),
+            });
+          },
+          async () => assistedWaitAppForeground(index, ASSISTED_APPS.socks.packageName),
+        );
+        if (!okSocks) { assistedStatus[index] = 'deprecated'; assistedLog(index, 'DEPRECATED (socks)'); return; }
+
+        assistedStatus[index] = 'ok';
+        assistedLog(index, 'todos los pasos OK, la instancia queda abierta');
+
+        assistedSetStep(index, 'minimize', 'running');
+        const win = windowsByIndex[index] || (await fetchWindowInfo(index));
+        if (win && win.hwnd) {
+          try { await fetch(`${pyBaseUrl}/windows/${win.hwnd}/minimize`, { method: 'POST', headers: pyHeaders() }); } catch (_) { }
+          const minimized = await confirmModal({
+            title: `#${index} — minimizar ventana`,
+            subtitle: '¿Se minimizó correctamente?',
+            confirmLabel: 'Sí', cancelLabel: 'No, reintentar',
+          });
+          if (!minimized) {
+            try { await fetch(`${pyBaseUrl}/windows/${win.hwnd}/minimize`, { method: 'POST', headers: pyHeaders() }); } catch (_) { }
+            assistedLog(index, 'reintento de minimizado enviado');
+          }
+          assistedSetStep(index, 'minimize', 'ok');
+        } else {
+          assistedSetStep(index, 'minimize', 'fail');
+        }
+      }
+
+      async function runAssistedInit() {
+        if (assistedRunning) return;
+        if (!models.length) { toast('no hay instancias cargadas', 'warn'); return; }
+        $('#assistedPanel').style.display = '';
+        assistedRunning = true;
+        assistedCancel = false;
+        Object.keys(assistedCards).forEach((k) => delete assistedCards[k]);
+        Object.keys(assistedStatus).forEach((k) => delete assistedStatus[k]);
+        renderAssistedBody();
+        $('#assistedStartBtn').disabled = true;
+        $('#assistedStopBtn').disabled = false;
+        const order = models.map((m) => m.index);
+        for (const index of order) {
+          if (assistedCancel) break;
+          assistedInitCard(index);
+          try {
+            await runAssistedInitForInstance(index);
+          } catch (e) {
+            if (e.message === 'cancelado') break;
+            assistedLog(index, `error: ${e.message}`);
+            assistedStatus[index] = 'deprecated';
+          }
+        }
+        assistedRunning = false;
+        $('#assistedStartBtn').disabled = false;
+        $('#assistedStopBtn').disabled = true;
+        const ok = Object.entries(assistedStatus).filter(([, v]) => v === 'ok').map(([k]) => k);
+        const dep = Object.entries(assistedStatus).filter(([, v]) => v === 'deprecated').map(([k]) => k);
+        await alertModal({
+          title: 'modo asistido finalizado',
+          subtitle: `OK (${ok.length}): ${ok.join(', ') || 'ninguna'}\n\nDEPRECATED (${dep.length}): ${dep.join(', ') || 'ninguna'}`,
+        });
+      }
+
+      function stopAssistedInit() {
+        assistedCancel = true;
+        toast('deteniendo modo asistido tras la instancia actual...', 'warn');
+      }
+
+      $('#assistedStartBtn').addEventListener('click', runAssistedInit);
+      $('#assistedStopBtn').addEventListener('click', stopAssistedInit);
+      $('#assistedPanelToggleBtn').addEventListener('click', () => {
+        const panel = $('#assistedPanel');
+        panel.style.display = panel.style.display === 'none' ? '' : 'none';
+      });
+
+      // -------------------- helpers --------------------
+      function pyHeaders(json) {
+        const h = {};
+        if (pyKeyInput.value) h['x-api-key'] = pyKeyInput.value;
+        if (json) h['Content-Type'] = 'application/json';
+        return h;
+      }
+
+      baseUrlInput.addEventListener('change', () => {
+        baseUrl = baseUrlInput.value.replace(/\/+$/, '');
+        loadAll();
+      });
+      $('#pyUrlInput').addEventListener('change', () => {
+        pyBaseUrl = $('#pyUrlInput').value.replace(/\/+$/, '') + '/api/v1';
+        refreshMonitorStatus();
+        loadWindows().then(() => { refreshWorkMode(); renderTable(); });
+      });
+      pyKeyInput.addEventListener('change', () => {
+        loadWindows().then(() => { refreshWorkMode(); renderTable(); });
+      });
+      $('#refreshBtn').addEventListener('click', loadAll);
+
+      // -------------------- formatting helpers --------------------
+      function relTime(ts) {
+        if (!ts) return '—';
+        const diff = Date.now() - ts;
+        if (diff < 0) return 'ahora';
+        const s = Math.floor(diff / 1000);
+        if (s < 60) return `hace ${s}s`;
+        const m = Math.floor(s / 60);
+        if (m < 60) return `hace ${m}m`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return `hace ${h}h`;
+        return `hace ${Math.floor(h / 24)}d`;
+      }
+
+      function absTime(ts) {
+        if (!ts) return '—';
+        try { return new Date(ts).toLocaleString('es-AR'); } catch (_) { return String(ts); }
+      }
+
+      function esc(s) {
+        return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+      }
+
+      function powerPill(model) {
+        const p = model.power || {};
+        if (p.status === 'on') return `<span class="pill"><span class="dot live"></span>encendida</span>`;
+        if (p.status === 'off') {
+          const cause = model.monitor?.lastOffCause;
+          if (cause === 'expected') return `<span class="pill"><span class="dot"></span>apagada</span>`;
+          if (cause === 'crashed') return `<span class="pill"><span class="dot off"></span>caída</span>`;
+          if (cause === 'never-started') return `<span class="pill"><span class="dot"></span>sin iniciar</span>`;
+          return `<span class="pill"><span class="dot warn"></span>apagada</span>`;
+        }
+        return `<span class="pill"><span class="dot"></span>desconocido</span>`;
+      }
+
+      function agentCell(model) {
+        const a = model.agent || {};
+        if (!a.deviceId) return `<span class="pill"><span class="dot"></span>sin agente</span>`;
+        const cls = a.alive ? 'live' : '';
+        return `<span class="pill"><span class="dot ${cls}"></span>${a.alive ? 'activo' : 'inactivo'} · ${esc(relTime(a.lastSeen))}</span>`;
+      }
+
+      function monitorCell(model) {
+        const m = model.monitor || {};
+        if (m.running) return `<span class="pill"><span class="dot live"></span>abierto</span>`;
+        return `<span class="pill"><span class="dot"></span>cerrado</span>`;
+      }
+
+      function rootCell(model) {
+        const r = model.root || {};
+        if (r.ready === true) return `<span class="pill"><span class="dot live"></span>listo</span>`;
+        if (r.ready === false) return `<span class="pill"><span class="dot off"></span>no listo</span>`;
+        return `<span class="pill"><span class="dot"></span>?</span>`;
+      }
+
+      function windowPill(win) {
+        if (!win) return `<span class="pill"><span class="dot off"></span>sin vincular</span>`;
+        const labels = { normal: 'normal', maximized: 'maximizada', minimized: 'minimizada', hidden: 'oculta' };
+        const cls = win.state === 'maximized' ? 'live' : win.state === 'minimized' ? 'warn' : win.state === 'hidden' ? 'off' : '';
+        return `<span class="pill"><span class="dot ${cls}"></span>${esc(labels[win.state] || win.state || '?')}</span>`;
+      }
+
+      // -------------------- render table --------------------
+      function renderTable() {
+        if (!models.length) {
+          tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="glyph">∅</div>no hay instancias registradas todavía</div></td></tr>`;
+          countLabel.textContent = '0 instancias';
+          return;
+        }
+        countLabel.textContent = `${models.length} instancia${models.length === 1 ? '' : 's'}`;
+        tbody.innerHTML = models.map((m) => {
+          const win = windowsByIndex[m.index];
+          const hwnd = win ? win.hwnd : '';
+          return `
       <tr>
         <td class="idx">#${esc(m.index)}</td>
         <td class="name">${m.name ? esc(m.name) : '<span class="none">sin nombre</span>'}</td>
@@ -514,193 +901,213 @@
         <td><button class="btn small" data-info="${esc(m.index)}">info</button></td>
       </tr>
     `;
-    }).join('');
+        }).join('');
 
-    tbody.querySelectorAll('[data-info]').forEach((btn) => {
-      btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-info')));
-    });
-    tbody.querySelectorAll('[data-action]').forEach((btn) => {
-      btn.addEventListener('click', () => runInstanceAction(
-        btn.getAttribute('data-action'),
-        btn.getAttribute('data-index'),
-        btn
-      ));
-    });
-    tbody.querySelectorAll('[data-winbtn]').forEach((btn) => {
-      btn.addEventListener('click', () => runWindowAction(
-        btn.getAttribute('data-winbtn'),
-        btn.getAttribute('data-hwnd'),
-        btn
-      ));
-    });
-    tbody.querySelectorAll('[data-winact="interact"]').forEach((btn) => {
-      btn.addEventListener('click', () => runWindowInteract(btn.getAttribute('data-index'), btn));
-    });
-  }
+        tbody.querySelectorAll('[data-info]').forEach((btn) => {
+          btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-info')));
+        });
+        tbody.querySelectorAll('[data-action]').forEach((btn) => {
+          btn.addEventListener('click', () => runInstanceAction(
+            btn.getAttribute('data-action'), btn.getAttribute('data-index'), btn
+          ));
+        });
+        tbody.querySelectorAll('[data-winbtn]').forEach((btn) => {
+          btn.addEventListener('click', () => runWindowAction(
+            btn.getAttribute('data-winbtn'), btn.getAttribute('data-hwnd'), btn
+          ));
+        });
+        tbody.querySelectorAll('[data-winact="interact"]').forEach((btn) => {
+          btn.addEventListener('click', () => runWindowInteract(btn.getAttribute('data-index'), btn));
+        });
+      }
 
-  // -------------------- instance actions --------------------
-  async function runInstanceAction(action, index, btn) {
-    const confirmMsgs = {
-      quit: `¿Apagar la instancia #${index}?`,
-      hardreboot: `¿Reinicio FORZADO (adb reboot) de la instancia #${index}? Puede cortar procesos abruptamente.`,
-      hardoff: `¿Apagado FORZADO (adb reboot -p) de la instancia #${index}? Puede cortar procesos abruptamente.`,
-    };
-    if (confirmMsgs[action] && !confirm(confirmMsgs[action])) return;
+      // -------------------- instance actions --------------------
+      async function runInstanceAction(action, index, btn) {
+        const confirmCfg = {
+          quit: { title: `Apagar instancia #${index}`, subtitle: 'Se enviará un apagado normal (quit).', confirmLabel: 'Apagar' },
+          hardreboot: {
+            title: `Reinicio forzado #${index}`, subtitle: 'Se ejecuta "adb reboot".',
+            warning: 'Acción forzada: puede cortar procesos abruptamente.', danger: true, confirmLabel: 'Reiniciar forzado',
+          },
+          hardoff: {
+            title: `Apagado forzado #${index}`, subtitle: 'Se ejecuta "adb reboot -p".',
+            warning: 'Acción forzada: puede cortar procesos abruptamente.', danger: true, confirmLabel: 'Apagar forzado',
+          },
+        };
+        if (confirmCfg[action]) {
+          const ok = await confirmModal(confirmCfg[action]);
+          if (!ok) return;
+        }
 
-    const endpoints = {
-      launch: { url: `${baseUrl}/api/instances/${index}/launch` },
-      quit: { url: `${baseUrl}/api/instances/${index}/quit` },
-      reboot: { url: `${baseUrl}/api/instances/${index}/reboot` },
-      hardreboot: { url: `${baseUrl}/api/instances/${index}/root/shell`, body: { command: 'reboot' } },
-      hardoff: { url: `${baseUrl}/api/instances/${index}/root/shell`, body: { command: 'reboot -p' } },
-    };
-    const ep = endpoints[action];
-    if (!ep) return;
+        const endpoints = {
+          launch: { url: `${baseUrl}/api/instances/${index}/launch` },
+          quit: { url: `${baseUrl}/api/instances/${index}/quit` },
+          reboot: { url: `${baseUrl}/api/instances/${index}/reboot` },
+          hardreboot: { url: `${baseUrl}/api/instances/${index}/root/shell`, body: { command: 'reboot' } },
+          hardoff: { url: `${baseUrl}/api/instances/${index}/root/shell`, body: { command: 'reboot -p' } },
+        };
+        const ep = endpoints[action];
+        if (!ep) return;
 
-    const original = btn.innerHTML;
-    btn.disabled = true;
-    btn.textContent = '…';
-    try {
-      const res = await fetch(ep.url, {
-        method: 'POST',
-        headers: ep.body ? { 'Content-Type': 'application/json' } : undefined,
-        body: ep.body ? JSON.stringify(ep.body) : undefined,
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = '…';
+        try {
+          const res = await fetch(ep.url, {
+            method: 'POST',
+            headers: ep.body ? { 'Content-Type': 'application/json' } : undefined,
+            body: ep.body ? JSON.stringify(ep.body) : undefined,
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          toast(`#${index}: acción "${action}" enviada`, 'ok');
+          setTimeout(loadModels, 800);
+        } catch (err) {
+          toast(`acción "${action}" falló en #${index}: ${err.message}`, 'bad');
+          btn.disabled = false;
+          btn.innerHTML = original;
+        }
+      }
+
+      // -------------------- ventanas: acciones --------------------
+      async function fetchWindowInfo(index) {
+        try {
+          const res = await fetch(`${pyBaseUrl}/windows/by-instance/${index}`, { headers: pyHeaders() });
+          if (res.status === 404) return null;
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        } catch (_) {
+          return null;
+        }
+      }
+
+      async function runWindowAction(action, hwnd, btn) {
+        if (!hwnd) return;
+        if (action === 'kill') {
+          const ok = await confirmModal({
+            title: 'Matar proceso de la ventana',
+            subtitle: 'Apaga la instancia de forma abrupta, sin apagado prolijo de Android.',
+            danger: true, confirmLabel: 'Matar proceso',
+          });
+          if (!ok) return;
+        }
+        if (action === 'close') {
+          const ok = await confirmModal({
+            title: 'Cerrar ventana (WM_CLOSE)',
+            subtitle: 'LDPlayer puede ignorarlo si no responde.',
+            confirmLabel: 'Cerrar',
+          });
+          if (!ok) return;
+        }
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = '…';
+        try {
+          const res = await fetch(`${pyBaseUrl}/windows/${hwnd}/${action}`, { method: 'POST', headers: pyHeaders() });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.detail || `HTTP ${res.status}`);
+          }
+          await loadWindows();
+          renderTable();
+          if (drawer.classList.contains('open') && currentDrawerIndex !== null) {
+            renderWindowSection(currentDrawerIndex, await fetchWindowInfo(currentDrawerIndex));
+          }
+        } catch (err) {
+          toast(`acción de ventana "${action}" falló: ${err.message}`, 'bad');
+          btn.disabled = false;
+          btn.innerHTML = original;
+        }
+      }
+
+      async function runWindowInteract(index, btn) {
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = '…';
+        try {
+          const res = await fetch(`${pyBaseUrl}/windows/by-instance/${index}/interact`, { method: 'POST', headers: pyHeaders() });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.detail || `HTTP ${res.status}`);
+          }
+          await loadWindows();
+          renderTable();
+        } catch (err) {
+          toast(`no se pudo enfocar la ventana #${index}: ${err.message}`, 'bad');
+          btn.disabled = false;
+          btn.innerHTML = original;
+        }
+      }
+
+      async function loadWindows() {
+        try {
+          const res = await fetch(`${pyBaseUrl}/windows`, { headers: pyHeaders() });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const list = await res.json();
+          windowsByIndex = {};
+          list.forEach((w) => { windowsByIndex[w.index] = w; });
+        } catch (_) {
+          windowsByIndex = {};
+        }
+      }
+
+      async function refreshWorkMode() {
+        try {
+          const res = await fetch(`${pyBaseUrl}/windows/status`, { headers: pyHeaders() });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          workModeActive = !!data.work_mode;
+          $('#workModeToggleBtn').textContent = workModeActive ? 'salir modo trabajo' : 'modo trabajo';
+        } catch (_) {
+          // silencioso: si /windows no responde, no rompemos el resto del dashboard
+        }
+      }
+
+      $('#workModeToggleBtn').addEventListener('click', async () => {
+        const btn = $('#workModeToggleBtn');
+        btn.disabled = true;
+        try {
+          const endpoint = workModeActive ? 'disable' : 'enable';
+          const res = await fetch(`${pyBaseUrl}/windows/work-mode/${endpoint}`, {
+            method: 'POST',
+            headers: pyHeaders(true),
+            body: workModeActive ? undefined : JSON.stringify({ also_screen_off: false }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          await refreshWorkMode();
+          await loadWindows();
+          renderTable();
+        } catch (err) {
+          toast(`no se pudo cambiar el modo trabajo: ${err.message}`, 'bad');
+        } finally {
+          btn.disabled = false;
+        }
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `HTTP ${res.status}`);
+
+      // -------------------- drawer --------------------
+      function kv(pairs) {
+        return `<div class="kv">${pairs.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${v}</div>`).join('')}</div>`;
       }
-      setTimeout(loadModels, 800);
-    } catch (err) {
-      alert(`acción "${action}" falló en #${index}: ${err.message}`);
-      btn.disabled = false;
-      btn.innerHTML = original;
-    }
-  }
 
-  // -------------------- ventanas: acciones --------------------
-  async function fetchWindowInfo(index) {
-    try {
-      const res = await fetch(`${pyBaseUrl}/windows/by-instance/${index}`, { headers: pyHeaders() });
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  async function runWindowAction(action, hwnd, btn) {
-    if (!hwnd) return;
-    if (action === 'kill' && !confirm('¿Matar el proceso dueño de esta ventana? Apaga la instancia de forma abrupta, sin apagado prolijo de Android.')) return;
-    if (action === 'close' && !confirm('¿Cerrar la ventana (WM_CLOSE)? LDPlayer puede ignorarlo si no responde.')) return;
-    const original = btn.innerHTML;
-    btn.disabled = true;
-    btn.textContent = '…';
-    try {
-      const res = await fetch(`${pyBaseUrl}/windows/${hwnd}/${action}`, { method: 'POST', headers: pyHeaders() });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || `HTTP ${res.status}`);
-      }
-      await loadWindows();
-      renderTable();
-      if (drawer.classList.contains('open') && currentDrawerIndex !== null) {
-        renderWindowSection(currentDrawerIndex, await fetchWindowInfo(currentDrawerIndex));
-      }
-    } catch (err) {
-      alert(`acción de ventana "${action}" falló: ${err.message}`);
-      btn.disabled = false;
-      btn.innerHTML = original;
-    }
-  }
-
-  async function runWindowInteract(index, btn) {
-    const original = btn.innerHTML;
-    btn.disabled = true;
-    btn.textContent = '…';
-    try {
-      const res = await fetch(`${pyBaseUrl}/windows/by-instance/${index}/interact`, { method: 'POST', headers: pyHeaders() });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || `HTTP ${res.status}`);
-      }
-      await loadWindows();
-      renderTable();
-    } catch (err) {
-      alert(`no se pudo enfocar la ventana #${index}: ${err.message}`);
-      btn.disabled = false;
-      btn.innerHTML = original;
-    }
-  }
-
-  async function loadWindows() {
-    try {
-      const res = await fetch(`${pyBaseUrl}/windows`, { headers: pyHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const list = await res.json();
-      windowsByIndex = {};
-      list.forEach((w) => { windowsByIndex[w.index] = w; });
-    } catch (_) {
-      windowsByIndex = {};
-    }
-  }
-
-  async function refreshWorkMode() {
-    try {
-      const res = await fetch(`${pyBaseUrl}/windows/status`, { headers: pyHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      workModeActive = !!data.work_mode;
-      $('#workModeToggleBtn').textContent = workModeActive ? 'salir modo trabajo' : 'modo trabajo';
-    } catch (_) {
-      // silencioso: si /windows no responde, no rompemos el resto del dashboard
-    }
-  }
-
-  $('#workModeToggleBtn').addEventListener('click', async () => {
-    const btn = $('#workModeToggleBtn');
-    btn.disabled = true;
-    try {
-      const endpoint = workModeActive ? 'disable' : 'enable';
-      const res = await fetch(`${pyBaseUrl}/windows/work-mode/${endpoint}`, {
-        method: 'POST',
-        headers: pyHeaders(true),
-        body: workModeActive ? undefined : JSON.stringify({ also_screen_off: false }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await refreshWorkMode();
-      await loadWindows();
-      renderTable();
-    } catch (err) {
-      alert(`no se pudo cambiar el modo trabajo: ${err.message}`);
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  // -------------------- drawer --------------------
-  function kv(pairs) {
-    return `<div class="kv">${pairs.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${v}</div>`).join('')}</div>`;
-  }
-
-  function renderWindowSection(index, win) {
-    const el = document.getElementById('windowSection');
-    if (!el) return;
-    if (!win) {
-      el.innerHTML = `<div class="kv"><div class="k">estado</div><div class="v">sin vincular todavía</div></div>`;
-      return;
-    }
-    el.innerHTML = `
+      function renderWindowSection(index, win) {
+        const el = document.getElementById('windowSection');
+        if (!el) return;
+        if (!win) {
+          el.innerHTML = `<div class="kv"><div class="k">estado</div><div class="v">sin vincular todavía</div></div>`;
+          return;
+        }
+        el.innerHTML = `
       ${kv([
-        ['hwnd', esc(win.hwnd)],
-        ['título', esc(win.title || '—')],
-        ['pid', esc(win.pid ?? '—')],
-        ['estado', esc(win.state || '—')],
-        ['visible', win.visible ? 'sí' : 'no'],
-        ['posición', win.rect ? `${win.rect.x}, ${win.rect.y}` : '—'],
-        ['tamaño', win.rect ? `${win.rect.width} × ${win.rect.height}` : '—'],
-      ])}
+          ['hwnd', esc(win.hwnd)],
+          ['título', esc(win.title || '—')],
+          ['pid', esc(win.pid ?? '—')],
+          ['estado', esc(win.state || '—')],
+          ['visible', win.visible ? 'sí' : 'no'],
+          ['posición', win.rect ? `${win.rect.x}, ${win.rect.y}` : '—'],
+          ['tamaño', win.rect ? `${win.rect.width} × ${win.rect.height}` : '—'],
+        ])}
       <div class="health-controls" style="margin-top:8px">
         <button class="btn small" data-winbtn="minimize" data-hwnd="${win.hwnd}">minimizar</button>
         <button class="btn small" data-winbtn="maximize" data-hwnd="${win.hwnd}">maximizar</button>
@@ -709,31 +1116,29 @@
         <button class="btn small danger-btn" data-winbtn="kill" data-hwnd="${win.hwnd}">forzar cierre</button>
       </div>
     `;
-    el.querySelectorAll('[data-winbtn]').forEach((btn) => {
-      btn.addEventListener('click', () => runWindowAction(
-        btn.getAttribute('data-winbtn'),
-        btn.getAttribute('data-hwnd'),
-        btn
-      ));
-    });
-  }
+        el.querySelectorAll('[data-winbtn]').forEach((btn) => {
+          btn.addEventListener('click', () => runWindowAction(
+            btn.getAttribute('data-winbtn'), btn.getAttribute('data-hwnd'), btn
+          ));
+        });
+      }
 
-  async function openDrawer(index) {
-    currentDrawerIndex = index;
-    const m = models.find((x) => String(x.index) === String(index));
-    if (!m) return;
-    drawerTitle.textContent = `instancia #${m.index}${m.name ? ' — ' + m.name : ''}`;
+      async function openDrawer(index) {
+        currentDrawerIndex = index;
+        const m = models.find((x) => String(x.index) === String(index));
+        if (!m) return;
+        drawerTitle.textContent = `instancia #${m.index}${m.name ? ' — ' + m.name : ''}`;
 
-    const p = m.power || {};
-    const a = m.agent || {};
-    const mon = m.monitor || {};
-    const r = m.root || {};
-    const apps = Object.entries(m.apps || {});
-    const tasks = (m.tasks || []).slice(-8).reverse();
-    const checks = (m.checks || []).slice(-8).reverse();
-    const events = (m.events || []).slice(-10).reverse();
+        const p = m.power || {};
+        const a = m.agent || {};
+        const mon = m.monitor || {};
+        const r = m.root || {};
+        const apps = Object.entries(m.apps || {});
+        const tasks = (m.tasks || []).slice(-8).reverse();
+        const checks = (m.checks || []).slice(-8).reverse();
+        const events = (m.events || []).slice(-10).reverse();
 
-    drawerBody.innerHTML = `
+        drawerBody.innerHTML = `
       <div class="section">
         <h3>poder</h3>
         ${kv([
@@ -790,8 +1195,8 @@
       <div class="section">
         <h3>apps (${apps.length})</h3>
         ${apps.length
-          ? kv(apps.map(([pkg, info]) => [pkg, esc(info.installed ? 'instalada' : 'no instalada') + (info.lastSeen ? ' · ' + esc(relTime(info.lastSeen)) : '')]))
-          : '<div class="kv"><div class="k">—</div><div class="v">sin apps registradas</div></div>'}
+            ? kv(apps.map(([pkg, info]) => [pkg, esc(info.installed ? 'instalada' : 'no instalada') + (info.lastSeen ? ' · ' + esc(relTime(info.lastSeen)) : '')]))
+            : '<div class="kv"><div class="k">—</div><div class="v">sin apps registradas</div></div>'}
       </div>
 
       <div class="section">
@@ -821,192 +1226,192 @@
       </div>
     `;
 
-    $('#toggleRaw').addEventListener('click', () => {
-      $('#rawJson').classList.toggle('open');
-    });
+        $('#toggleRaw').addEventListener('click', () => {
+          $('#rawJson').classList.toggle('open');
+        });
 
-    scrim.classList.add('open');
-    drawer.classList.add('open');
-    drawer.setAttribute('aria-hidden', 'false');
+        scrim.classList.add('open');
+        drawer.classList.add('open');
+        drawer.setAttribute('aria-hidden', 'false');
 
-    // pintar rápido con lo que ya tenemos cacheado, y refrescar con datos en vivo
-    renderWindowSection(index, windowsByIndex[m.index] || null);
-    const freshWin = await fetchWindowInfo(index);
-    renderWindowSection(index, freshWin);
-  }
-
-  function closeDrawer() {
-    scrim.classList.remove('open');
-    drawer.classList.remove('open');
-    drawer.setAttribute('aria-hidden', 'true');
-    currentDrawerIndex = null;
-  }
-  $('#closeDrawer').addEventListener('click', closeDrawer);
-  scrim.addEventListener('click', closeDrawer);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
-
-  // -------------------- fetch --------------------
-  async function loadModels() {
-    try {
-      const res = await fetch(`${baseUrl}/api/instance-model/`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      models = await res.json();
-      models.sort((a, b) => a.index - b.index);
-      renderTable();
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="glyph">⚠</div>no se pudo conectar con ${esc(baseUrl)}<br/><span style="font-size:11px">${esc(err.message)}</span></div></td></tr>`;
-      countLabel.textContent = '0 instancias';
-    }
-  }
-
-  async function loadBridge() {
-    try {
-      const res = await fetch(`${baseUrl}/api/instance-model/bridge/status`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      bridgeDot.className = 'dot ' + (data.connected ? 'live' : 'off');
-      bridgeLabel.textContent = `bridge python: ${data.connected ? 'conectado' : 'desconectado'}`;
-    } catch (_) {
-      bridgeDot.className = 'dot off';
-      bridgeLabel.textContent = 'bridge python: sin datos';
-    }
-  }
-
-async function refreshMonitorStatus() {
-    try {
-      const res = await fetch(`${pyBaseUrl}/monitor/status`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      monitorActive = data.active;
-      $('#monitorToggleBtn').textContent = monitorActive ? 'desactivar monitor' : 'activar monitor';
-      if (monitorActive) {
-        loadMonitorCurrent();
-        if (!monitorTimer) monitorTimer = setInterval(loadMonitorCurrent, 3000);
-      } else {
-        $('#monitorDot').className = 'dot';
-        $('#monitorLabel').textContent = 'sys: inactivo';
-        if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
+        renderWindowSection(index, windowsByIndex[m.index] || null);
+        const freshWin = await fetchWindowInfo(index);
+        renderWindowSection(index, freshWin);
       }
-    } catch (_) {
-      $('#monitorDot').className = 'dot off';
-      $('#monitorLabel').textContent = 'sys: sin conexión';
-    }
-  }
 
-  async function loadMonitorCurrent() {
-    try {
-      const res = await fetch(`${pyBaseUrl}/monitor/current`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data && data.cpu_percent !== undefined) {
-        $('#monitorDot').className = 'dot live';
-        $('#monitorLabel').textContent = `sys: cpu ${data.cpu_percent.toFixed(0)}% · ram ${data.ram_percent.toFixed(0)}%`;
-      } else {
-        $('#monitorDot').className = 'dot warn';
-        $('#monitorLabel').textContent = 'sys: esperando datos';
+      function closeDrawer() {
+        scrim.classList.remove('open');
+        drawer.classList.remove('open');
+        drawer.setAttribute('aria-hidden', 'true');
+        currentDrawerIndex = null;
       }
-    } catch (_) {
-      $('#monitorDot').className = 'dot off';
-      $('#monitorLabel').textContent = 'sys: sin conexión';
-    }
-  }
+      $('#closeDrawer').addEventListener('click', closeDrawer);
+      scrim.addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
 
-  $('#monitorToggleBtn').addEventListener('click', async () => {
-    try {
-      const endpoint = monitorActive ? 'stop' : 'start';
-      const res = await fetch(`${pyBaseUrl}/monitor/${endpoint}`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await refreshMonitorStatus();
-    } catch (err) {
-      alert(`no se pudo ${monitorActive ? 'desactivar' : 'activar'} el monitor: ${err.message}`);
-    }
-  });
-
-  // -------------------- health monitor panel --------------------
-  async function refreshHealthMonitor() {
-    try {
-      const res = await fetch(`${baseUrl}/api/health-monitor/status`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const st = await res.json();
-      $('#healthDot').className = 'dot ' + (st.running ? 'live' : (st.enabled ? 'warn' : ''));
-      $('#healthStateLabel').textContent = st.running ? 'activo' : (st.enabled ? 'pausado' : 'detenido');
-      const lastResult = st.lastResult
-        ? `${st.lastResult.ok ? 'ok' : 'error'} · #${st.lastResult.index ?? '—'} · ${esc(st.lastResult.reason || '')}`
-        : '—';
-      const pairs = [
-        ['cola', esc((st.queue || []).join(', ') || '—')],
-        ['turno actual', st.currentIndex === null || st.currentIndex === undefined ? '—' : `#${esc(st.currentIndex)}`],
-        ['intervalo', `${Math.round(st.intervalMs / 1000)}s`],
-        ['próximo turno', esc(absTime(st.nextTickAt))],
-        ['último chequeo', esc(absTime(st.lastTickAt))],
-        ['resultado', lastResult],
-      ];
-      $('#healthKv').innerHTML = pairs.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${v}</div>`).join('');
-      if (document.activeElement !== $('#healthIntervalInput')) {
-        $('#healthIntervalInput').value = Math.round(st.intervalMs / 1000);
+      // -------------------- fetch --------------------
+      async function loadModels() {
+        try {
+          const res = await fetch(`${baseUrl}/api/instance-model/`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          models = await res.json();
+          models.sort((a, b) => a.index - b.index);
+          renderTable();
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="glyph">⚠</div>no se pudo conectar con ${esc(baseUrl)}<br/><span style="font-size:11px">${esc(err.message)}</span></div></td></tr>`;
+          countLabel.textContent = '0 instancias';
+        }
       }
-    } catch (err) {
-      $('#healthDot').className = 'dot off';
-      $('#healthStateLabel').textContent = 'sin conexión';
-      $('#healthKv').innerHTML = `<div class="k">error</div><div class="v">${esc(err.message)}</div>`;
-    }
-  }
 
-  $('#healthStartBtn').addEventListener('click', async () => {
-    try {
-      const res = await fetch(`${baseUrl}/api/health-monitor/start`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await refreshHealthMonitor();
-    } catch (err) { alert(`no se pudo iniciar: ${err.message}`); }
-  });
-  $('#healthStopBtn').addEventListener('click', async () => {
-    try {
-      const res = await fetch(`${baseUrl}/api/health-monitor/stop`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await refreshHealthMonitor();
-    } catch (err) { alert(`no se pudo detener: ${err.message}`); }
-  });
-  $('#healthRunNowBtn').addEventListener('click', async () => {
-    try {
-      const res = await fetch(`${baseUrl}/api/health-monitor/run-now`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await refreshHealthMonitor();
-    } catch (err) { alert(`no se pudo correr ahora: ${err.message}`); }
-  });
-  $('#healthIntervalBtn').addEventListener('click', async () => {
-    const seconds = Number($('#healthIntervalInput').value);
-    if (!Number.isFinite(seconds) || seconds < 1) { alert('segundos inválido'); return; }
-    try {
-      const res = await fetch(`${baseUrl}/api/health-monitor/interval`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seconds }),
+      async function loadBridge() {
+        try {
+          const res = await fetch(`${baseUrl}/api/instance-model/bridge/status`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          bridgeDot.className = 'dot ' + (data.connected ? 'live' : 'off');
+          bridgeLabel.textContent = `bridge python: ${data.connected ? 'conectado' : 'desconectado'}`;
+        } catch (_) {
+          bridgeDot.className = 'dot off';
+          bridgeLabel.textContent = 'bridge python: sin datos';
+        }
+      }
+
+      async function refreshMonitorStatus() {
+        try {
+          const res = await fetch(`${pyBaseUrl}/monitor/status`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          monitorActive = data.active;
+          $('#monitorToggleBtn').textContent = monitorActive ? 'desactivar monitor' : 'activar monitor';
+          if (monitorActive) {
+            loadMonitorCurrent();
+            if (!monitorTimer) monitorTimer = setInterval(loadMonitorCurrent, 3000);
+          } else {
+            $('#monitorDot').className = 'dot';
+            $('#monitorLabel').textContent = 'sys: inactivo';
+            if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
+          }
+        } catch (_) {
+          $('#monitorDot').className = 'dot off';
+          $('#monitorLabel').textContent = 'sys: sin conexión';
+        }
+      }
+
+      async function loadMonitorCurrent() {
+        try {
+          const res = await fetch(`${pyBaseUrl}/monitor/current`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          if (data && data.cpu_percent !== undefined) {
+            $('#monitorDot').className = 'dot live';
+            $('#monitorLabel').textContent = `sys: cpu ${data.cpu_percent.toFixed(0)}% · ram ${data.ram_percent.toFixed(0)}%`;
+          } else {
+            $('#monitorDot').className = 'dot warn';
+            $('#monitorLabel').textContent = 'sys: esperando datos';
+          }
+        } catch (_) {
+          $('#monitorDot').className = 'dot off';
+          $('#monitorLabel').textContent = 'sys: sin conexión';
+        }
+      }
+
+      $('#monitorToggleBtn').addEventListener('click', async () => {
+        try {
+          const endpoint = monitorActive ? 'stop' : 'start';
+          const res = await fetch(`${pyBaseUrl}/monitor/${endpoint}`, { method: 'POST' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          await refreshMonitorStatus();
+        } catch (err) {
+          toast(`no se pudo ${monitorActive ? 'desactivar' : 'activar'} el monitor: ${err.message}`, 'bad');
+        }
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `HTTP ${res.status}`);
+
+      // -------------------- health monitor panel --------------------
+      async function refreshHealthMonitor() {
+        try {
+          const res = await fetch(`${baseUrl}/api/health-monitor/status`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const st = await res.json();
+          $('#healthDot').className = 'dot ' + (st.running ? 'live' : (st.enabled ? 'warn' : ''));
+          $('#healthStateLabel').textContent = st.running ? 'activo' : (st.enabled ? 'pausado' : 'detenido');
+          const lastResult = st.lastResult
+            ? `${st.lastResult.ok ? 'ok' : 'error'} · #${st.lastResult.index ?? '—'} · ${esc(st.lastResult.reason || '')}`
+            : '—';
+          const pairs = [
+            ['cola', esc((st.queue || []).join(', ') || '—')],
+            ['turno actual', st.currentIndex === null || st.currentIndex === undefined ? '—' : `#${esc(st.currentIndex)}`],
+            ['intervalo', `${Math.round(st.intervalMs / 1000)}s`],
+            ['próximo turno', esc(absTime(st.nextTickAt))],
+            ['último chequeo', esc(absTime(st.lastTickAt))],
+            ['resultado', lastResult],
+          ];
+          $('#healthKv').innerHTML = pairs.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${v}</div>`).join('');
+          if (document.activeElement !== $('#healthIntervalInput')) {
+            $('#healthIntervalInput').value = Math.round(st.intervalMs / 1000);
+          }
+        } catch (err) {
+          $('#healthDot').className = 'dot off';
+          $('#healthStateLabel').textContent = 'sin conexión';
+          $('#healthKv').innerHTML = `<div class="k">error</div><div class="v">${esc(err.message)}</div>`;
+        }
       }
-      await refreshHealthMonitor();
-    } catch (err) { alert(`no se pudo cambiar el intervalo: ${err.message}`); }
-  });
 
-  async function loadAll() {
-    await Promise.all([loadModels(), loadBridge(), refreshHealthMonitor(), loadWindows(), refreshWorkMode()]);
-    renderTable();
-    lastPoll.textContent = `última actualización: ${new Date().toLocaleTimeString('es-AR')}`;
-  }
+      $('#healthStartBtn').addEventListener('click', async () => {
+        try {
+          const res = await fetch(`${baseUrl}/api/health-monitor/start`, { method: 'POST' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          await refreshHealthMonitor();
+        } catch (err) { toast(`no se pudo iniciar: ${err.message}`, 'bad'); }
+      });
+      $('#healthStopBtn').addEventListener('click', async () => {
+        try {
+          const res = await fetch(`${baseUrl}/api/health-monitor/stop`, { method: 'POST' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          await refreshHealthMonitor();
+        } catch (err) { toast(`no se pudo detener: ${err.message}`, 'bad'); }
+      });
+      $('#healthRunNowBtn').addEventListener('click', async () => {
+        try {
+          const res = await fetch(`${baseUrl}/api/health-monitor/run-now`, { method: 'POST' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          await refreshHealthMonitor();
+        } catch (err) { toast(`no se pudo correr ahora: ${err.message}`, 'bad'); }
+      });
+      $('#healthIntervalBtn').addEventListener('click', async () => {
+        const seconds = Number($('#healthIntervalInput').value);
+        if (!Number.isFinite(seconds) || seconds < 1) { toast('segundos inválido', 'warn'); return; }
+        try {
+          const res = await fetch(`${baseUrl}/api/health-monitor/interval`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seconds }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          await refreshHealthMonitor();
+        } catch (err) { toast(`no se pudo cambiar el intervalo: ${err.message}`, 'bad'); }
+      });
 
-  function startPolling() {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(loadAll, 4000);
-  }
+      async function loadAll() {
+        await Promise.all([loadModels(), loadBridge(), refreshHealthMonitor(), loadWindows(), refreshWorkMode()]);
+        renderTable();
+        lastPoll.textContent = `última actualización: ${new Date().toLocaleTimeString('es-AR')}`;
+      }
 
-  loadAll();
-  refreshMonitorStatus();
-  startPolling();
+      function startPolling() {
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(loadAll, 4000);
+      }
 
-})();
-</script>
+      loadAll();
+      refreshMonitorStatus();
+      startPolling();
+
+    })();
+  </script>
 
 </body>
+
 </html>
