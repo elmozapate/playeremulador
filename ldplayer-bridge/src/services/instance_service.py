@@ -358,27 +358,35 @@ class InstanceService:
             except Exception:
                 await asyncio.sleep(1)
         raise TimeoutError(f"El dispositivo {index} no respondió después de {timeout}s")
-    async def _wait_for_device_ready_with_kill_retry(self, index: int, timeout: float = 60) -> None:
-        """
-        Espera a que el dispositivo esté listo.
-        Si tarda más de `timeout` segundos, lo mata y lo vuelve a encender una sola vez.
-        Si después de ese segundo intento sigue sin responder, lanza RuntimeError.
-        """
+    
+    async def _wait_for_device_ready_with_kill_retry(self,index:int,timeout:float = 60) -> None:
         try:
-            await self._wait_for_device_ready(index, timeout)
+            await self._wait_for_device_ready(index,timeout)
             return
         except TimeoutError:
-            runtime_state.log(
-                f"[INSTANCE] El dispositivo {index} no respondió en {timeout}s. "
-                "Se procede a matarlo y reiniciarlo."
-            )
+            runtime_state.log(f"[INSTANCE] {index} no respondió en {timeout}s. Matando y reiniciando (Android).")
         try:
             await self.quit(index)
             await self.launch(index)
-            await self._wait_for_device_ready(index, timeout)
+            await self._wait_for_device_ready(index,timeout)
+            return
         except TimeoutError:
+            runtime_state.log_always(f"[INSTANCE] {index}: kill+launch tampoco respondió. Intentando cierre de ventana.")
+        # 1) intento amable: WM_CLOSE sobre la ventana host, si existe
+        hwnd = window_service.get_hwnd_for_index(index)
+        if hwnd is not None:
+            try:
+                await window_service.close(hwnd)
+                await asyncio.sleep(2)
+            except Exception as e:
+                runtime_state.log_always(f"[INSTANCE] {index}: window close falló ({e}), se pasa a hard-reset")
+        # 2) garantía: hard-reset (mata el proceso host y re-vincula ventana nueva)
+        try:
+            await window_service.hard_reset(index)
+            await self._wait_for_device_ready(index,timeout)
+        except Exception as e:
             raise RuntimeError(
-                f"El dispositivo {index} sigue sin estar listo después de kill+launch. Marcado como fail."
+                f"El dispositivo {index} sigue sin estar listo tras kill+launch, close y hard-reset de ventana. Marcado como fail. ({e})"
             )
     # ==================================================================
     # Perfiles de configuración: initial-root / ready

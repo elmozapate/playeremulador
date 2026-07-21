@@ -4,44 +4,40 @@ const { InstanceModel } = require('../models/instanceModel');
 const { instanceRecordStore } = require('./instanceRecordStore');
 const appsConfigStore = require('./appsConfigStore');
 const pythonBridgeSocket = require('./pythonBridgeSocket');
-
 const MONITOR_APP_ID = 'monitor';
-
 class InstanceModelStore {
   constructor() {
-    this.models = new Map(); // index -> InstanceModel
+    this.models = new Map();
     this._wire();
   }
-
   _get(index) {
     const n = Number(index);
     if (!Number.isFinite(n)) return null;
     let model = this.models.get(n);
     if (!model) {
       model = new InstanceModel(n);
+      model.monitor.packageName = this._monitorPackageName();
       this._hydrateFromRecordStore(model);
       this.models.set(n, model);
     }
     return model;
   }
-
   get(index) {
     return this._get(index);
   }
-
   list() {
     return Array.from(this.models.keys())
       .sort((a, b) => a - b)
       .map((i) => this.models.get(i));
   }
-
   _monitorPackageName() {
     const apps = appsConfigStore.readApps();
     const monitor = apps.find((a) => a.id === MONITOR_APP_ID);
     return monitor?.package_name || null;
   }
-
-  /** Trae lo ya persistido por instanceRecordStore (root/apps/tasks/events), sin duplicar el archivo. */
+  _windowService() {
+    try { return require('./windowService').getInstance(); } catch (_) { return null; }
+  }
   _hydrateFromRecordStore(model) {
     try {
       const record = instanceRecordStore.get(model.index);
@@ -66,12 +62,24 @@ class InstanceModelStore {
         for (const [pkg, info] of Object.entries(record.apks)) {
           model.apps[pkg] = { ...(model.apps[pkg] || {}), ...info };
         }
+        const monitorPkg = this._monitorPackageName();
+        if (monitorPkg && model.apps[monitorPkg]) {
+          model.monitor.installed = !!model.apps[monitorPkg].installed;
+        }
+      }
+      if (record.window && typeof record.window === 'object') {
+        model.window = {
+          hwnd: record.window.hwnd ?? null,
+          pid: record.window.pid ?? null,
+          title: record.window.title ?? null,
+          state: record.window.state ?? null,
+          registeredAt: record.window.registeredAt ?? record.window.registered_at ?? null,
+          updatedAt: record.window.updated_at ? record.window.updated_at * 1000 : null,
+        };
       }
     } catch (_) {
-      // best-effort: si falla la lectura, el modelo en memoria sigue siendo válido
     }
   }
-
   _validateAndFlag(model) {
     const issues = model.validate();
     for (const issue of issues) {
@@ -79,16 +87,10 @@ class InstanceModelStore {
     }
     return issues;
   }
-
   _broadcast(model) {
     eventBus.emit('instance-model:update', model.toJSON());
   }
-
-  // ---------------------------------------------------------------
-  // Interceptores de eventos que YA existen en el sistema
-  // ---------------------------------------------------------------
   _wire() {
-    // 1) Poder real (viene del status poller / API Python)
     eventBus.on('status:update', ({ instances }) => {
       if (!instances || typeof instances !== 'object') return;
       for (const [key, inst] of Object.entries(instances)) {
@@ -99,19 +101,17 @@ class InstanceModelStore {
         if (inst.name) model.name = inst.name;
       }
     });
-    // 6) Eventos que Python empuja por el WS (más rápido que esperar el próximo poll)
     eventBus.on('python:bridge:instance-event', (payload) => {
       if (!payload || payload.index === undefined) return;
       const model = this._get(payload.index);
       if (!model) return;
       model.pushEvent('python', payload.event || 'evento', { source: 'python-bridge', detail: payload.detail });
       if (payload.event === 'crashed' || payload.event === 'process-exit') {
-        this._applyPower(model, 'off', 'python-bridge'); // reutiliza la lógica de expectedOff/crashed
+        this._applyPower(model, 'off', 'python-bridge');
       } else {
         this._broadcast(model);
       }
     });
-
     eventBus.on('python:bridge:root-status', (payload) => {
       if (!payload || payload.index === undefined) return;
       const model = this._get(payload.index);
@@ -121,11 +121,11 @@ class InstanceModelStore {
       model.root.checkedAt = Date.now();
       this._broadcast(model);
     });
-    // 2) Heartbeats del agente (la APK monitor corriendo adentro del emulador)
     eventBus.on('agent:register', (agentRecord) => this._applyAgent(agentRecord));
     eventBus.on('agent:heartbeat', (agentRecord) => this._applyAgent(agentRecord));
-
-    // 3) Acciones que nosotros ejecutamos sobre la instancia (launch/quit/reboot/root)
+    eventBus.on('window:registered', (payload) => this._applyWindow(payload));
+    eventBus.on('window:unregistered', (payload) => this._applyWindow({ ...payload, cleared: true }));
+    eventBus.on('window:action', (payload) => this._applyWindowAction(payload));
     eventBus.on('instance:action', ({ action, index, result }) => {
       if (index === null || index === undefined) return;
       const model = this._get(index);
@@ -148,23 +148,30 @@ class InstanceModelStore {
         if (result.root_error) {
           model.pushEvent('root', `initial-root: root no quedó activo (${result.root_error})`, { level: 'warn' });
         }
+      } else if (action === 'apps:uninstall' && result?.package_name) {
+        const pkg = result.package_name;
+        model.apps[pkg] = { ...(model.apps[pkg] || {}), installed: false, lastSeen: Date.now() };
+        instanceRecordStore.recordApp(index, pkg, { installed: false, last_seen: Date.now() / 1000, source: 'action' }).catch(() => {});
+        if (pkg === this._monitorPackageName()) {
+          model.monitor.installed = false;
+          model.monitor.running = false;
+          model.monitor.lastOffCause = 'expected';
+        }
+        model.pushEvent('apps', `app desinstalada: ${pkg}`);
       }
       this._broadcast(model);
     });
-
-    // 4) Pasos de jobs/pipelines → auditoría (tareas, apps, chequeos)
     eventBus.on('pipeline:step', (payload) => this._applyStepAudit(payload));
     eventBus.on('job:step', (payload) =>
-      this._applyStepAudit({ index: payload.index, step: payload.step, status: payload.status, data: payload.detail })
+      this._applyStepAudit({ index: payload.index, step: payload.step, status: payload.status, data: payload.detail, values: payload.values })
     );
-
-    // 5) Marca cuándo se abrió el monitor con éxito (clave para el healthScheduler)
-    eventBus.on('job:step', ({ index, step, status }) => {
+    eventBus.on('job:step', ({ index, step, status, values }) => {
       const monitorPkg = this._monitorPackageName();
       if (!monitorPkg) return;
       const model = this.models.get(Number(index));
       if (!model) return;
-      if (step === 'run' && status === 'ok') {
+      const pkg = values?.package_name;
+      if (step === 'run' && status === 'ok' && (!pkg || pkg === monitorPkg)) {
         model.monitor.packageName = monitorPkg;
         model.monitor.running = true;
         model.monitor.lastOpenedAt = Date.now();
@@ -173,14 +180,12 @@ class InstanceModelStore {
       }
     });
   }
-
   _applyPower(model, status, source) {
     const wasOn = model.power.status === 'on';
     model.power.status = status;
     model.power.source = source;
     model.power.updatedAt = Date.now();
     if (status === 'on') model.power.neverSeenOn = false;
-
     if (wasOn && status === 'off') {
       model.monitor.running = false;
       if (model.power.expectedOff) {
@@ -192,18 +197,15 @@ class InstanceModelStore {
     } else if (status === 'off' && model.power.neverSeenOn && !model.power.lastLaunchAt) {
       model.monitor.lastOffCause = 'never-started';
     }
-
     this._validateAndFlag(model);
     this._broadcast(model);
   }
-
   _applyAgent(agentRecord) {
     if (!agentRecord) return;
     const index = agentRecord.instanceIndex;
     if (index === null || index === undefined) return;
     const model = this._get(index);
     if (!model) return;
-
     model.agent.deviceId = agentRecord.deviceId;
     model.agent.alive = !!agentRecord.alive;
     model.agent.status = agentRecord.status;
@@ -212,27 +214,69 @@ class InstanceModelStore {
     model.agent.activeApks = agentRecord.activeApks || [];
     model.agent.proxies = agentRecord.proxies || [];
     model.agent.event = agentRecord.event;
-
+    const now = Date.now();
+    for (const pkg of model.agent.activeApks) {
+      if (!pkg) continue;
+      model.apps[pkg] = { ...(model.apps[pkg] || {}), installed: true, lastSeen: now };
+      instanceRecordStore.recordApp(index, pkg, { installed: true, last_seen: now / 1000, source: 'agent' }).catch(() => {});
+    }
     const monitorPkg = this._monitorPackageName();
-    if (monitorPkg && model.agent.activeApks.includes(monitorPkg)) {
+    if (monitorPkg) {
       model.monitor.packageName = monitorPkg;
-      model.monitor.running = true;
-      model.monitor.lastSeenAliveAt = Date.now();
-      model.monitor.lastOffCause = null;
+      if (model.apps[monitorPkg]) model.monitor.installed = !!model.apps[monitorPkg].installed;
+      if (model.agent.activeApks.includes(monitorPkg)) {
+        model.monitor.running = true;
+        model.monitor.lastSeenAliveAt = now;
+        model.monitor.lastOffCause = null;
+      }
     }
     if (agentRecord.event === 'closing') {
       model.monitor.running = false;
     }
-
     this._validateAndFlag(model);
     this._broadcast(model);
   }
-
-  _applyStepAudit({ index, step, status, data }) {
+  _applyWindow(payload) {
+    const { index } = payload || {};
     if (index === null || index === undefined) return;
     const model = this._get(index);
     if (!model) return;
-
+    if (payload.cleared) {
+      model.window = { hwnd: null, pid: null, title: null, state: null, registeredAt: null, updatedAt: Date.now() };
+      model.pushEvent('window', `ventana desvinculada${payload.reason ? ` (${payload.reason})` : ''}`);
+    } else {
+      model.window = {
+        hwnd: payload.hwnd,
+        pid: payload.pid ?? null,
+        title: payload.title ?? null,
+        state: payload.state || 'normal',
+        registeredAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      model.pushEvent('window', `ventana vinculada hwnd=${payload.hwnd}`);
+    }
+    instanceRecordStore.recordWindow(index, model.window).catch(() => {});
+    this._broadcast(model);
+  }
+  _applyWindowAction({ action, hwnd }) {
+    const ws = this._windowService();
+    if (!ws || hwnd === null || hwnd === undefined) return;
+    const entry = ws.getByHwnd(Number(hwnd));
+    if (!entry) return;
+    const model = this._get(entry.index);
+    if (!model) return;
+    const stateMap = { minimize: 'minimized', maximize: 'maximized', restore: 'normal', hide: 'hidden', show: 'normal' };
+    if (stateMap[action]) {
+      model.window = { ...model.window, hwnd: Number(hwnd), state: stateMap[action], updatedAt: Date.now() };
+      instanceRecordStore.recordWindow(entry.index, model.window).catch(() => {});
+      model.pushEvent('window', `acción de ventana: ${action}`);
+      this._broadcast(model);
+    }
+  }
+  _applyStepAudit({ index, step, status, data, values }) {
+    if (index === null || index === undefined) return;
+    const model = this._get(index);
+    if (!model) return;
     if (step && (step === 'wait-adb-ready' || step === 'wait_root_ready')) {
       model.root.ready = status === 'ok';
       model.root.checkedAt = Date.now();
@@ -240,29 +284,21 @@ class InstanceModelStore {
     if (step === 'initial-root' && status === 'ok') {
       model.root.initialRootDone = true;
     }
-    if (String(step).startsWith('install:') || step === 'install') {
-      const pkg = data?.package_name;
-      if (pkg) model.apps[pkg] = { ...(model.apps[pkg] || {}), installed: status === 'ok', lastSeen: Date.now() };
+    const pkg = values?.package_name || (data && typeof data === 'object' ? data.package_name : null);
+    if ((step === 'install' || String(step).startsWith('install:')) && pkg) {
+      const installedOk = status === 'ok';
+      model.apps[pkg] = { ...(model.apps[pkg] || {}), installed: installedOk, lastSeen: Date.now() };
+      instanceRecordStore.recordApp(index, pkg, { installed: installedOk, last_seen: Date.now() / 1000, source: 'pipeline-step' }).catch(() => {});
+      if (pkg === this._monitorPackageName()) model.monitor.installed = installedOk;
+    }
+    if (step === 'kill' && pkg && status === 'ok' && pkg === this._monitorPackageName()) {
+      model.monitor.running = false;
     }
     if (['tool', 'verify', 'note'].includes(step)) {
       model.pushCheck({ step, status, detail: data });
     }
     model.pushEvent('step', `${step} → ${status}`);
   }
-
-  // ---------------------------------------------------------------
-  // API de decisión — la usa el healthScheduler
-  // ---------------------------------------------------------------
-
-  /**
-   * Decide qué hacer con una instancia ANTES de intentar abrir el monitor.
-   * Devuelve { action, model } donde action es una de:
-   *   'open-monitor'      → está prendida, corresponde abrir la app
-   *   'relaunch'          → se apagó sin orden (crash) → hay que reencenderla
-   *   'skip-never-started'→ nunca se prendió, no tocar en este ciclo
-   *   'skip-expected-off' → apagado intencional (quit), no tocar
-   *   'skip-unknown'      → no tenemos ningún dato todavía
-   */
   decideHealthAction(index) {
     const model = this._get(index);
     if (!model) return { action: 'skip-unknown', model: null };
@@ -272,5 +308,4 @@ class InstanceModelStore {
     return { action: 'relaunch', model };
   }
 }
-
 module.exports = new InstanceModelStore();

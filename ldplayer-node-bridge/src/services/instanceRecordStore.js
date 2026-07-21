@@ -43,7 +43,7 @@ class InstanceRecordStore {
   async _acquireLock(index) {
     const lockPath = this._lockPath(index);
     const deadline = Date.now() + LOCK_TIMEOUT_S * 1000;
-    for (;;) {
+    for (; ;) {
       try {
         const fd = fs.openSync(lockPath, 'wx'); // O_CREAT|O_EXCL|O_WRONLY, atómico también en Windows
         fs.writeSync(fd, `${this.owner}:${process.pid}:${Date.now() / 1000}`);
@@ -99,6 +99,7 @@ class InstanceRecordStore {
     return {
       index,
       name: null,
+      window: null,
       updated_at: null,
       updated_by: null,
       health: {},
@@ -179,7 +180,17 @@ class InstanceRecordStore {
     });
     return taskId;
   }
-
+  async recordWindow(index, windowInfo) {
+    return this.update(index, (r) => {
+      r.window = { ...windowInfo, updated_at: Date.now() / 1000 };
+    });
+  }
+  async recordApp(index, packageName, info) {
+    return this.update(index, (r) => {
+      const apks = r.apks || (r.apks = {});
+      apks[packageName] = { ...(apks[packageName] || {}), ...info };
+    });
+  }
   async updateTask(index, taskId, status, detail = null) {
     return this.update(index, (r) => {
       for (const task of r.tasks || []) {

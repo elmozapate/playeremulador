@@ -4,7 +4,9 @@ correlación con las instancias (index de ldconsole). Análogo a
 services/monitor.py pero para el lado "ventana".
 
 Responsabilidades:
-  - Vincular hwnd <-> index cuando se lanza una instancia.
+  - Vincular hwnd <-> index cuando se lanza una instancia (y persistirlo
+    en instances/<index>.json vía instance_record_store.record_window,
+    para que Node lo lea sin depender de que este proceso siga vivo).
   - Poll periódico: detecta ventanas cerradas / cambios de estado y
     avisa por el mismo canal que ya usa el resto (ws_bridge ->
     window-event, igual patrón que instance-event / root-status).
@@ -12,6 +14,11 @@ Responsabilidades:
     la pantalla del guest apagada, SIN bloquear el dispositivo) para
     ahorrar recursos de display; se maximiza solo la que se necesita
     para interactuar.
+  - "Hard reset" de ventana: mata el proceso dueño de la ventana y
+    espera a que vuelva a aparecer una nueva para re-vincularla, sin
+    tocar la instancia Android (a diferencia de reboot/quit+launch).
+    Pensado para usarse como step de pipeline cuando una ventana quedó
+    zombie/colgada y hace falta resetearla para liberar recursos.
 
 No importa services.instance_service a nivel de módulo (para no crear
 un ciclo: instance_service SÍ importa este archivo). Donde hace falta
@@ -88,6 +95,11 @@ class WindowService:
                     hwnd, "window_state_changed",
                     {"instance_index": index, "state": info["state"], "title": info["title"]},
                 )
+                await asyncio.to_thread(
+                    instance_record_store.record_window, index,
+                    {"hwnd": hwnd, "pid": entry.get("pid"), "title": info["title"],
+                     "state": info["state"], "registered_at": entry.get("registered_at")},
+                )
 
     # ==================================================================
     # Registro hwnd <-> index
@@ -137,6 +149,7 @@ class WindowService:
                 )
                 return None
             info = await asyncio.to_thread(wm.get_window_info, hwnd)
+            registered_at = time.time()
             async with self._lock:
                 old_hwnd = self._by_index.get(index)
                 if old_hwnd is not None:
@@ -144,11 +157,18 @@ class WindowService:
                 self._by_hwnd[hwnd] = {
                     "index": index, "pid": resolved_pid,
                     "title": info["title"], "state": info["state"],
-                    "registered_at": time.time(),
+                    "registered_at": registered_at,
                 }
                 self._by_index[index] = hwnd
             await asyncio.to_thread(
                 instance_record_store.add_event, index, "window", f"Ventana vinculada hwnd={hwnd} pid={resolved_pid}",
+            )
+            await asyncio.to_thread(
+                instance_record_store.record_window, index,
+                {
+                    "hwnd": hwnd, "pid": resolved_pid, "title": info["title"],
+                    "state": info["state"], "registered_at": registered_at,
+                },
             )
             await notify_window_event(hwnd, "window_created", {"instance_index": index, "pid": resolved_pid})
             runtime_state.log_always(f"[window] index={index} -> hwnd={hwnd} pid={resolved_pid} vinculado")
@@ -191,10 +211,14 @@ class WindowService:
             entry = self._by_hwnd.pop(hwnd, None)
             if entry is not None:
                 self._by_index.pop(entry.get("index"), None)
-        if entry is not None and notify:
-            await notify_window_event(
-                hwnd, "window_closed", {"instance_index": entry.get("index"), "reason": reason}
-            )
+        if entry is not None:
+            index = entry.get("index")
+            if index is not None:
+                await asyncio.to_thread(instance_record_store.record_window, index, None)
+            if notify:
+                await notify_window_event(
+                    hwnd, "window_closed", {"instance_index": index, "reason": reason}
+                )
 
     def prune(self, active_indices: set) -> None:
         """Mismo patrón que ADBController.prune / instance_record_store.prune:
@@ -231,6 +255,11 @@ class WindowService:
                 async with self._lock:
                     entry["state"] = info["state"]
                     entry["title"] = info["title"]
+                await asyncio.to_thread(
+                    instance_record_store.record_window, entry.get("index"),
+                    {"hwnd": hwnd, "pid": entry.get("pid"), "title": info["title"],
+                     "state": info["state"], "registered_at": entry.get("registered_at")},
+                )
             except wm.WindowManagerError:
                 pass
 
@@ -262,6 +291,22 @@ class WindowService:
         pid = await asyncio.to_thread(wm.kill_process_of_window, hwnd)
         await self._forget(hwnd, notify=True, reason="proceso matado manualmente")
         return pid
+
+    async def hard_reset(self, index: int, timeout: float = REGISTER_TIMEOUT_S) -> Optional[int]:
+        """Mata (forzado) el proceso dueño de la ventana de `index` (si
+        existe) y espera a que vuelva a aparecer una ventana nueva para
+        re-vincularla. A diferencia de reboot/quit+launch, NO toca la
+        instancia Android -- solo el proceso host de LDPlayer y su
+        ventana. Pensado para usarse como step de pipeline cuando una
+        ventana quedó colgada/zombie y hace falta "resetearla" para
+        liberar recursos de display sin perder el estado de Android."""
+        hwnd = self.get_hwnd_for_index(index)
+        if hwnd is not None:
+            try:
+                await self.kill(hwnd)
+            except wm.WindowManagerError as e:
+                runtime_state.log_always(f"[window] hard_reset index={index}: fallo matando hwnd={hwnd}: {e}")
+        return await self.register_for_instance(index, timeout=timeout)
 
     # ==================================================================
     # Modo trabajo: todo minimizado, solo se maximiza para interactuar

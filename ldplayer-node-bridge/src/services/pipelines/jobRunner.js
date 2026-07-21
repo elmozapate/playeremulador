@@ -104,8 +104,7 @@ async function runInstance(client, job, index) {
       }
       const def = STEP_TYPES[step.type];
       inst.currentStep = step.type;
-      eventBus.emit('job:step', { jobId: job.id, index, step: step.type, status: 'start', ts: Date.now() });
-
+eventBus.emit('job:step', { jobId: job.id, index, step: step.type, status: 'start', ts: Date.now(), values: step.values });
       if (!def) {
         inst.steps.push({ type: step.type, ok: false, detail: 'tipo de step desconocido' });
         eventBus.emit('job:step', { jobId: job.id, index, step: step.type, status: 'error', detail: 'tipo desconocido' });
@@ -122,9 +121,9 @@ async function runInstance(client, job, index) {
       }
       inst.steps.push({ type: step.type, ...result });
       eventBus.emit('job:step', {
-        jobId: job.id, index, step: step.type,
-        status: result.ok ? 'ok' : 'error', detail: result.detail, ts: Date.now(),
-      });
+  jobId: job.id, index, step: step.type,
+  status: result.ok ? 'ok' : 'error', detail: result.detail, ts: Date.now(), values: step.values,
+});
 
       if (!result.ok && result.abort) {
         inst.status = 'aborted';

@@ -265,6 +265,12 @@ function buildSystemRouter(client, poller) {
     emitAction('apps:run-reliable', idx(req), result);
     return result;
   }));
+  router.post('/:index/apps/uninstall', handle(async (req) => {
+    const packageName = requireBody(req, 'package_name');
+    const result = await client.uninstallApp(idx(req), packageName);
+    emitAction('apps:uninstall', idx(req), { ...(result || {}), package_name: packageName });
+    return result;
+  }));
   router.get('/:index/root/status', handle((req) => client.getRootStatus(idx(req))));
   router.get('/:index/root/check', handle((req) => client.checkRoot(idx(req))));
   router.get('/:index/root/ensure', handle((req) => client.ensureRoot(idx(req))));

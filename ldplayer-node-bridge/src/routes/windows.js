@@ -2,9 +2,8 @@
 const express = require('express');
 const eventBus = require('../utils/eventBus');
 const { LDPlayerApiError } = require('../services/ldplayerClient');
-const windowService = require('../services/windowService.js');
-
 function buildWindowsRouter(client) {
+    const windowService = require('../services/windowService').getInstance();
     const router = express.Router();
     const handle = (fn) => async (req, res) => {
         try {
@@ -14,14 +13,12 @@ function buildWindowsRouter(client) {
             if (err instanceof LDPlayerApiError) {
                 return res.status(err.status || 502).json({ error: err.message, detail: err.detail });
             }
-            res.status(500).json({ error: err.message });
+            res.status(err.status || 500).json({ error: err.message });
         }
     };
     const emitAction = (action, hwnd, result) => {
         eventBus.emit('window:action', { action, hwnd, result, ts: Date.now() });
     };
-
-    // --- Fase 1/3: registro persistente en memoria, sin ir a ldconsole cada vez ---
     router.get('/registry', (req, res) => res.json(windowService.getAll()));
     router.get('/registry/by-instance/:index', (req, res) => {
         const entry = windowService.getByIndex(req.params.index);
@@ -33,12 +30,9 @@ function buildWindowsRouter(client) {
         if (!entry) return res.status(404).json({ error: 'no hay ventana registrada con ese hwnd' });
         res.json(entry);
     });
-
-
     router.get('/', handle(() => client.listWindows()));
     router.get('/by-instance/:index', handle((req) => client.getWindowByInstance(Number(req.params.index))));
     router.get('/:hwnd', handle((req) => client.getWindow(Number(req.params.hwnd))));
-
     router.post('/:hwnd/minimize', handle(async (req) => {
         const result = await client.minimizeWindow(Number(req.params.hwnd));
         emitAction('minimize', Number(req.params.hwnd), result);
@@ -87,12 +81,21 @@ function buildWindowsRouter(client) {
     }));
     router.post('/:hwnd/kill', handle(async (req) => {
         const result = await client.killWindow(Number(req.params.hwnd));
+        await windowService._forget(Number(req.params.hwnd), false).catch(() => {});
         emitAction('kill', Number(req.params.hwnd), result);
         return result;
     }));
-    router.post('/:hwnd/minimize', handle(async (req) => {
-        await windowService.minimize(Number(req.params.hwnd));
-        emitAction('minimize', Number(req.params.hwnd));
+    router.post('/by-instance/:index/hard-reset', handle(async (req) => {
+        const index = Number(req.params.index);
+        if (!Number.isFinite(index)) {
+            const e = new Error(`index inválido: "${req.params.index}"`);
+            e.status = 400;
+            throw e;
+        }
+        const timeoutMs = Number(req.body?.timeoutMs) || undefined;
+        const newHwnd = await windowService.hardReset(index, { timeoutMs });
+        emitAction('hard-reset', newHwnd, { index });
+        return { ok: true, index, hwnd: newHwnd };
     }));
     return router;
 }

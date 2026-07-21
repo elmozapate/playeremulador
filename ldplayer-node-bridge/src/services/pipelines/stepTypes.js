@@ -136,6 +136,59 @@ const STEP_TYPES = {
       }
     },
   },
+  window_minimize: {
+    label: '🪟 Minimizar ventana',
+    async exec(index, v, ctx) {
+      const windowService = require('../windowService').getInstance();
+      const entry = windowService.getByIndex(index);
+      if (!entry) return { ok: false, detail: 'sin ventana registrada para este index' };
+      try { await windowService.minimize(entry.hwnd); return { ok: true, detail: `hwnd=${entry.hwnd} minimizada` }; }
+      catch (err) { return { ok: false, detail: err.message }; }
+    },
+  },
+  window_maximize: {
+    label: '🪟 Maximizar ventana',
+    async exec(index, v, ctx) {
+      const windowService = require('../windowService').getInstance();
+      const entry = windowService.getByIndex(index);
+      if (!entry) return { ok: false, detail: 'sin ventana registrada para este index' };
+      try { await windowService.maximize(entry.hwnd); return { ok: true, detail: `hwnd=${entry.hwnd} maximizada` }; }
+      catch (err) { return { ok: false, detail: err.message }; }
+    },
+  },
+  window_restore: {
+    label: '🪟 Restaurar ventana',
+    async exec(index, v, ctx) {
+      const windowService = require('../windowService').getInstance();
+      const entry = windowService.getByIndex(index);
+      if (!entry) return { ok: false, detail: 'sin ventana registrada para este index' };
+      try { await windowService.restore(entry.hwnd); return { ok: true, detail: `hwnd=${entry.hwnd} restaurada` }; }
+      catch (err) { return { ok: false, detail: err.message }; }
+    },
+  },
+  window_hard_reset: {
+    label: '💥 Hard reset de ventana',
+    async exec(index, v, ctx) {
+      const windowService = require('../windowService').getInstance();
+      try {
+        const hwnd = await windowService.hardReset(index, { timeoutMs: Number(v.timeoutMs) || undefined });
+        return { ok: true, detail: `ventana re-vinculada, hwnd=${hwnd}` };
+      } catch (err) {
+        return { ok: false, detail: err.message, abort: !!v.abort_on_fail };
+      }
+    },
+  },// stepTypes.js — agregar junto a window_minimize/window_maximize/etc.
+window_close:{label:'🚪 Cerrar ventana (WM_CLOSE)',async exec(index,v,ctx) {
+  const windowService = require('../windowService').getInstance();
+  const entry = windowService.getByIndex(index);
+  if (!entry) return {ok:false,detail:'sin ventana registrada para este index'};
+  try {
+    await windowService.close(entry.hwnd);
+    return {ok:true,detail:`hwnd=${entry.hwnd} cierre solicitado (WM_CLOSE)`};
+  } catch (err) {
+    return {ok:false,detail:err.message};
+  }
+},},
   root_debug: {
     label: '🔐 Activar root + ADB debug',
     async exec(index, v, ctx) {
@@ -150,7 +203,7 @@ const STEP_TYPES = {
       }
     },
   },
-  
+
   make_ready: {
     label: '✅ Perfil: Ready',
     async exec(index, v, ctx) {

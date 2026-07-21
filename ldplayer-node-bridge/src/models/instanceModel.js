@@ -1,36 +1,20 @@
 'use strict';
-
-/**
- * InstanceModel — clase de solo-valores.
- * Es el "documento" único y auditable de cada instancia LDPlayer:
- * combina poder (encendido/apagado), agente (heartbeat de la APK
- * monitor), root, apps, tareas y chequeos de salud.
- *
- * No persiste ni escucha nada por sí misma — eso lo hace
- * instanceModelStore. Esta clase solo representa y valida.
- */
-
 const MAX_TASKS = 50;
 const MAX_CHECKS = 30;
 const MAX_EVENTS = 50;
-
 class InstanceModel {
   constructor(index) {
     this.index = Number(index);
     this.name = null;
-
-    // --- Poder / ciclo de vida ---
     this.power = {
-      status: 'unknown',       // 'on' | 'off' | 'unknown'
-      source: null,             // 'status-poller' | 'action' | 'agent'
+      status: 'unknown',
+      source: null,
       updatedAt: null,
-      expectedOff: false,       // true si el último apagado fue por un quit nuestro
+      expectedOff: false,
       lastLaunchAt: null,
       lastQuitAt: null,
-      neverSeenOn: true,        // sigue true hasta el primer "on" confirmado
+      neverSeenOn: true,
     };
-
-    // --- Agente (APK monitor instalada en el emulador, vía heartbeat) ---
     this.agent = {
       deviceId: null,
       alive: false,
@@ -41,62 +25,52 @@ class InstanceModel {
       proxies: [],
       event: null,
     };
-
-    // --- Monitor: vínculo específico con la APK de monitoreo ---
     this.monitor = {
       packageName: null,
-      installed: null,          // null = desconocido
+      installed: null,
       running: false,
       lastOpenedAt: null,
       lastSeenAliveAt: null,
-      lastOffCause: null,       // 'expected' | 'crashed' | 'never-started' | null
+      lastOffCause: null,
     };
-
-    // --- Root ---
     this.root = {
       initialRootDone: null,
       ready: null,
       uid: null,
       checkedAt: null,
     };
-
-    // --- Apps instaladas conocidas ---
-    this.apps = {}; // packageName -> { installed, lastSeen, uses, running }
-
-    // --- Auditoría ---
+    this.window = {
+      hwnd: null,
+      pid: null,
+      title: null,
+      state: null, // normal|maximized|minimized|hidden
+      registeredAt: null,
+      updatedAt: null,
+    };
+    this.apps = {};
     this.tasks = [];
     this.checks = [];
     this.events = [];
-
     this.updatedAt = Date.now();
   }
-
   touch() {
     this.updatedAt = Date.now();
   }
-
   pushEvent(type, message, extra = {}) {
     this.events.push({ ts: Date.now(), type, message, extra });
     if (this.events.length > MAX_EVENTS) this.events.splice(0, this.events.length - MAX_EVENTS);
     this.touch();
   }
-
   pushTask(task) {
     this.tasks.push(task);
     if (this.tasks.length > MAX_TASKS) this.tasks.splice(0, this.tasks.length - MAX_TASKS);
     this.touch();
   }
-
   pushCheck(check) {
     this.checks.push({ ts: Date.now(), ...check });
     if (this.checks.length > MAX_CHECKS) this.checks.splice(0, this.checks.length - MAX_CHECKS);
     this.touch();
   }
-
-  /**
-   * Valida consistencia interna. Nunca lanza — devuelve issues para
-   * que el store decida qué hacer (loguear, marcar la instancia, etc.)
-   */
   validate() {
     const issues = [];
     if (this.power.status === 'on' && this.agent.alive === false && this.agent.lastSeen) {
@@ -118,7 +92,6 @@ class InstanceModel {
     }
     return issues;
   }
-
   toJSON() {
     return {
       index: this.index,
@@ -127,6 +100,7 @@ class InstanceModel {
       agent: this.agent,
       monitor: this.monitor,
       root: this.root,
+      window: this.window,
       apps: this.apps,
       tasks: this.tasks,
       checks: this.checks,
@@ -135,5 +109,4 @@ class InstanceModel {
     };
   }
 }
-
 module.exports = { InstanceModel, MAX_TASKS, MAX_CHECKS, MAX_EVENTS };

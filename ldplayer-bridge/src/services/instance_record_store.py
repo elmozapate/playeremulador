@@ -1,27 +1,42 @@
 """
 Registro persistente POR INSTANCIA: health, apks revisadas/instaladas,
 permisos confirmados, últimos eventos (reboot/launch/quit), próximo
-check programado, tareas, etc.
-
+check programado, tareas, ventana host vinculada, etc.
 Un archivo por instancia en DATA_DIR/instances/<index>.json. A
 diferencia de health/<index>.json (que es solo un cache de health con
 TTL, se pisa entero en cada refresh) y status/all.json (snapshot
 efímero del monitor), este archivo es un REGISTRO acumulativo: se lee,
 se modifica parcialmente, y se vuelve a escribir completo.
-
 Lo leen y ESCRIBEN los dos lados:
   - Python (este módulo) registra lo que se ejecuta físicamente sobre
     la instancia: health, apks instaladas, permisos otorgados/revocados,
-    reboot/launch/quit, y el próximo check programado del monitor.
+    reboot/launch/quit, ventana host vinculada, y el próximo check
+    programado del monitor.
   - Node (services/instanceRecordStore.js) registra lo que orquesta:
-    los pasos/tareas del pipeline de setup (deviceSetupPipeline.js).
-
+    los pasos/tareas del pipeline de setup (deviceSetupPipeline.js) y
+    también escribe apks/window cuando la acción se originó del lado
+    Node (pipeline steps, acciones de ventana vía /api/windows).
 Para que no se pisen si escriben casi al mismo tiempo, cada
 actualización hace lock -> leer -> modificar -> escribir -> unlock,
 con un lockfile simple (<archivo>.json.lock) creado de forma exclusiva
 (O_CREAT|O_EXCL, atómico también en Windows). El equivalente en Node
 usa el MISMO nombre de archivo y el mismo protocolo, así que ambos
 procesos se coordinan sin necesidad de compartir lenguaje ni proceso.
+Convención compartida en "apks" (leída por Node en instanceModelStore.js):
+  apks[<package_o_id>] = {
+    status: "installed"|"uninstalled"|"force_stopped"|"data_cleared"|"failed"|...,
+    installed: bool,           # normalizado, es lo que pinta el dashboard
+    package_name: str,
+    apk_path: str | None,
+    last_seen: float,
+    "<status>_at": float,      # timestamp de cada status que pasó alguna vez
+  }
+Convención compartida en "window":
+  window = None                # sin ventana vinculada
+  window = {
+    hwnd: int, pid: int|None, title: str, state: str,
+    registered_at: float, updated_at: float,
+  }
 """
 import json
 import os
@@ -29,29 +44,22 @@ import random
 import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional
-
 from config import settings
-
 MAX_EVENTS = 100
 MAX_TASKS = 100
 LOCK_TIMEOUT_S = 5.0
 LOCK_STALE_S = 10.0
 LOCK_RETRY_MIN_MS = 30
 LOCK_RETRY_MAX_MS = 120
-
-
 class InstanceRecordStore:
     def __init__(self, base_dir: str, owner: str = "python"):
         self.dir = os.path.join(base_dir, "instances")
         self.owner = owner
         os.makedirs(self.dir, exist_ok=True)
-
     def _path(self, index: int) -> str:
         return os.path.join(self.dir, f"{index}.json")
-
     def _lock_path(self, index: int) -> str:
         return f"{self._path(index)}.lock"
-
     # ------------------------------------------------------------------
     # Lock cross-proceso / cross-lenguaje (archivo .lock exclusivo)
     # ------------------------------------------------------------------
@@ -83,13 +91,11 @@ class InstanceRecordStore:
                         f"en {LOCK_TIMEOUT_S}s (¿el otro proceso quedó trabado?)"
                     )
                 time.sleep(random.uniform(LOCK_RETRY_MIN_MS, LOCK_RETRY_MAX_MS) / 1000)
-
     def _release_lock(self, index: int) -> None:
         try:
             os.remove(self._lock_path(index))
         except OSError:
             pass
-
     # ------------------------------------------------------------------
     # Lectura / escritura atómica del registro
     # ------------------------------------------------------------------
@@ -103,14 +109,12 @@ class InstanceRecordStore:
                 return data if isinstance(data, dict) else self._blank(index)
         except (json.JSONDecodeError, OSError):
             return self._blank(index)
-
     def _write_raw(self, index: int, data: Dict[str, Any]) -> None:
         path = self._path(index)
         tmp_path = f"{path}.tmp-{os.getpid()}-{time.time()}"
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
         os.replace(tmp_path, path)
-
     @staticmethod
     def _blank(index: int) -> Dict[str, Any]:
         return {
@@ -123,6 +127,7 @@ class InstanceRecordStore:
             "installed_apps": {},
             "agent": {},
             "instance_model": None,
+            "window": None,
             "schedule": {
                 "next_check_at": None,
                 "last_reboot_at": None,
@@ -134,10 +139,8 @@ class InstanceRecordStore:
             "tasks": [],
             "events": [],
         }
-
     def get(self, index: int) -> Dict[str, Any]:
         return self._read_raw(index)
-
     def update(self, index: int, updater: Callable[[Dict[str, Any]], None]) -> Dict[str, Any]:
         """Lock -> leer -> updater(record) muta el dict in-place -> escribir -> unlock."""
         self._acquire_lock(index)
@@ -150,7 +153,6 @@ class InstanceRecordStore:
             return record
         finally:
             self._release_lock(index)
-
     def delete(self, index: int) -> None:
         path = self._path(index)
         if os.path.exists(path):
@@ -158,7 +160,6 @@ class InstanceRecordStore:
                 os.remove(path)
             except OSError:
                 pass
-
     # ------------------------------------------------------------------
     # Helpers de alto nivel (todos pasan por update() -> con lock)
     # ------------------------------------------------------------------
@@ -174,42 +175,59 @@ class InstanceRecordStore:
                 "checked_at": time.time(),
             }
         self.update(index, _fn)
-
     def schedule_next_check(self, index: int, seconds_from_now: float) -> None:
         def _fn(r):
             r["schedule"]["next_check_at"] = time.time() + seconds_from_now
         self.update(index, _fn)
-
     def record_launch(self, index: int) -> None:
         def _fn(r):
             r["schedule"]["last_launch_at"] = time.time()
         self.update(index, _fn)
         self.add_event(index, "launch", "Instancia lanzada")
-
     def record_reboot(self, index: int) -> None:
         def _fn(r):
             r["schedule"]["last_reboot_at"] = time.time()
         self.update(index, _fn)
         self.add_event(index, "reboot", "Instancia reiniciada")
-
     def record_quit(self, index: int) -> None:
         def _fn(r):
             r["schedule"]["last_quit_at"] = time.time()
         self.update(index, _fn)
         self.add_event(index, "quit", "Instancia cerrada")
-
     def record_apk(self, index: int, apk_id: str, status: str,
                     apk_path: Optional[str] = None) -> None:
-        """status: 'installed' | 'uninstalled' | 'force_stopped' | 'data_cleared' | 'failed'"""
+        """status: 'installed' | 'uninstalled' | 'force_stopped' |
+        'data_cleared' | 'failed' | 'install_failed' | 'uninstall_failed' |
+        'data_clear_failed'.
+        Además del status crudo (histórico, como siempre), normaliza un
+        campo `installed` (bool) y `package_name`: es lo que lee el lado
+        Node (instanceModelStore.js) para "monitor (apk)" / listas de
+        apps sin tener que conocer todos los strings de status posibles.
+        force_stopped / data_cleared / *_failed no tocan `installed`,
+        solo quedan como historial en `status` / `<status>_at`."""
         def _fn(r):
             entry = r["apks"].get(apk_id, {})
             entry["status"] = status
+            entry["package_name"] = apk_id
             if apk_path:
                 entry["apk_path"] = apk_path
             entry[f"{status}_at"] = time.time()
+            entry["last_seen"] = time.time()
+            if status == "installed":
+                entry["installed"] = True
+            elif status == "uninstalled":
+                entry["installed"] = False
             r["apks"][apk_id] = entry
         self.update(index, _fn)
-
+    def record_window(self, index: int, window_info: Optional[Dict[str, Any]]) -> None:
+        """Persiste la ventana host (Win32) vinculada a esta instancia.
+        `window_info=None` significa "se desvinculó" (ventana cerrada,
+        proceso matado, instancia apagada): se guarda como null para que
+        el lado Node muestre "sin vincular" en vez de arrastrar datos
+        viejos de una ventana que ya no existe."""
+        def _fn(r):
+            r["window"] = {**window_info, "updated_at": time.time()} if window_info else None
+        self.update(index, _fn)
     def record_profile(self, index: int, profile: Dict[str, Any]) -> None:
         """Persiste el perfil actualmente aplicado (cpu, memory, resolution,
         root, adb_debug). Se llama desde instance_service.modify()/
@@ -219,25 +237,22 @@ class InstanceRecordStore:
             current.update({k: v for k, v in profile.items() if v is not None})
             current["updated_at"] = time.time()
         self.update(index, _fn)
-
     def record_installed_apps(self, index: int, packages: List[str]) -> None:
         """Inventario periódico de apps instaladas (ver monitor.py)."""
         def _fn(r):
             r["installed_apps"] = {"packages": packages, "checked_at": time.time()}
         self.update(index, _fn)
-
     def record_agent(self, index: int, agent_info: Dict[str, Any]) -> None:
         """Cruce con el deviceRegistry de Node: qué agente/heartbeat
         corresponde a esta instancia."""
         def _fn(r):
             r["agent"] = {**agent_info, "updated_at": time.time()}
         self.update(index, _fn)
-
     def record_instance_model(self, index: int, model: Dict[str, Any]) -> None:
         """Guarda la última vista de instanceModelStore.js (Node): el
         "documento único" de la instancia (power, agent, monitor, root,
-        apps, tasks, checks) tal como lo ve Node en tiempo real, recibido
-        por el WS bridge en vez de tener que reconstruirlo acá."""
+        window, apps, tasks, checks) tal como lo ve Node en tiempo real,
+        recibido por el WS bridge en vez de tener que reconstruirlo acá."""
         def _fn(r):
             r["instance_model"] = model
         self.update(index, _fn)
@@ -246,7 +261,6 @@ class InstanceRecordStore:
             pkg = r["permissions"].setdefault(package_name, {})
             pkg[permission] = {"granted": granted, "confirmed_at": time.time()}
         self.update(index, _fn)
-
     def add_event(self, index: int, event_type: str, message: str, extra: Optional[dict] = None) -> None:
         def _fn(r):
             events: List[dict] = r.setdefault("events", [])
@@ -260,10 +274,8 @@ class InstanceRecordStore:
             if len(events) > MAX_EVENTS:
                 del events[: len(events) - MAX_EVENTS]
         self.update(index, _fn)
-
     def add_task(self, index: int, task_type: str, detail: Optional[dict] = None) -> str:
         task_id = uuid.uuid4().hex[:12]
-
         def _fn(r):
             tasks: List[dict] = r.setdefault("tasks", [])
             tasks.append({
@@ -278,7 +290,6 @@ class InstanceRecordStore:
                 del tasks[: len(tasks) - MAX_TASKS]
         self.update(index, _fn)
         return task_id
-
     def update_task(self, index: int, task_id: str, status: str, detail: Optional[dict] = None) -> None:
         def _fn(r):
             for task in r.get("tasks", []):
@@ -289,7 +300,6 @@ class InstanceRecordStore:
                         task["detail"] = {**task.get("detail", {}), **detail}
                     break
         self.update(index, _fn)
-
     def prune(self, active_indices: set) -> None:
         """Borra registros (y locks sueltos) de índices que ya no existen."""
         try:
@@ -307,7 +317,6 @@ class InstanceRecordStore:
                     os.remove(os.path.join(self.dir, name))
                 except OSError:
                     pass
-
     # ------------------------------------------------------------------
     # NUEVO MÉTODO: Limpieza de locks huérfanos al arrancar
     # ------------------------------------------------------------------
@@ -325,17 +334,14 @@ class InstanceRecordStore:
             files = os.listdir(self.dir)
         except OSError:
             return
-
         for name in files:
             if not name.endswith(".json.lock"):
                 continue
-
             lock_path = os.path.join(self.dir, name)
             try:
                 # Leemos el contenido del lock para obtener el PID
                 with open(lock_path, "r", encoding="utf-8") as f:
                     content = f.read().strip()
-
                 # Formato: "owner:pid:timestamp" (ej: "python:1234:1234567890.123")
                 parts = content.split(":")
                 if len(parts) >= 2:
@@ -352,6 +358,4 @@ class InstanceRecordStore:
                     os.remove(lock_path)
                 except OSError:
                     pass
-
-
 instance_record_store = InstanceRecordStore(settings.DATA_DIR, owner="python")

@@ -44,6 +44,7 @@
     padding: 14px 20px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
   }
 
   .brand {
@@ -169,7 +170,8 @@
   .empty-state .glyph { font-size: 22px; color: var(--dimmer); margin-bottom: 8px; }
 
   /* ---------- instance actions ---------- */
-  .actions-cell { display: flex; gap: 4px; flex-wrap: wrap; }
+  .actions-cell { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  .win-sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 3px; }
   .btn.warn-btn { border-color: var(--warn); color: var(--warn); }
   .btn.warn-btn:hover { background: rgba(245, 166, 35, 0.1); }
   .btn.danger-btn { border-color: var(--off); color: var(--off); }
@@ -287,9 +289,14 @@
   <span class="pill" id="bridgePill"><span class="dot" id="bridgeDot"></span><span id="bridgeLabel">bridge python: ---</span></span>
   <span class="pill" id="monitorPill"><span class="dot" id="monitorDot"></span><span id="monitorLabel">sys: ---</span></span>
   <button class="btn small" id="monitorToggleBtn">activar monitor</button>
+  <button class="btn small" id="workModeToggleBtn">modo trabajo</button>
   <div class="field">
     <label for="pyUrlInput">python</label>
     <input id="pyUrlInput" type="text" value="http://localhost:8000" spellcheck="false" />
+  </div>
+  <div class="field">
+    <label for="pyKeyInput">python key</label>
+    <input id="pyKeyInput" type="password" placeholder="opcional" spellcheck="false" />
   </div>
   <div class="field">
     <label for="baseUrlInput">node</label>
@@ -334,13 +341,14 @@
         <th>agente</th>
         <th>monitor</th>
         <th>root</th>
+        <th>ventana</th>
         <th>actualizado</th>
         <th>acciones</th>
         <th></th>
       </tr>
     </thead>
     <tbody id="tbody">
-      <tr><td colspan="9"><div class="empty-state"><div class="glyph">···</div>cargando instancias</div></td></tr>
+      <tr><td colspan="10"><div class="empty-state"><div class="glyph">···</div>cargando instancias</div></td></tr>
     </tbody>
   </table>
 </main>
@@ -361,6 +369,7 @@
   const countLabel = $('#countLabel');
   const lastPoll = $('#lastPoll');
   const baseUrlInput = $('#baseUrlInput');
+  const pyKeyInput = $('#pyKeyInput');
   const bridgeDot = $('#bridgeDot');
   const bridgeLabel = $('#bridgeLabel');
   const scrim = $('#scrim');
@@ -375,14 +384,29 @@
   let monitorActive = false;
   let monitorTimer = null;
 
+  // -------------------- ventanas (Win32) --------------------
+  let windowsByIndex = {};
+  let workModeActive = false;
+  let currentDrawerIndex = null;
 
-baseUrlInput.addEventListener('change', () => {
+  function pyHeaders(json) {
+    const h = {};
+    if (pyKeyInput.value) h['x-api-key'] = pyKeyInput.value;
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
+  }
+
+  baseUrlInput.addEventListener('change', () => {
     baseUrl = baseUrlInput.value.replace(/\/+$/, '');
     loadAll();
   });
   $('#pyUrlInput').addEventListener('change', () => {
-    pyBaseUrl = $('#pyUrlInput').value.replace(/\/+$/, '');
+    pyBaseUrl = $('#pyUrlInput').value.replace(/\/+$/, '') + '/api/v1';
     refreshMonitorStatus();
+    loadWindows().then(() => { refreshWorkMode(); renderTable(); });
+  });
+  pyKeyInput.addEventListener('change', () => {
+    loadWindows().then(() => { refreshWorkMode(); renderTable(); });
   });
   $('#refreshBtn').addEventListener('click', loadAll);
 
@@ -447,15 +471,25 @@ baseUrlInput.addEventListener('change', () => {
     return `<span class="pill"><span class="dot"></span>?</span>`;
   }
 
+  function windowPill(win) {
+    if (!win) return `<span class="pill"><span class="dot off"></span>sin vincular</span>`;
+    const labels = { normal: 'normal', maximized: 'maximizada', minimized: 'minimizada', hidden: 'oculta' };
+    const cls = win.state === 'maximized' ? 'live' : win.state === 'minimized' ? 'warn' : win.state === 'hidden' ? 'off' : '';
+    return `<span class="pill"><span class="dot ${cls}"></span>${esc(labels[win.state] || win.state || '?')}</span>`;
+  }
+
   // -------------------- render table --------------------
   function renderTable() {
     if (!models.length) {
-      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="glyph">∅</div>no hay instancias registradas todavía</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="glyph">∅</div>no hay instancias registradas todavía</div></td></tr>`;
       countLabel.textContent = '0 instancias';
       return;
     }
     countLabel.textContent = `${models.length} instancia${models.length === 1 ? '' : 's'}`;
-    tbody.innerHTML = models.map((m) => `
+    tbody.innerHTML = models.map((m) => {
+      const win = windowsByIndex[m.index];
+      const hwnd = win ? win.hwnd : '';
+      return `
       <tr>
         <td class="idx">#${esc(m.index)}</td>
         <td class="name">${m.name ? esc(m.name) : '<span class="none">sin nombre</span>'}</td>
@@ -463,6 +497,7 @@ baseUrlInput.addEventListener('change', () => {
         <td>${agentCell(m)}</td>
         <td>${monitorCell(m)}</td>
         <td>${rootCell(m)}</td>
+        <td>${windowPill(win)}</td>
         <td class="ts">${esc(relTime(m.updatedAt))}</td>
         <td class="actions-cell">
           <button class="btn small" data-action="launch" data-index="${esc(m.index)}" title="encender">▶</button>
@@ -470,10 +505,16 @@ baseUrlInput.addEventListener('change', () => {
           <button class="btn small" data-action="reboot" data-index="${esc(m.index)}" title="reiniciar">↻</button>
           <button class="btn small warn-btn" data-action="hardreboot" data-index="${esc(m.index)}" title="reinicio forzado (adb reboot)">⚡↻</button>
           <button class="btn small danger-btn" data-action="hardoff" data-index="${esc(m.index)}" title="apagado forzado (adb reboot -p)">⚡⏻</button>
+          <span class="win-sep"></span>
+          <button class="btn small" data-winbtn="minimize" data-hwnd="${hwnd}" ${hwnd ? '' : 'disabled'} title="minimizar ventana">–</button>
+          <button class="btn small" data-winbtn="maximize" data-hwnd="${hwnd}" ${hwnd ? '' : 'disabled'} title="maximizar ventana">▢</button>
+          <button class="btn small" data-winbtn="restore" data-hwnd="${hwnd}" ${hwnd ? '' : 'disabled'} title="restaurar ventana">❐</button>
+          <button class="btn small" data-winact="interact" data-index="${esc(m.index)}" ${hwnd ? '' : 'disabled'} title="traer al frente y maximizar">👁</button>
         </td>
         <td><button class="btn small" data-info="${esc(m.index)}">info</button></td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
 
     tbody.querySelectorAll('[data-info]').forEach((btn) => {
       btn.addEventListener('click', () => openDrawer(btn.getAttribute('data-info')));
@@ -484,6 +525,16 @@ baseUrlInput.addEventListener('change', () => {
         btn.getAttribute('data-index'),
         btn
       ));
+    });
+    tbody.querySelectorAll('[data-winbtn]').forEach((btn) => {
+      btn.addEventListener('click', () => runWindowAction(
+        btn.getAttribute('data-winbtn'),
+        btn.getAttribute('data-hwnd'),
+        btn
+      ));
+    });
+    tbody.querySelectorAll('[data-winact="interact"]').forEach((btn) => {
+      btn.addEventListener('click', () => runWindowInteract(btn.getAttribute('data-index'), btn));
     });
   }
 
@@ -527,12 +578,148 @@ baseUrlInput.addEventListener('change', () => {
     }
   }
 
+  // -------------------- ventanas: acciones --------------------
+  async function fetchWindowInfo(index) {
+    try {
+      const res = await fetch(`${pyBaseUrl}/windows/by-instance/${index}`, { headers: pyHeaders() });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function runWindowAction(action, hwnd, btn) {
+    if (!hwnd) return;
+    if (action === 'kill' && !confirm('¿Matar el proceso dueño de esta ventana? Apaga la instancia de forma abrupta, sin apagado prolijo de Android.')) return;
+    if (action === 'close' && !confirm('¿Cerrar la ventana (WM_CLOSE)? LDPlayer puede ignorarlo si no responde.')) return;
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      const res = await fetch(`${pyBaseUrl}/windows/${hwnd}/${action}`, { method: 'POST', headers: pyHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `HTTP ${res.status}`);
+      }
+      await loadWindows();
+      renderTable();
+      if (drawer.classList.contains('open') && currentDrawerIndex !== null) {
+        renderWindowSection(currentDrawerIndex, await fetchWindowInfo(currentDrawerIndex));
+      }
+    } catch (err) {
+      alert(`acción de ventana "${action}" falló: ${err.message}`);
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  }
+
+  async function runWindowInteract(index, btn) {
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      const res = await fetch(`${pyBaseUrl}/windows/by-instance/${index}/interact`, { method: 'POST', headers: pyHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `HTTP ${res.status}`);
+      }
+      await loadWindows();
+      renderTable();
+    } catch (err) {
+      alert(`no se pudo enfocar la ventana #${index}: ${err.message}`);
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  }
+
+  async function loadWindows() {
+    try {
+      const res = await fetch(`${pyBaseUrl}/windows`, { headers: pyHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const list = await res.json();
+      windowsByIndex = {};
+      list.forEach((w) => { windowsByIndex[w.index] = w; });
+    } catch (_) {
+      windowsByIndex = {};
+    }
+  }
+
+  async function refreshWorkMode() {
+    try {
+      const res = await fetch(`${pyBaseUrl}/windows/status`, { headers: pyHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      workModeActive = !!data.work_mode;
+      $('#workModeToggleBtn').textContent = workModeActive ? 'salir modo trabajo' : 'modo trabajo';
+    } catch (_) {
+      // silencioso: si /windows no responde, no rompemos el resto del dashboard
+    }
+  }
+
+  $('#workModeToggleBtn').addEventListener('click', async () => {
+    const btn = $('#workModeToggleBtn');
+    btn.disabled = true;
+    try {
+      const endpoint = workModeActive ? 'disable' : 'enable';
+      const res = await fetch(`${pyBaseUrl}/windows/work-mode/${endpoint}`, {
+        method: 'POST',
+        headers: pyHeaders(true),
+        body: workModeActive ? undefined : JSON.stringify({ also_screen_off: false }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await refreshWorkMode();
+      await loadWindows();
+      renderTable();
+    } catch (err) {
+      alert(`no se pudo cambiar el modo trabajo: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   // -------------------- drawer --------------------
   function kv(pairs) {
     return `<div class="kv">${pairs.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${v}</div>`).join('')}</div>`;
   }
 
-  function openDrawer(index) {
+  function renderWindowSection(index, win) {
+    const el = document.getElementById('windowSection');
+    if (!el) return;
+    if (!win) {
+      el.innerHTML = `<div class="kv"><div class="k">estado</div><div class="v">sin vincular todavía</div></div>`;
+      return;
+    }
+    el.innerHTML = `
+      ${kv([
+        ['hwnd', esc(win.hwnd)],
+        ['título', esc(win.title || '—')],
+        ['pid', esc(win.pid ?? '—')],
+        ['estado', esc(win.state || '—')],
+        ['visible', win.visible ? 'sí' : 'no'],
+        ['posición', win.rect ? `${win.rect.x}, ${win.rect.y}` : '—'],
+        ['tamaño', win.rect ? `${win.rect.width} × ${win.rect.height}` : '—'],
+      ])}
+      <div class="health-controls" style="margin-top:8px">
+        <button class="btn small" data-winbtn="minimize" data-hwnd="${win.hwnd}">minimizar</button>
+        <button class="btn small" data-winbtn="maximize" data-hwnd="${win.hwnd}">maximizar</button>
+        <button class="btn small" data-winbtn="restore" data-hwnd="${win.hwnd}">restaurar</button>
+        <button class="btn small warn-btn" data-winbtn="close" data-hwnd="${win.hwnd}">cerrar (suave)</button>
+        <button class="btn small danger-btn" data-winbtn="kill" data-hwnd="${win.hwnd}">forzar cierre</button>
+      </div>
+    `;
+    el.querySelectorAll('[data-winbtn]').forEach((btn) => {
+      btn.addEventListener('click', () => runWindowAction(
+        btn.getAttribute('data-winbtn'),
+        btn.getAttribute('data-hwnd'),
+        btn
+      ));
+    });
+  }
+
+  async function openDrawer(index) {
+    currentDrawerIndex = index;
     const m = models.find((x) => String(x.index) === String(index));
     if (!m) return;
     drawerTitle.textContent = `instancia #${m.index}${m.name ? ' — ' + m.name : ''}`;
@@ -558,6 +745,11 @@ baseUrlInput.addEventListener('change', () => {
           ['último quit', esc(absTime(p.lastQuitAt))],
           ['actualizado', esc(absTime(p.updatedAt))],
         ])}
+      </div>
+
+      <div class="section">
+        <h3>ventana</h3>
+        <div id="windowSection">cargando…</div>
       </div>
 
       <div class="section">
@@ -636,12 +828,18 @@ baseUrlInput.addEventListener('change', () => {
     scrim.classList.add('open');
     drawer.classList.add('open');
     drawer.setAttribute('aria-hidden', 'false');
+
+    // pintar rápido con lo que ya tenemos cacheado, y refrescar con datos en vivo
+    renderWindowSection(index, windowsByIndex[m.index] || null);
+    const freshWin = await fetchWindowInfo(index);
+    renderWindowSection(index, freshWin);
   }
 
   function closeDrawer() {
     scrim.classList.remove('open');
     drawer.classList.remove('open');
     drawer.setAttribute('aria-hidden', 'true');
+    currentDrawerIndex = null;
   }
   $('#closeDrawer').addEventListener('click', closeDrawer);
   scrim.addEventListener('click', closeDrawer);
@@ -656,7 +854,7 @@ baseUrlInput.addEventListener('change', () => {
       models.sort((a, b) => a.index - b.index);
       renderTable();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="glyph">⚠</div>no se pudo conectar con ${esc(baseUrl)}<br/><span style="font-size:11px">${esc(err.message)}</span></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="glyph">⚠</div>no se pudo conectar con ${esc(baseUrl)}<br/><span style="font-size:11px">${esc(err.message)}</span></div></td></tr>`;
       countLabel.textContent = '0 instancias';
     }
   }
@@ -793,7 +991,8 @@ async function refreshMonitorStatus() {
   });
 
   async function loadAll() {
-    await Promise.all([loadModels(), loadBridge(), refreshHealthMonitor()]);
+    await Promise.all([loadModels(), loadBridge(), refreshHealthMonitor(), loadWindows(), refreshWorkMode()]);
+    renderTable();
     lastPoll.textContent = `última actualización: ${new Date().toLocaleTimeString('es-AR')}`;
   }
 
