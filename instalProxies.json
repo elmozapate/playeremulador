@@ -1,0 +1,1011 @@
+{
+  "name": "Setup Root (Root + Apps)",
+  "parallel": false,
+  "indices": [
+    0
+  ],
+  "variables": [
+    {
+      "ip": "78.105.148.16",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.210",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.242",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.74",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.230",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.193",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.94",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.39",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.14",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.233",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.183",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.40",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.130",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.113",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.234",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.5",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.25",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.119",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.61",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.58",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.195",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.84",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.118",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.46",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.236",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.197",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.221",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.204",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.31",
+      "port": "1337",
+      "username": "8ii6VjTpwGDE",
+      "password": "NPbs2CfxWqA3"
+    },
+    {
+      "ip": "78.105.148.175",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.53",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.43",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.154",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.211",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.69",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.1",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.52",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.164",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.214",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.13",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.205",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.59",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.202",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.64",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.252",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.95",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.232",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.10",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.187",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.156",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.209",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.21",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.167",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.2",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.227",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.4",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.56",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.149",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.98",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.229",
+      "port": "1337",
+      "username": "H67HfMkmZgoZ",
+      "password": "WFBzcq8J7Bzy"
+    },
+    {
+      "ip": "78.105.148.240",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    },
+    {
+      "ip": "78.105.148.216",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    },
+    {
+      "ip": "78.105.148.44",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    },
+    {
+      "ip": "78.105.148.179",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    },
+    {
+      "ip": "78.105.148.48",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    },
+    {
+      "ip": "78.105.148.222",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    },
+    {
+      "ip": "78.105.148.29",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    },
+    {
+      "ip": "78.105.148.253",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    },
+    {
+      "ip": "78.105.148.78",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    },
+    {
+      "ip": "78.105.148.110",
+      "port": "1337",
+      "username": "3e2fJfKwcFRI",
+      "password": "aoYxc6KnT7ZO"
+    }
+  ],
+  "steps": [
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "run",
+      "values": {
+        "known_app": "socks",
+        "package_name": "net.typeblog.socks"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 2
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_tap",
+        "x": 85,
+        "y": 84
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "62"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "122 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112"
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_text",
+        "text": "{{ip}}"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "62"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "62"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "122 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112"
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_text",
+        "text": "{{port}}"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "62"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "62"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_swipe",
+        "x1": 301,
+        "y1": 529,
+        "x2": 298,
+        "y2": 411,
+        "duration_ms": 379
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },{
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "62"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "122 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112"
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_text",
+        "text": "{{username}}"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "62"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "20"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "62"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "122 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112 112"
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_text",
+        "text": "{{password}}"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 2
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "61"
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 1
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_key",
+        "keycode": "62"
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_tap",
+        "x": 422,
+        "y": 78
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 3.631
+      }
+    },
+    {
+      "type": "tool",
+      "values": {
+        "tool_action": "input_tap",
+        "x": 417,
+        "y": 687
+      }
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "quit",
+      "values": {}
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "make_ready",
+      "values": {}
+    },
+    {
+      "type": "wait",
+      "values": {
+        "seconds": 5
+      }
+    }
+  ]
+}
