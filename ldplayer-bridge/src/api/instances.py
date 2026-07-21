@@ -154,4 +154,12 @@ async def make_ready(index: int):
     except Exception as e:
         _raise_for(e)
 
-        
+@router.post("/{index}/root-debug")
+async def enable_root_debug(index: int):
+    """Activa root + ADB debug sin reconfigurar cpu/memory/resolution."""
+    try:
+        result = await task_queue.enqueue(index, instance_service.enable_root_debug, index)
+        monitor.invalidate(index)
+        return {"success": True, "message": "Root + ADB debug activados", **result}
+    except Exception as e:
+        _raise_for(e)        

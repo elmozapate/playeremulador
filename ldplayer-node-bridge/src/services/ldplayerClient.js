@@ -376,6 +376,10 @@ class LDPlayerClient {
     return this._request('POST', `/instances/${index}/initial-root`, { timeoutMs: 120000 });
   }
 
+  enableRootDebug(index) {
+    return this._request('POST', `/instances/${index}/root-debug`, { timeoutMs: 120000 });
+  }
+
   makeReady(index) {
     return this._request('POST', `/instances/${index}/ready`, { timeoutMs: 60000 });
   }

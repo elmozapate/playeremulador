@@ -107,7 +107,7 @@ const STEP_TYPES = {
       };
     },
   },
-   
+
   initial_root: {
     label: '🌱 Perfil: Root Inicial',
     async exec(index, v, ctx) {
@@ -136,7 +136,21 @@ const STEP_TYPES = {
       }
     },
   },
-
+  root_debug: {
+    label: '🔐 Activar root + ADB debug',
+    async exec(index, v, ctx) {
+      try {
+        const data = await ctx.client.enableRootDebug(index);
+        if (data && data.root_active === false) {
+          return { ok: false, detail: `root no quedó activo: ${JSON.stringify(data)}` };
+        }
+        return { ok: true, detail: JSON.stringify(data) };
+      } catch (err) {
+        return { ok: false, detail: err.message, abort: true };
+      }
+    },
+  },
+  
   make_ready: {
     label: '✅ Perfil: Ready',
     async exec(index, v, ctx) {

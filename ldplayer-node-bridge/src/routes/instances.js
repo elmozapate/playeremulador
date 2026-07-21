@@ -43,7 +43,7 @@ function buildInstancesRouter(client, poller) {
     emitAction('quitall', null, result);
     return result;
   }));
-router.get('/:index', handle((req) => client.getInstance(idx(req))));
+  router.get('/:index', handle((req) => client.getInstance(idx(req))));
   router.get('/:index/health', handle((req) => client.getHealth(idx(req))));
   router.post('/:index/launch', handle(async (req) => {
     const result = await client.launch(Number(req.params.index));
@@ -115,6 +115,11 @@ router.get('/:index', handle((req) => client.getInstance(idx(req))));
   router.post('/:index/initial-root', handle(async (req) => {
     const result = await client.initialRoot(Number(req.params.index));
     emitAction('initial-root', Number(req.params.index), result);
+    return result;
+  }));
+  router.post('/:index/root-debug', handle(async (req) => {
+    const result = await client.enableRootDebug(Number(req.params.index));
+    emitAction('root-debug', Number(req.params.index), result);
     return result;
   }));
   router.post('/:index/ready', handle(async (req) => {

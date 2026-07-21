@@ -501,6 +501,56 @@ class InstanceService:
         )
         return {"index": index, "cpu": 3, "memory": 3072}
 
+    async def enable_root_debug(self, index: int) -> Dict:
+        """Versión liviana de initial_root: SOLO activa root + ADB debug,
+        sin tocar cpu/memory/resolution. El rootMode vive en el archivo de
+        config estático de LDPlayer, por eso igual requiere reinicio
+        (restart_with_dev_mode hace quit -> edita config -> launch)."""
+        last_error = None
+        for attempt in range(1, 4):
+            try:
+                runtime_state.log(f"[ROOT_DEBUG] [{index}] intento {attempt}/3...")
+                await asyncio.to_thread(LDConsole.restart_with_dev_mode, index)
+                data_store.delete_health(index)
+                ADBController.invalidate_serial(index)
+                await self._wait_for_device_ready_with_kill_retry(index)
+                asyncio.create_task(self._register_window_safe(index))
+
+                result = {"index": index, "root_requested": True}
+                try:
+                    await asyncio.to_thread(ADBController.enable_adb_debugging, index)
+                    result["adb_debugging"] = True
+                except Exception as e:
+                    result["adb_debugging"] = False
+                    result["adb_debugging_error"] = str(e)
+
+                try:
+                    result["root_active"] = await asyncio.to_thread(ADBController.ensure_root, index)
+                except Exception as e:
+                    result["root_active"] = False
+                    result["root_error"] = str(e)
+
+                await notify_root_status(index, bool(result.get("root_active")))
+                await asyncio.to_thread(
+                    instance_record_store.add_event, index, "profile",
+                    "Perfil aplicado: root+debug (sin cambiar cpu/mem/resolution)",
+                )
+                await asyncio.to_thread(
+                    instance_record_store.record_profile, index,
+                    {"root": result.get("root_active"), "adb_debug": 2 if result.get("adb_debugging") else None},
+                )
+                runtime_state.log(f"[ROOT_DEBUG] [{index}] finalizado correctamente.")
+                return result
+            except Exception as e:
+                last_error = e
+                runtime_state.log(f"[ROOT_DEBUG] [{index}] ERROR intento {attempt}/3: {e}")
+                if attempt < 3:
+                    await asyncio.sleep(15)
+        runtime_state.log(f"[ROOT_DEBUG] [{index}] falló definitivamente tras 3 intentos.\n{last_error}")
+        raise last_error   
+
+        
+
 
 # Instancia única (singleton)
 instance_service = InstanceService()

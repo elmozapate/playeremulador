@@ -41,7 +41,7 @@ const config = {
     intervalMs: parseInt(process.env.STATUS_POLL_INTERVAL_MS || '3000', 10),
   },
   healthCheck: {
-    enabled: bool(process.env.HEALTH_CHECK_ENABLED, true),
+    enabled: bool(process.env.HEALTH_CHECK_ENABLED, false),
     // 10 minutos por defecto
     enabled: bool(process.env.HEALTH_CHECK_ENABLED, true),
     intervalMs: parseInt(process.env.HEALTH_CHECK_INTERVAL_MS || '120000', 10),

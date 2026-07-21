@@ -156,8 +156,17 @@ class HealthScheduler {
       }
       console.warn(`[health] instancia ${index}: chequeo falló (status=${result.status}) -> ejecutando recuperación`);
       const recovery = await this._runJobAndWait('health_recovery', {}, index);
-      console.log(`[health] instancia ${index}: recuperación finalizada con estado=${recovery.status}`);
-      this._lastResult = { ok: recovery.status === 'done', index, reason: 'recuperacion', status: recovery.status };
+      if (recovery.status === 'done') {
+        console.log(`[health] instancia ${index}: recuperación finalizada con estado=${recovery.status}`);
+        this._lastResult = { ok: true, index, reason: 'recuperacion', status: recovery.status };
+        return;
+      }
+      // NUEVO: la recuperación suave tampoco funcionó -> escalón duro
+      // (root_debug + reapertura de apps, sin kill de ninguna app).
+      console.warn(`[health] instancia ${index}: recuperación suave falló (status=${recovery.status}) -> ejecutando recuperación dura`);
+      const hard = await this._runJobAndWait('hard_health_recovery', {}, index);
+      console.log(`[health] instancia ${index}: recuperación dura finalizada con estado=${hard.status}`);
+      this._lastResult = { ok: hard.status === 'done', index, reason: 'recuperacion-dura', status: hard.status };
     } catch (err) {
       console.error(`[health] error en el chequeo del turno: ${err.message}`);
       this._lastResult = { ok: false, index, reason: 'error', error: err.message };

@@ -907,6 +907,8 @@
         <button onclick="loadPreset('setup_root_adb')">Preset: Root Inicial + ADB</button>
         <button onclick="loadPreset('setup_apps')">Preset: Setup Apps (instalación)</button>
         <button onclick="loadPreset('health_check')">🏥 Health Check</button>
+        <button onclick="loadPreset('health_recovery')">🩹 Health Recovery</button>
+        <button onclick="loadPreset('hard_health_recovery')">🔧 Hard Health Recovery</button>
         <button onclick="loadPresetRegistroHealth()">Preset: Registro Health (nombre + server)</button>
         <button onclick="exportPipeline()">⬇ Exportar JSON</button>
         <label class="small"
@@ -3356,7 +3358,7 @@
       currentPipeline.steps.forEach((step, i) => {
         list.appendChild(buildStepCard(step, i));
       });
-      pipelineVariableNames = currentPipeline?.variables?.length
+      pipelineVariableNames = currentPipeline.variables.length
         ? Object.keys(currentPipeline.variables[0])
         : [];
 
@@ -3541,7 +3543,7 @@
     // como "el pipeline se duplica"). Ahora todas las ramas comparten el
     // mismo bloque final, sin repetir nada adentro del if.
     // ------------------------------------------------------------------
-    function loadPreset(name) {
+   function loadPreset(name) {
       const socks = KNOWN_APPS.find((a) => a.id === 'socks');
       const earn = KNOWN_APPS.find((a) => a.id === 'earn');
       const monitor = KNOWN_APPS.find((a) => a.id === 'monitor');
@@ -3649,14 +3651,66 @@
             },
           ],
         };
+      } else if (name === 'health_recovery') {
+        // NUEVO: espejo del preset backend 'health_recovery' (presets.js).
+        // Sin kill: las apps quedan siempre abiertas en background.
+        currentPipeline = {
+          name: 'Recuperación de salud (quit + launch + pipeline)',
+          steps: [
+            { type: 'quit', values: {} },
+            { type: 'wait', values: { seconds: 3 } },
+            { type: 'launch', values: { bootTimeoutSec: 90 } },
+            { type: 'run', values: { known_app: monitor?.id || '', package_name: monitor?.package_name || '' } },
+            { type: 'wait', values: { seconds: 5 } },
+            { type: 'run', values: { known_app: socks?.id || '', package_name: socks?.package_name || '' } },
+            { type: 'wait', values: { seconds: 1 } },
+            { type: 'tool', values: { tool_action: 'input_tap', x: 419, y: 73 } },
+            { type: 'wait', values: { seconds: 1 } },
+            { type: 'run', values: { known_app: earn?.id || '', package_name: earn?.package_name || '' } },
+            { type: 'wait', values: { seconds: 1 } },
+            {
+              type: 'verify',
+              values: {
+                tool_action: 'apps_current',
+                expect_path: 'package_name',
+                expect_value: earn?.package_name || '',
+              },
+            },
+          ],
+        };
+      } else if (name === 'hard_health_recovery') {
+        // NUEVO: espejo del preset backend 'hard_health_recovery'
+        // (presets.js). Usa root_debug (quit -> root+debug -> launch)
+        // en vez de quit+launch simple. Tampoco mata ninguna app.
+        currentPipeline = {
+          name: 'Recuperación dura (root+debug + pipeline)',
+          steps: [
+            { type: 'root_debug', values: {} },
+            { type: 'run', values: { known_app: monitor?.id || '', package_name: monitor?.package_name || '' } },
+            { type: 'wait', values: { seconds: 5 } },
+            { type: 'run', values: { known_app: socks?.id || '', package_name: socks?.package_name || '' } },
+            { type: 'wait', values: { seconds: 1 } },
+            { type: 'tool', values: { tool_action: 'input_tap', x: 419, y: 73 } },
+            { type: 'wait', values: { seconds: 1 } },
+            { type: 'run', values: { known_app: earn?.id || '', package_name: earn?.package_name || '' } },
+            { type: 'wait', values: { seconds: 1 } },
+            {
+              type: 'verify',
+              values: {
+                tool_action: 'apps_current',
+                expect_path: 'package_name',
+                expect_value: earn?.package_name || '',
+              },
+            },
+          ],
+        };
       } else {
         return;
       }
       renderPipelineBuilder();
       toast(`Preset "${currentPipeline.name}" cargado`, 'ok');
       log(`[pipeline] preset "${name}" cargado`, 'ok');
-    }
-    // ==================================================================
+    } // ==================================================================
     // Preset "Registro Health"
     // ==================================================================
     async function loadPresetRegistroHealth() {

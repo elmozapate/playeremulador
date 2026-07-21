@@ -79,6 +79,14 @@ const PRESETS = {
       ],
     };
   },
+  // ------------------------------------------------------------------
+  // IMPORTANTE: ninguno de los 3 presets de abajo (health_check,
+  // health_recovery, hard_health_recovery) usa steps de tipo 'kill'.
+  // Las apps (monitor, socks, earn) deben quedar SIEMPRE abiertas en
+  // background — 'run' solo cambia cuál está en primer plano, nunca
+  // cierra las demás. Si en algún momento hace falta un kill acá, es
+  // un cambio de política deliberado, no un olvido.
+  // ------------------------------------------------------------------
   // en services/pipelines/presets.js, dentro del objeto PRESETS:
 
   health_check: () => ({
@@ -116,13 +124,11 @@ const PRESETS = {
       { type: 'launch', values: { bootTimeoutSec: 90 } },
       { type: 'run', values: { package_name: KNOWN_APPS.monitor.package_name } },
       { type: 'wait', values: { seconds: 1 } },
-      { type: 'kill', values: { package_name: KNOWN_APPS.monitor.package_name } },
       { type: 'wait', values: { seconds: 5 } },
       { type: 'run', values: { package_name: KNOWN_APPS.socks.package_name } },
       { type: 'wait', values: { seconds: 1 } },
       { type: 'tool', values: { tool_action: 'input_tap', x: 419, y: 73 } },
       { type: 'wait', values: { seconds: 1 } },
-      { type: 'kill', values: { package_name: KNOWN_APPS.socks.package_name } },
       { type: 'wait', values: { seconds: 1 } },
       { type: 'run', values: { package_name: KNOWN_APPS.earn.package_name } },
       { type: 'wait', values: { seconds: 1 } },
@@ -138,6 +144,34 @@ const PRESETS = {
       },
     ],
   }),
+
+  // NUEVO: último escalón, más agresivo — reactiva root + ADB debug
+  // (por si se perdieron) usando el step 'root_debug' (internamente
+  // hace quit -> reescribe config de root/debug -> launch), y después
+  // corre la misma secuencia de apps que health_recovery. Sin kill.
+  hard_health_recovery: () => ({
+    name: 'Recuperación dura (root+debug + pipeline)',
+    steps: [
+      { type: 'root_debug', values: {} },
+      { type: 'run', values: { package_name: KNOWN_APPS.monitor.package_name } },
+      { type: 'wait', values: { seconds: 5 } },
+      { type: 'run', values: { package_name: KNOWN_APPS.socks.package_name } },
+      { type: 'wait', values: { seconds: 1 } },
+      { type: 'tool', values: { tool_action: 'input_tap', x: 419, y: 73 } },
+      { type: 'wait', values: { seconds: 1 } },
+      { type: 'run', values: { package_name: KNOWN_APPS.earn.package_name } },
+      { type: 'wait', values: { seconds: 1 } },
+      {
+        type: 'verify',
+        values: {
+          tool_action: 'apps_current',
+          expect_path: 'package_name',
+          expect_value: KNOWN_APPS.earn.package_name,
+        },
+      },
+    ],
+  }),
+
   setup_completo: () => ({
     name: 'Setup completo (Root + Apps)',
     steps: [
@@ -220,6 +254,7 @@ const PRESETS = {
     ],
   }),
 };
+
 function listPresets() {
   return Object.keys(PRESETS).map((id) => ({ id, name: PRESETS[id]().name }));
 }
