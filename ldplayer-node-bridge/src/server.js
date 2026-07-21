@@ -3,7 +3,7 @@
 const express = require('express');
 const cors = require('cors');
 const config = require('./config.js');
-const { WindowService } = require('./services/windowService');
+const WindowService = require('./services/windowService');
 
 const { LDPlayerClient } = require('./services/ldplayerClient.js');
 const StatusPoller = require('./services/statusPoller.js');
@@ -34,8 +34,7 @@ const corsOptions = {
 function createServer({ manager } = {}) {
   const client = new LDPlayerClient();
   const poller = new StatusPoller(client);
-  const windowService = new WindowService(client);   // ← nuevo
-
+  const windowService = require('./services/windowService').init(client);
   const app = express();
 
   app.use(cors(corsOptions));
