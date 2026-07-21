@@ -3,7 +3,7 @@
 const express = require('express');
 const cors = require('cors');
 const config = require('./config.js');
-const WindowService = require('./services/windowService');
+const { WindowService } = require('./services/windowService');
 
 const { LDPlayerClient } = require('./services/ldplayerClient.js');
 const StatusPoller = require('./services/statusPoller.js');
