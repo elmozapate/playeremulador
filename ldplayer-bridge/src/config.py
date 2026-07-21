@@ -13,7 +13,9 @@ class Settings:
     MONITOR_INTERVAL: float = float(
         os.getenv("PY_MONITOR_INTERVAL", os.getenv("MONITOR_INTERVAL", "5"))
     )
-
+    
+    WINDOW_REGISTER_TIMEOUT_S: float = float(os.getenv("PY_WINDOW_REGISTER_TIMEOUT_S", "30"))
+    WINDOW_REGISTER_POLL_S: float = float(os.getenv("PY_WINDOW_REGISTER_POLL_S", "0.5"))
     # Antes en 10s -> el monitor pegaba a ADB casi sin parar con muchas
     # instancias. Default ahora 60s (1 min); configurable por env y
     # también en caliente vía POST /api/v1/debug/health-ttl.
@@ -28,7 +30,12 @@ class Settings:
     DEBUG_LOG: bool = os.getenv("PY_DEBUG_LOG", "0") == "1"
 
     ADB_BASE_PORT: int = int(os.getenv("ADB_BASE_PORT", "5555"))
-
+    # Perfil aplicado por POST /instances/{index}/initial-root (setup con
+    # ROOT + ADB debug). Bajado al mínimo (era 4 cpu / 8192 MB) tras
+    # detectar stalls de VirtualBox ("uCountStall < 100") al lanzar varias
+    # instancias en simultáneo. Subilo por env si el host tiene margen.
+    INITIAL_ROOT_CPU: int = int(os.getenv("PY_INITIAL_ROOT_CPU", "2"))
+    INITIAL_ROOT_MEMORY: int = int(os.getenv("PY_INITIAL_ROOT_MEMORY", "2048"))
     # Carpeta compartida en disco donde se persisten status/health/logs y
     # la config runtime. Por default es una carpeta hermana de este
     # proyecto y del bridge Node, junto a /apks, ej:

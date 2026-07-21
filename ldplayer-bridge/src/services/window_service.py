@@ -26,9 +26,10 @@ from core.ldplayer import LDConsole
 from core.runtime_state import runtime_state
 from services.instance_record_store import instance_record_store
 from services.ws_bridge import notify_window_event
+from config import settings
 
-REGISTER_TIMEOUT_S = 20.0   # cuánto esperar a que aparezca la ventana tras un launch
-REGISTER_POLL_S = 0.5
+REGISTER_TIMEOUT_S = settings.WINDOW_REGISTER_TIMEOUT_S
+REGISTER_POLL_S = settings.WINDOW_REGISTER_POLL_S
 POLL_INTERVAL_S = 3.0       # intervalo del poller de estado de ventanas
 
 
@@ -39,7 +40,7 @@ class WindowService:
         self._by_index: Dict[int, int] = {}             # index -> hwnd
         self._running = False
         self._task: Optional[asyncio.Task] = None
-
+        self._registering: set = set()
     # ==================================================================
     # Ciclo de vida del poller
     # ==================================================================
@@ -91,55 +92,86 @@ class WindowService:
     # ==================================================================
     # Registro hwnd <-> index
     # ==================================================================
+    async def ensure_registered(self, index: int) -> None:
+        """Llamado desde monitor._refresh() en cada ciclo: si la instancia
+        ya tiene pid/vbox_pid pero todavía no se vinculó ventana (y no hay
+        ya un intento en curso), dispara uno en background. Hace que un
+        fallo puntual del registro post-launch se autocorrija en el próximo
+        ciclo del monitor en vez de quedar roto hasta el siguiente launch
+        manual."""
+        if index in self._by_index or index in self._registering:
+            return
+        self._registering.add(index)
+        async def _attempt():
+            try:
+                await self.register_for_instance(index)
+            finally:
+                self._registering.discard(index)
+        asyncio.create_task(_attempt())
+    
     async def register_for_instance(self, index: int, pid: Optional[int] = None,
-                                     timeout: float = REGISTER_TIMEOUT_S) -> Optional[int]:
-        """
-        Se llama justo después de lanzar una instancia. Busca (con
-        reintento, sin bloquear un worker thread completo por 20s de
-        una sola vez) la ventana principal del proceso de LDPlayer
-        asociado a `index` y la registra.
-        """
-        if pid is None:
-            pid = await asyncio.to_thread(self._resolve_pid, index)
-        if not pid:
-            runtime_state.log_always(f"[window] index={index}: no se encontró pid para vincular ventana")
-            return None
-
-        hwnd = None
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            candidates = await asyncio.to_thread(wm.find_windows_by_pid, pid)
-            if candidates:
-                candidates.sort(key=wm.window_area, reverse=True)
-                hwnd = candidates[0]
-                break
-            await asyncio.sleep(REGISTER_POLL_S)
-
-        if hwnd is None:
-            runtime_state.log_always(
-                f"[window] index={index} pid={pid}: no apareció ventana tras {timeout}s"
+                                 timeout: float = REGISTER_TIMEOUT_S) -> Optional[int]:
+        if index in self._registering:
+            runtime_state.log(f"[window] index={index}: registro ya en curso, se omite duplicado")
+            return self._by_index.get(index)
+        self._registering.add(index)
+        try:
+            deadline = time.time() + timeout
+            hwnd = None
+            resolved_pid = pid
+            while time.time() < deadline:
+                candidate_pids = [resolved_pid] if resolved_pid else await asyncio.to_thread(self._resolve_pids, index)
+                for cand in candidate_pids:
+                    candidates = await asyncio.to_thread(wm.find_windows_by_pid, cand)
+                    if candidates:
+                        candidates.sort(key=wm.window_area, reverse=True)
+                        hwnd = candidates[0]
+                        resolved_pid = cand
+                        break
+                if hwnd is not None:
+                    break
+                await asyncio.sleep(REGISTER_POLL_S)
+            if hwnd is None:
+                runtime_state.log_always(
+                    f"[window] index={index}: no apareció ventana tras {timeout}s (pid={resolved_pid})"
+                )
+                return None
+            info = await asyncio.to_thread(wm.get_window_info, hwnd)
+            async with self._lock:
+                old_hwnd = self._by_index.get(index)
+                if old_hwnd is not None:
+                    self._by_hwnd.pop(old_hwnd, None)
+                self._by_hwnd[hwnd] = {
+                    "index": index, "pid": resolved_pid,
+                    "title": info["title"], "state": info["state"],
+                    "registered_at": time.time(),
+                }
+                self._by_index[index] = hwnd
+            await asyncio.to_thread(
+                instance_record_store.add_event, index, "window", f"Ventana vinculada hwnd={hwnd} pid={resolved_pid}",
             )
-            return None
-
-        info = await asyncio.to_thread(wm.get_window_info, hwnd)
-        async with self._lock:
-            old_hwnd = self._by_index.get(index)
-            if old_hwnd is not None:
-                self._by_hwnd.pop(old_hwnd, None)
-            self._by_hwnd[hwnd] = {
-                "index": index, "pid": pid,
-                "title": info["title"], "state": info["state"],
-                "registered_at": time.time(),
-            }
-            self._by_index[index] = hwnd
-
-        await asyncio.to_thread(
-            instance_record_store.add_event, index, "window", f"Ventana vinculada hwnd={hwnd} pid={pid}",
-        )
-        await notify_window_event(hwnd, "window_created", {"instance_index": index, "pid": pid})
-        runtime_state.log_always(f"[window] index={index} -> hwnd={hwnd} pid={pid} vinculado")
-        return hwnd
-
+            await notify_window_event(hwnd, "window_created", {"instance_index": index, "pid": resolved_pid})
+            runtime_state.log_always(f"[window] index={index} -> hwnd={hwnd} pid={resolved_pid} vinculado")
+            return hwnd
+        finally:
+            self._registering.discard(index)
+        
+    @staticmethod
+    def _resolve_pids(index: int) -> List[int]:
+        """Devuelve pid y vbox_pid (los que existan, sin duplicados) como
+        candidatos a dueño de la ventana top-level."""
+        instances = LDConsole.list_instances()
+        info = next((i for i in instances if i["index"] == index), None)
+        if not info:
+            return []
+        seen = set()
+        ordered = []
+        for p in (info.get("pid"), info.get("vbox_pid")):
+            if p and p not in seen:
+                seen.add(p)
+                ordered.append(p)
+        return ordered
+ 
     @staticmethod
     def _resolve_pid(index: int) -> Optional[int]:
         instances = LDConsole.list_instances()

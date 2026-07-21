@@ -97,6 +97,8 @@ class InstanceMonitor:
         for inst in instances:
             idx = inst["index"]
             key = str(idx)
+            if inst.get("pid") or inst.get("vbox_pid"):
+                await window_service.ensure_registered(idx)
             if inst.get("android_started"):
                 # use_cache=True: solo pega a ADB si el health en disco venció
                 health = await instance_service.get_health(idx, use_cache=True)
