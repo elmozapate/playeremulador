@@ -5,12 +5,14 @@ const jobStore = require('./pipelines/jobStore');
 const { runJob } = require('./pipelines/jobRunner');
 const { buildPreset } = require('./pipelines/presets');
 const instanceModelStore = require('./instanceModelStore');
+const healthMonitorConfigStore = require('./healthMonitorConfigStore');
 
 class HealthScheduler {
   constructor(client, poller, opts = {}) {
     this.client = client;
     this.poller = poller;
     this.opts = { ...config.healthCheck, ...opts };
+    this.excludedIndices = new Set(healthMonitorConfigStore.read().excluded);
     this._timer = null;
     this._running = false;
     this._queue = [];
@@ -89,13 +91,9 @@ class HealthScheduler {
     }
   }
 
-  _syncQueue(indices) {
-    const sorted = [...indices].sort((a, b) => a - b);
-    this._queue = this._queue.filter((i) => sorted.includes(i));
-    for (const i of sorted) {
-      if (!this._queue.includes(i)) this._queue.push(i);
-    }
-  }
+  _syncQueue(indices) {const sorted = [...indices].filter((i)=>!this.excludedIndices.has(i)).sort((a,b)=>a - b);
+  this._queue = this._queue.filter((i)=>sorted.includes(i));
+  for (const i of sorted) {if (!this._queue.includes(i)) this._queue.push(i);}}
 
   _nextIndex() {
     if (this._queue.length === 0) return null;
@@ -132,11 +130,12 @@ class HealthScheduler {
       if (index === null) return;
       this._currentIndex = index;
       const { action } = instanceModelStore.decideHealthAction(index);
-      if (action === 'skip-never-started' || action === 'skip-expected-off' || action === 'skip-unknown') {
+     if (action==='skip-never-started'||action==='skip-expected-off'||action==='skip-unknown'||action==='skip-deprecated') {
         console.log(`[health] instancia ${index}: ${action}, se salta este turno`);
         this._lastResult = { ok: true, index, skipped: true, reason: action };
         return;
       }
+      
       if (action === 'relaunch') {
         console.log(`[health] instancia ${index}: se apagó sin orden -> relanzando antes de chequear`);
         try {
@@ -174,6 +173,24 @@ class HealthScheduler {
       this._currentIndex = null;
       this._scheduleNext();
     }
+  }
+  getExcluded() { return Array.from(this.excludedIndices).sort((a, b) => a - b); }
+  setExcluded(indices) {
+    this.excludedIndices = new Set((indices || []).map(Number));
+    healthMonitorConfigStore.write({ excluded: this.getExcluded() });
+    return this.getExcluded();
+  }
+  excludeIndex(index) {
+    const n = Number(index);
+    this.excludedIndices.add(n);
+    healthMonitorConfigStore.write({ excluded: this.getExcluded() });
+    this._queue = this._queue.filter((i) => i !== n);
+    return this.getExcluded();
+  }
+  includeIndex(index) {
+    this.excludedIndices.delete(Number(index));
+    healthMonitorConfigStore.write({ excluded: this.getExcluded() });
+    return this.getExcluded();
   }
 }
 
