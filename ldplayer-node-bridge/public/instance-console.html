@@ -829,7 +829,12 @@
       <div class="assisted-head">
         <span class="assisted-title">🧭 modo asistido de inicio</span>
         <div class="assisted-controls">
+          <div class="field">
+            <label for="assistedServerIpInput">ip server</label>
+            <input id="assistedServerIpInput" type="text" placeholder="opcional" spellcheck="false" style="width:140px" />
+          </div>
           <button class="btn small primary" id="assistedStartBtn">▶ iniciar</button>
+          <button class="btn small warn-btn" id="assistedSkipBtn" disabled>⏭ deprecar y seguir</button>
           <button class="btn small danger-btn" id="assistedStopBtn" disabled>■ detener</button>
         </div>
       </div>

@@ -48,6 +48,9 @@ class WindowService:
         self._running = False
         self._task: Optional[asyncio.Task] = None
         self._registering: set = set()
+        # index -> {hwnd: title} de diálogos (#32770) detectados en el
+        # último ciclo, para diffear y solo notificar cuando cambia algo.
+        self._known_dialogs: Dict[int, Dict[int, str]] = {}
     # ==================================================================
     # Ciclo de vida del poller
     # ==================================================================
@@ -70,9 +73,47 @@ class WindowService:
         while self._running:
             try:
                 await self._refresh()
+                await self._refresh_dialogs()
             except Exception as e:  # noqa: BLE001 - no tumbar el loop
                 runtime_state.log_always(f"[window] error en poll: {e}")
             await asyncio.sleep(POLL_INTERVAL_S)
+
+    async def _refresh_dialogs(self) -> None:
+        """Escanea diálogos (#32770) para cada instancia con ventana
+        registrada y notifica solo lo que cambió (aparece/desaparece)."""
+        async with self._lock:
+            items = [(entry["index"], entry.get("pid")) for entry in self._by_hwnd.values()]
+        for index, pid in items:
+            if not pid:
+                continue
+            try:
+                dialogs = await asyncio.to_thread(wm.find_dialogs_by_pid, pid)
+            except wm.WindowManagerError:
+                continue
+            current = {d["hwnd"]: d["title"] for d in dialogs}
+            previous = self._known_dialogs.get(index, {})
+            new_ones = {h: t for h, t in current.items() if h not in previous}
+            closed_ones = {h: t for h, t in previous.items() if h not in current}
+            for hwnd, title in new_ones.items():
+                runtime_state.log_always(f"[window] index={index}: diálogo detectado hwnd={hwnd} titulo={title!r}")
+                await notify_dialog_event(index, hwnd, title, "dialog_opened")
+            for hwnd, title in closed_ones.items():
+                await notify_dialog_event(index, hwnd, title, "dialog_closed")
+            if current:
+                self._known_dialogs[index] = current
+            else:
+                self._known_dialogs.pop(index, None)
+
+    async def check_dialogs(self, index: int) -> List[Dict[str, Any]]:
+        """Consulta bajo demanda (sin esperar al próximo ciclo del poller)."""
+        pids = await asyncio.to_thread(self._resolve_pids, index)
+        results: List[Dict[str, Any]] = []
+        for pid in pids:
+            try:
+                results.extend(await asyncio.to_thread(wm.find_dialogs_by_pid, pid))
+            except wm.WindowManagerError:
+                continue
+        return results
 
     async def _refresh(self) -> None:
         async with self._lock:

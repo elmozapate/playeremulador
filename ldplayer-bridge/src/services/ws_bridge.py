@@ -130,6 +130,11 @@ async def notify_window_event(hwnd: int, event: str, detail: Optional[Dict[str, 
     """event: 'window_created' | 'window_closed' | 'window_state_changed'"""
     await bridge.broadcast("window-event", {"hwnd": hwnd, "event": event, **(detail or {})})
 
+async def notify_dialog_event(index: int, hwnd: int, title: str, event: str) -> None:
+    """event: 'dialog_opened' | 'dialog_closed'. Mismo canal que window-event
+    para que el front no necesite un listener nuevo."""
+    await bridge.broadcast("window-event", {"hwnd": hwnd, "event": event, "instance_index": index, "title": title})
+
 async def notify_touch_discarded(index: int, discarded_count: int) -> None:
     """Avisa a Node que una captura de touch fue cancelada y sus gestos
     descartados. Reusa el mismo canal 'instance-event' que ya usa
