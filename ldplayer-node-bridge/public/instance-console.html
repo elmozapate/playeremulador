@@ -829,7 +829,13 @@
       <div class="assisted-head">
         <span class="assisted-title">🧭 modo asistido de inicio</span>
         <div class="assisted-controls">
+          <div class="field">
+            <label for="assistedServerIpInput">ip server</label>
+            <input id="assistedServerIpInput" type="text" placeholder="opcional" spellcheck="false"
+              style="width:140px" />
+          </div>
           <button class="btn small primary" id="assistedStartBtn">▶ iniciar</button>
+          <button class="btn small warn-btn" id="assistedSkipBtn" disabled>⏭ deprecar y seguir</button>
           <button class="btn small danger-btn" id="assistedStopBtn" disabled>■ detener</button>
         </div>
       </div>
@@ -1412,7 +1418,8 @@
     <button class="btn small" data-winact="interact" data-index="${esc(m.index)}" ${hwnd ? '' : 'disabled'} title="traer al frente y maximizar">👁</button>
     <span class="win-sep"></span>
     <button class="btn small danger-btn" data-action="delete" data-index="${esc(m.index)}" ${isDeprecated ? '' : 'disabled'} title="${isDeprecated ? 'eliminar instancia' : 'solo se puede eliminar si está deprecated'}">🗑</button>
-  </td>
+    <span class="win-sep"></span>
+    <button class="btn small primary" data-pipeline="mi_pipeline" data-index="${esc(m.index)}" title="ejecutar: launch → minimizar → monitor → socks → earn">🚀</button>  </td>
   <td><button class="btn small" data-info="${esc(m.index)}">info</button></td>
 </tr>
 `;
@@ -1505,6 +1512,101 @@
           toast(`no se pudo purgar: ${err.message}`, 'bad');
         }
       });
+      // -------------------- pipeline manual (sin backend, directo por fetch) --------------------
+      const PIPELINE_EARN_PACKAGE = 'com.brd.earnrewards'; // <-- completar con el package_name real
+
+      async function pipelineWaitWindow(index, timeoutMs = 30000) {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+          const win = await fetchWindowInfo(index);
+          if (win && win.hwnd) return win;
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        return null;
+      }
+
+      async function pipelineRunApp(index, packageName) {
+        const res = await fetch(`${baseUrl}/api/instances/${index}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ package_name: packageName }),
+        });
+        if (!res.ok) throw new Error(`run ${packageName} -> HTTP ${res.status}`);
+      }
+
+      async function pipelineInputText(index, text) {
+        const res = await fetch(`${baseUrl}/api/instances/${index}/input/text`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+        if (!res.ok) throw new Error(`input_text -> HTTP ${res.status}`);
+      }
+
+      async function pipelineInputTap(index, x, y) {
+        const res = await fetch(`${baseUrl}/api/instances/${index}/input/tap`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x, y }),
+        });
+        if (!res.ok) throw new Error(`input_tap -> HTTP ${res.status}`);
+      }
+
+      function pipelineWait(seconds) {
+        return new Promise((r) => setTimeout(r, seconds * 1000));
+      }
+
+      async function runMyPipeline(index, btn) {
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        try {
+          // 1) launch
+          btn.textContent = '▶';
+          const launchRes = await fetch(`${baseUrl}/api/instances/${index}/launch`, { method: 'POST' });
+          if (!launchRes.ok) throw new Error(`launch -> HTTP ${launchRes.status}`);
+
+          // 2) esperar ventana y minimizar
+          btn.textContent = '–';
+          const win = await pipelineWaitWindow(index, 90000);
+          if (!win || !win.hwnd) throw new Error('la ventana no apareció a tiempo (90s)');
+          const minRes = await fetch(`${pyBaseUrl}/windows/${win.hwnd}/minimize`, { method: 'POST', headers: pyHeaders() });
+          if (!minRes.ok) throw new Error(`minimize -> HTTP ${minRes.status}`);
+
+          // 3) monitor
+          btn.textContent = '①';
+          await pipelineRunApp(index, 'com.chataolutions.app');
+          await pipelineWait(5);
+
+          // 4) input_text "R"
+          btn.textContent = '②';
+          await pipelineInputText(index, 'R');
+          await pipelineWait(5);
+
+          // 5) socks
+          btn.textContent = '③';
+          await pipelineRunApp(index, 'net.typeblog.socks');
+          await pipelineWait(5);
+
+          // 6) tap 311,80
+          btn.textContent = '④';
+          await pipelineInputTap(index, 311, 80);
+          await pipelineWait(5);
+
+          // 7) earn
+          btn.textContent = '⑤';
+          await pipelineRunApp(index, PIPELINE_EARN_PACKAGE);
+          await pipelineWait(5);
+
+          toast(`#${index}: pipeline completado`, 'ok');
+        } catch (err) {
+          toast(`#${index}: pipeline falló en "${btn.textContent}" — ${err.message}`, 'bad');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = original;
+        }
+      }
+
+      // -------------------- instance actions --------------------
       // -------------------- instance actions --------------------
       async function runInstanceAction(action, index, btn) {
         if (action === 'delete') {
