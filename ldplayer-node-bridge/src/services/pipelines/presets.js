@@ -112,35 +112,12 @@ const PRESETS = {
           // sin on_mismatch:'abort' a propósito: es el último paso,
           // queremos que quede registrado ok:false si falló, sin cortar el job
         },
-      },
-      { type: 'window_minimize', values: {} },   // <-- NUEVO
+      }, 
+       {type:'window_minimize',values:{}},   // <-- NUEVO
 
     ],
   }),
-  close_restart_health: () => ({
-    name: 'Close+Restart de ventana + chequeo de salud',
-    steps: [
-      { type: 'window_hard_reset', values: {} },          // mata proceso host, re-vincula ventana
-      { type: 'wait', values: { seconds: 5 } },
-      { type: 'run', values: { package_name: KNOWN_APPS.monitor.package_name } },
-      { type: 'wait', values: { seconds: 1 } },
-      { type: 'run', values: { package_name: KNOWN_APPS.socks.package_name } },
-      { type: 'wait', values: { seconds: 1 } },
-      { type: 'tool', values: { tool_action: 'input_tap', x: 311, y: 80 } },
-      { type: 'wait', values: { seconds: 4 } },
-      { type: 'run', values: { package_name: KNOWN_APPS.earn.package_name } },
-      { type: 'wait', values: { seconds: 1 } },
-      {
-        type: 'verify',
-        values: {
-          tool_action: 'apps_current',
-          expect_path: 'package_name',
-          expect_value: KNOWN_APPS.earn.package_name,
-        },
-      },
-      { type: 'window_minimize', values: {} },
-    ],
-  }),
+
   health_recovery: () => ({
     name: 'Recuperación de salud (quit + launch + pipeline)',
     steps: [
@@ -165,8 +142,8 @@ const PRESETS = {
           // sin on_mismatch:'abort' a propósito: es el último paso,
           // queremos que quede registrado ok:false si falló, sin cortar el job
         },
-      },
-      { type: 'window_minimize', values: {} },   // <-- NUEVO
+      }, 
+       {type:'window_minimize',values:{}},   // <-- NUEVO
 
     ],
   }),
@@ -175,25 +152,23 @@ const PRESETS = {
   // (por si se perdieron) usando el step 'root_debug' (internamente
   // hace quit -> reescribe config de root/debug -> launch), y después
   // corre la misma secuencia de apps que health_recovery. Sin kill.
-  // presets.js
-  hard_health_recovery: () => ({
-    name: 'Recuperación dura (root+debug + pipeline)', steps: [
-      { type: 'window_close', values: {} },                // intento amable: WM_CLOSE
-      { type: 'wait', values: { seconds: 2 } },
-      { type: 'window_hard_reset', values: {} },            // garantía: mata el proceso si "close" no alcanzó
-      { type: 'root_debug', values: {} },
-      { type: 'run', values: { package_name: KNOWN_APPS.monitor.package_name } },
-      { type: 'wait', values: { seconds: 5 } },
-      { type: 'run', values: { package_name: KNOWN_APPS.socks.package_name } },
-      { type: 'wait', values: { seconds: 1 } },
-      { type: 'tool', values: { tool_action: 'input_tap', x: 311, y: 80 } },
-      { type: 'wait', values: { seconds: 4 } },
-      { type: 'run', values: { package_name: KNOWN_APPS.earn.package_name } },
-      { type: 'wait', values: { seconds: 1 } },
-      { type: 'verify', values: { tool_action: 'apps_current', expect_path: 'package_name', expect_value: KNOWN_APPS.earn.package_name } },
-      { type: 'window_minimize', values: {} },
-    ],
-  }),
+ // presets.js
+hard_health_recovery:()=>({name:'Recuperación dura (root+debug + pipeline)',steps:[
+  {type:'window_close',values:{}},                // intento amable: WM_CLOSE
+  {type:'wait',values:{seconds:2}},
+  {type:'window_hard_reset',values:{}},            // garantía: mata el proceso si "close" no alcanzó
+  {type:'root_debug',values:{}},
+  {type:'run',values:{package_name:KNOWN_APPS.monitor.package_name}},
+  {type:'wait',values:{seconds:5}},
+  {type:'run',values:{package_name:KNOWN_APPS.socks.package_name}},
+  {type:'wait',values:{seconds:1}},
+  {type:'tool',values:{tool_action:'input_tap',x:311,y:80}},
+  {type:'wait',values:{seconds:4}},
+  {type:'run',values:{package_name:KNOWN_APPS.earn.package_name}},
+  {type:'wait',values:{seconds:1}},
+  {type:'verify',values:{tool_action:'apps_current',expect_path:'package_name',expect_value:KNOWN_APPS.earn.package_name}},
+  {type:'window_minimize',values:{}},
+],}),
   setup_completo: () => ({
     name: 'Setup completo (Root + Apps)',
     steps: [

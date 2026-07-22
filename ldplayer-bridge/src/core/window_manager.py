@@ -90,8 +90,6 @@ if _IS_WINDOWS:
     user32.SetWindowPos.restype = wintypes.BOOL
     user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
     user32.PostMessageW.restype = wintypes.BOOL
-    user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
-    user32.GetClassNameW.restype = ctypes.c_int
     kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     kernel32.OpenProcess.restype = wintypes.HANDLE
     kernel32.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
@@ -189,35 +187,7 @@ def get_window_state(hwnd: int) -> str:
     return _STATE_NAMES.get(placement.showCmd, "normal")
 
 
-DIALOG_CLASS = "#32770"  # clase estándar de dialog box de Windows (MessageBox, dialogs de error, etc.)
-
-def get_window_class(hwnd: int) -> str:
-    _check_windows()
-    buf = ctypes.create_unicode_buffer(256)
-    user32.GetClassNameW(wintypes.HWND(hwnd), buf, 256)
-    return buf.value
-
-def find_dialogs_by_pid(pid: int) -> List[Dict]:
-    """
-    A diferencia de find_windows_by_pid, NO filtra por GW_OWNER==0 (los
-    diálogos son casi siempre ventanas 'owned' por la ventana principal),
-    y filtra por clase #32770. Devuelve info básica en vez de solo hwnd
-    porque el caller normalmente quiere el título del error de una.
-    """
-    _check_windows()
-    matches: List[Dict] = []
-    for hwnd in enum_windows():
-        if get_window_pid(hwnd) != pid:
-            continue
-        if not is_window_visible(hwnd):
-            continue
-        try:
-            if get_window_class(hwnd) != DIALOG_CLASS:
-                continue
-        except Exception:
-            continue
-        matches.append({"hwnd": hwnd, "title": get_window_title(hwnd)})
-    return matches
+def find_windows_by_pid(pid: int, visible_only: bool = True) -> List[int]:
     """Ventanas de nivel superior (top-level) que pertenecen a `pid`.
     Se filtra por 'sin owner' (GetWindow GW_OWNER == 0), el criterio
     estándar para descartar diálogos/tooltips y quedarse con la ventana

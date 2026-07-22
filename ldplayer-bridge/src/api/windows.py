@@ -24,13 +24,6 @@ async def get_status() -> Dict[str, Any]:
         "work_mode": window_service.work_mode,
         "window_count": len(window_service.list_windows()),
     }
-@router.get("/by-instance/{index}/dialogs")
-async def get_dialogs_for_instance(index: int) -> Dict[str, Any]:
-    """Diálogos (#32770 - error/mensaje) abiertos ahora mismo en el
-    proceso host de esta instancia, sin esperar al próximo ciclo del poller."""
-    dialogs = await window_service.check_dialogs(index)
-    return {"index": index, "dialogs": dialogs, "count": len(dialogs)}
-
 @router.get("/by-instance/{index}")
 async def get_window_by_instance(index: int) -> Dict[str, Any]:
     hwnd = window_service.get_hwnd_for_index(index)
