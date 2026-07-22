@@ -22,9 +22,12 @@
       --mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
-    html, body {
+    html,
+    body {
       margin: 0;
       background: var(--bg);
       color: var(--text);
@@ -33,7 +36,10 @@
       line-height: 1.5;
     }
 
-    ::selection { background: var(--info); color: #06171A; }
+    ::selection {
+      background: var(--info);
+      color: #06171A;
+    }
 
     /* ---------- top bar ---------- */
     header {
@@ -46,16 +52,41 @@
       padding: 14px 20px;
       background: var(--panel);
       border-bottom: 1px solid var(--border);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
       flex-wrap: wrap;
     }
 
-    .brand { display: flex; align-items: baseline; gap: 8px; margin-right: auto; }
-    .brand .mark { color: var(--info); font-weight: 700; letter-spacing: 0.02em; }
-    .brand .sub { color: var(--dim); font-size: 11px; }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-right: auto;
+    }
 
-    .field { display: flex; align-items: center; gap: 6px; }
-    .field label { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .brand .mark {
+      color: var(--info);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .brand .sub {
+      color: var(--dim);
+      font-size: 11px;
+    }
+
+    .field {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .field label {
+      color: var(--dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
     .field input {
       background: var(--panel-alt);
       border: 1px solid var(--border);
@@ -68,7 +99,10 @@
       outline: none;
       transition: border-color .12s ease;
     }
-    .field input:focus { border-color: var(--info); }
+
+    .field input:focus {
+      border-color: var(--info);
+    }
 
     .pill {
       display: inline-flex;
@@ -83,19 +117,55 @@
       background: var(--panel-alt);
       white-space: nowrap;
     }
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dimmer); flex-shrink: 0; }
-    .dot.live { background: var(--live); box-shadow: 0 0 0 0 rgba(52,211,153,0.6); animation: pulse 1.8s infinite; }
-    .dot.off { background: var(--off); }
-    .dot.warn { background: var(--warn); }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--dimmer);
+      flex-shrink: 0;
+    }
+
+    .dot.live {
+      background: var(--live);
+      box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
+      animation: pulse 1.8s infinite;
+    }
+
+    .dot.off {
+      background: var(--off);
+    }
+
+    .dot.warn {
+      background: var(--warn);
+    }
 
     @keyframes pulse {
-      0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.55); }
-      70%  { box-shadow: 0 0 0 6px rgba(52,211,153,0); }
-      100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
-    }
-    @media (prefers-reduced-motion: reduce) { .dot.live, .ac-step[data-state="running"] .dot { animation: none; } }
+      0% {
+        box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55);
+      }
 
-    button { font-family: var(--mono); cursor: pointer; }
+      70% {
+        box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .dot.live,
+      .ac-step[data-state="running"] .dot {
+        animation: none;
+      }
+    }
+
+    button {
+      font-family: var(--mono);
+      cursor: pointer;
+    }
 
     .btn {
       background: var(--panel-alt);
@@ -106,20 +176,64 @@
       font-size: 12px;
       transition: border-color .12s ease, color .12s ease, background .12s ease;
     }
-    .btn:hover { border-color: var(--info); color: var(--info); }
-    .btn:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
-    .btn.small { padding: 4px 9px; font-size: 11px; }
-    .btn:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
-    .btn.warn-btn { border-color: var(--warn); color: var(--warn); }
-    .btn.warn-btn:hover { background: rgba(245, 166, 35, 0.1); }
-    .btn.danger-btn { border-color: var(--off); color: var(--off); }
-    .btn.danger-btn:hover { background: rgba(240, 87, 107, 0.1); }
-    .btn.primary { background: rgba(94,200,216,0.1); border-color: var(--info); color: var(--info); }
-    .btn.primary:hover { background: rgba(94,200,216,0.18); }
-    .btn.ghost { background: transparent; }
+
+    .btn:hover {
+      border-color: var(--info);
+      color: var(--info);
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--info);
+      outline-offset: 2px;
+    }
+
+    .btn.small {
+      padding: 4px 9px;
+      font-size: 11px;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .btn.warn-btn {
+      border-color: var(--warn);
+      color: var(--warn);
+    }
+
+    .btn.warn-btn:hover {
+      background: rgba(245, 166, 35, 0.1);
+    }
+
+    .btn.danger-btn {
+      border-color: var(--off);
+      color: var(--off);
+    }
+
+    .btn.danger-btn:hover {
+      background: rgba(240, 87, 107, 0.1);
+    }
+
+    .btn.primary {
+      background: rgba(94, 200, 216, 0.1);
+      border-color: var(--info);
+      color: var(--info);
+    }
+
+    .btn.primary:hover {
+      background: rgba(94, 200, 216, 0.18);
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
 
     /* ---------- main / table ---------- */
-    main { padding: 20px; }
+    main {
+      padding: 20px;
+    }
 
     .meta-row {
       display: flex;
@@ -151,21 +265,65 @@
       background: var(--panel-alt);
     }
 
-    tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover { background: rgba(94, 200, 216, 0.04); }
+    tbody td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
 
-    .idx { color: var(--info); font-weight: 700; }
-    .name { color: var(--text); }
-    .name .none { color: var(--dimmer); font-style: italic; }
-    .ts { color: var(--dimmer); font-size: 11px; }
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
 
-    .empty-state { padding: 60px 20px; text-align: center; color: var(--dim); }
-    .empty-state .glyph { font-size: 22px; color: var(--dimmer); margin-bottom: 8px; }
+    tbody tr:hover {
+      background: rgba(94, 200, 216, 0.04);
+    }
+
+    .idx {
+      color: var(--info);
+      font-weight: 700;
+    }
+
+    .name {
+      color: var(--text);
+    }
+
+    .name .none {
+      color: var(--dimmer);
+      font-style: italic;
+    }
+
+    .ts {
+      color: var(--dimmer);
+      font-size: 11px;
+    }
+
+    .empty-state {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--dim);
+    }
+
+    .empty-state .glyph {
+      font-size: 22px;
+      color: var(--dimmer);
+      margin-bottom: 8px;
+    }
 
     /* ---------- instance actions ---------- */
-    .actions-cell { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
-    .win-sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 3px; }
+    .actions-cell {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .win-sep {
+      width: 1px;
+      align-self: stretch;
+      background: var(--border);
+      margin: 0 3px;
+    }
 
     /* ---------- health monitor panel ---------- */
     .health-panel {
@@ -175,16 +333,54 @@
       margin-bottom: 14px;
       overflow: hidden;
     }
+
     .health-head {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 14px; background: var(--panel-alt); border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--panel-alt);
+      border-bottom: 1px solid var(--border);
     }
-    .health-title { font-size: 12px; color: var(--info); letter-spacing: 0.02em; }
-    .health-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
-    .health-kv { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 6px 14px; font-size: 12px; }
-    .health-kv .k { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
-    .health-kv .v { color: var(--text); word-break: break-word; }
-    .health-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .health-title {
+      font-size: 12px;
+      color: var(--info);
+      letter-spacing: 0.02em;
+    }
+
+    .health-body {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .health-kv {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 6px 14px;
+      font-size: 12px;
+    }
+
+    .health-kv .k {
+      color: var(--dim);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .health-kv .v {
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .health-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
 
     /* ---------- assisted init panel ---------- */
     .assisted-panel {
@@ -194,109 +390,404 @@
       margin-bottom: 14px;
       overflow: hidden;
     }
+
     .assisted-head {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 14px; background: var(--panel-alt); border-bottom: 1px solid var(--border);
-      flex-wrap: wrap; gap: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--panel-alt);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 8px;
     }
-    .assisted-title { font-size: 12px; color: var(--info); letter-spacing: 0.02em; }
-    .assisted-controls { display: flex; gap: 6px; align-items: center; }
-    .assisted-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
-    .assisted-card { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--panel-alt); }
-    .ac-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
-    .ac-idx { color: var(--info); font-weight: 700; }
-    .ac-overall { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); }
-    .ac-overall.ok { color: var(--live); }
-    .ac-overall.fail { color: var(--off); }
-    .ac-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .assisted-title {
+      font-size: 12px;
+      color: var(--info);
+      letter-spacing: 0.02em;
+    }
+
+    .assisted-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .assisted-body {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .assisted-card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: var(--panel-alt);
+    }
+
+    .ac-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .ac-idx {
+      color: var(--info);
+      font-weight: 700;
+    }
+
+    .ac-overall {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--dim);
+    }
+
+    .ac-overall.ok {
+      color: var(--live);
+    }
+
+    .ac-overall.fail {
+      color: var(--off);
+    }
+
+    .ac-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
     .ac-step {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 3px 8px; border-radius: 999px; font-size: 10px;
-      text-transform: uppercase; letter-spacing: .04em;
-      border: 1px solid var(--border); color: var(--dimmer);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      border: 1px solid var(--border);
+      color: var(--dimmer);
     }
-    .ac-step .dot { width: 6px; height: 6px; }
-    .ac-step[data-state="running"] { color: var(--warn); border-color: var(--warn); }
-    .ac-step[data-state="running"] .dot { background: var(--warn); animation: pulse 1.2s infinite; }
-    .ac-step[data-state="ok"] { color: var(--live); border-color: var(--live); }
-    .ac-step[data-state="ok"] .dot { background: var(--live); }
-    .ac-step[data-state="fail"] { color: var(--off); border-color: var(--off); }
-    .ac-step[data-state="fail"] .dot { background: var(--off); }
-    .ac-empty { padding: 20px; text-align: center; color: var(--dim); font-size: 12px; }
+
+    .ac-step .dot {
+      width: 6px;
+      height: 6px;
+    }
+
+    .ac-step[data-state="running"] {
+      color: var(--warn);
+      border-color: var(--warn);
+    }
+
+    .ac-step[data-state="running"] .dot {
+      background: var(--warn);
+      animation: pulse 1.2s infinite;
+    }
+
+    .ac-step[data-state="ok"] {
+      color: var(--live);
+      border-color: var(--live);
+    }
+
+    .ac-step[data-state="ok"] .dot {
+      background: var(--live);
+    }
+
+    .ac-step[data-state="fail"] {
+      color: var(--off);
+      border-color: var(--off);
+    }
+
+    .ac-step[data-state="fail"] .dot {
+      background: var(--off);
+    }
+
+    .ac-empty {
+      padding: 20px;
+      text-align: center;
+      color: var(--dim);
+      font-size: 12px;
+    }
 
     /* ---------- drawer ---------- */
-    .scrim { position: fixed; inset: 0; background: rgba(4,6,8,0.55); opacity: 0; pointer-events: none; transition: opacity 0.15s ease; z-index: 20; }
-    .scrim.open { opacity: 1; pointer-events: auto; }
+    .scrim {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 6, 8, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      z-index: 20;
+    }
+
+    .scrim.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
 
     .drawer {
-      position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 92vw);
-      background: var(--panel); border-left: 1px solid var(--border);
-      transform: translateX(100%); transition: transform 0.18s ease; z-index: 21;
-      display: flex; flex-direction: column;
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(460px, 92vw);
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      transform: translateX(100%);
+      transition: transform 0.18s ease;
+      z-index: 21;
+      display: flex;
+      flex-direction: column;
     }
-    .drawer.open { transform: translateX(0); }
 
-    .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border); background: var(--panel-alt); }
-    .drawer-head h2 { margin: 0; font-size: 14px; }
-    .drawer-head .close { background: transparent; border: none; color: var(--dim); font-size: 16px; }
-    .drawer-head .close:hover { color: var(--off); }
+    .drawer.open {
+      transform: translateX(0);
+    }
 
-    .drawer-body { overflow-y: auto; padding: 16px 18px 40px; flex: 1; }
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-alt);
+    }
 
-    .section { margin-bottom: 18px; }
+    .drawer-head h2 {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .drawer-head .close {
+      background: transparent;
+      border: none;
+      color: var(--dim);
+      font-size: 16px;
+    }
+
+    .drawer-head .close:hover {
+      color: var(--off);
+    }
+
+    .drawer-body {
+      overflow-y: auto;
+      padding: 16px 18px 40px;
+      flex: 1;
+    }
+
+    .section {
+      margin-bottom: 18px;
+    }
+
     .section h3 {
-      font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--info);
-      margin: 0 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--info);
+      margin: 0 0 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
     }
-    .kv { display: grid; grid-template-columns: 42% 58%; gap: 4px 8px; font-size: 12px; }
-    .kv .k { color: var(--dim); }
-    .kv .v { color: var(--text); word-break: break-word; }
 
-    .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
-    .log-item { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; font-size: 11px; }
-    .log-item .t { color: var(--dimmer); margin-right: 6px; }
+    .kv {
+      display: grid;
+      grid-template-columns: 42% 58%;
+      gap: 4px 8px;
+      font-size: 12px;
+    }
 
-    .raw-toggle { margin-top: 4px; }
+    .kv .k {
+      color: var(--dim);
+    }
+
+    .kv .v {
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .log-item {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 11px;
+    }
+
+    .log-item .t {
+      color: var(--dimmer);
+      margin-right: 6px;
+    }
+
+    .raw-toggle {
+      margin-top: 4px;
+    }
+
     pre.raw {
-      background: #06090B; border: 1px solid var(--border); border-radius: 4px; padding: 10px;
-      font-size: 11px; max-height: 280px; overflow: auto; white-space: pre-wrap; word-break: break-word; display: none;
+      background: #06090B;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px;
+      font-size: 11px;
+      max-height: 280px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      display: none;
     }
-    pre.raw.open { display: block; }
+
+    pre.raw.open {
+      display: block;
+    }
 
     /* ---------- modal ---------- */
     .modal-scrim {
-      position: fixed; inset: 0; background: rgba(4,6,8,0.65);
-      opacity: 0; pointer-events: none; transition: opacity .15s ease;
-      z-index: 40; display: flex; align-items: center; justify-content: center; padding: 20px;
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 6, 8, 0.65);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s ease;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
     }
-    .modal-scrim.open { opacity: 1; pointer-events: auto; }
+
+    .modal-scrim.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
     .modal-box {
-      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-      width: min(420px, 100%); padding: 18px 20px;
-      transform: translateY(8px); transition: transform .15s ease;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: min(420px, 100%);
+      padding: 18px 20px;
+      transform: translateY(8px);
+      transition: transform .15s ease;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     }
-    .modal-scrim.open .modal-box { transform: translateY(0); }
-    .modal-title { margin: 0 0 6px; font-size: 14px; color: var(--text); font-weight: 600; }
-    .modal-sub { margin: 0 0 12px; font-size: 12px; color: var(--dim); line-height: 1.5; white-space: pre-wrap; }
+
+    .modal-scrim.open .modal-box {
+      transform: translateY(0);
+    }
+
+    .modal-title {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .modal-sub {
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: var(--dim);
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
     .modal-warning {
-      background: rgba(245, 166, 35, 0.08); border: 1px solid rgba(245, 166, 35, 0.35);
-      color: var(--warn); font-size: 11px; padding: 8px 10px; border-radius: 4px; margin-bottom: 12px;
+      background: rgba(245, 166, 35, 0.08);
+      border: 1px solid rgba(245, 166, 35, 0.35);
+      color: var(--warn);
+      font-size: 11px;
+      padding: 8px 10px;
+      border-radius: 4px;
+      margin-bottom: 12px;
     }
-    .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+    .modal-btns {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 6px;
+    }
 
     /* ---------- toasts ---------- */
-    .toast-stack { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
-    .toast {
-      background: var(--panel-alt); border: 1px solid var(--border); border-left: 3px solid var(--info);
-      color: var(--text); font-size: 12px; padding: 8px 12px; border-radius: 4px;
-      opacity: 0; transform: translateX(8px); transition: all .2s ease; max-width: 320px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    .toast-stack {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 50;
     }
-    .toast.show { opacity: 1; transform: translateX(0); }
-    .toast.ok { border-left-color: var(--live); }
-    .toast.bad { border-left-color: var(--off); }
-    .toast.warn { border-left-color: var(--warn); }
+
+    .toast {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--info);
+      color: var(--text);
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      opacity: 0;
+      transform: translateX(8px);
+      transition: all .2s ease;
+      max-width: 320px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .toast.ok {
+      border-left-color: var(--live);
+    }
+
+    .toast.bad {
+      border-left-color: var(--off);
+    }
+
+    .toast.warn {
+      border-left-color: var(--warn);
+    }
+
+    .dot.deprecated {
+      background: var(--off);
+      opacity: 0.65;
+    }
+
+    .excl-toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--dim);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .excl-toggle input {
+      cursor: pointer;
+      accent-color: var(--info);
+    }
+
+    .excl-toggle.excluded {
+      color: var(--warn);
+    }
   </style>
 </head>
 
@@ -307,8 +798,10 @@
       <span class="mark">instance-console</span>
       <span class="sub">ldplayer-bridge</span>
     </div>
-    <span class="pill" id="bridgePill"><span class="dot" id="bridgeDot"></span><span id="bridgeLabel">bridge python: ---</span></span>
-    <span class="pill" id="monitorPill"><span class="dot" id="monitorDot"></span><span id="monitorLabel">sys: ---</span></span>
+    <span class="pill" id="bridgePill"><span class="dot" id="bridgeDot"></span><span id="bridgeLabel">bridge python:
+        ---</span></span>
+    <span class="pill" id="monitorPill"><span class="dot" id="monitorDot"></span><span id="monitorLabel">sys:
+        ---</span></span>
     <button class="btn small" id="monitorToggleBtn">activar monitor</button>
     <button class="btn small" id="workModeToggleBtn">modo trabajo</button>
     <button class="btn small" id="assistedPanelToggleBtn">🧭 modo asistido</button>
@@ -325,6 +818,9 @@
       <input id="baseUrlInput" type="text" value="http://localhost:4000" spellcheck="false" />
     </div>
 
+    <button class="btn small" id="pruneBtn" title="recalcular deprecated contra ldconsole list2">🔄 sincronizar</button>
+    <button class="btn small danger-btn" id="purgeBtn" title="eliminar todas las instancias deprecated">🗑 purgar
+      deprecated</button>
     <button class="btn small" id="refreshBtn">refrescar</button>
   </header>
 
@@ -338,14 +834,16 @@
         </div>
       </div>
       <div class="assisted-body" id="assistedBody">
-        <div class="ac-empty">sin ejecuciones todavía. "iniciar" procesa todas las instancias cargadas, una por una.</div>
+        <div class="ac-empty">sin ejecuciones todavía. "iniciar" procesa todas las instancias cargadas, una por una.
+        </div>
       </div>
     </div>
 
     <div class="health-panel" id="healthPanel">
       <div class="health-head">
         <span class="health-title">🩺 monitor de salud (round-robin)</span>
-        <span class="pill" id="healthStatePill"><span class="dot" id="healthDot"></span><span id="healthStateLabel">---</span></span>
+        <span class="pill" id="healthStatePill"><span class="dot" id="healthDot"></span><span
+            id="healthStateLabel">---</span></span>
       </div>
       <div class="health-body">
         <div class="health-kv" id="healthKv"></div>
@@ -377,13 +875,20 @@
           <th>monitor</th>
           <th>root</th>
           <th>ventana</th>
+          <th>salud</th>
           <th>actualizado</th>
           <th>acciones</th>
           <th></th>
         </tr>
       </thead>
       <tbody id="tbody">
-        <tr><td colspan="10"><div class="empty-state"><div class="glyph">···</div>cargando instancias</div></td></tr>
+        <tr>
+          <td colspan="10">
+            <div class="empty-state">
+              <div class="glyph">···</div>cargando instancias
+            </div>
+          </td>
+        </tr>
       </tbody>
     </table>
   </main>
@@ -415,7 +920,7 @@
       const drawer = $('#drawer');
       const drawerTitle = $('#drawerTitle');
       const drawerBody = $('#drawerBody');
-
+      let healthExcluded = [];
       let baseUrl = baseUrlInput.value.replace(/\/+$/, '');
       let pyBaseUrl = $('#pyUrlInput').value.replace(/\/+$/, '') + '/api/v1';
       let models = [];
@@ -827,6 +1332,7 @@
 
       function powerPill(model) {
         const p = model.power || {};
+        if (p.deprecated) return `<span class="pill"><span class="dot deprecated"></span>deprecated</span>`;
         if (p.status === 'on') return `<span class="pill"><span class="dot live"></span>encendida</span>`;
         if (p.status === 'off') {
           const cause = model.monitor?.lastOffCause;
@@ -837,7 +1343,6 @@
         }
         return `<span class="pill"><span class="dot"></span>desconocido</span>`;
       }
-
       function agentCell(model) {
         const a = model.agent || {};
         if (!a.deviceId) return `<span class="pill"><span class="dot"></span>sin agente</span>`;
@@ -876,31 +1381,41 @@
         tbody.innerHTML = models.map((m) => {
           const win = windowsByIndex[m.index];
           const hwnd = win ? win.hwnd : '';
+          const isExcluded = healthExcluded.includes(Number(m.index));
+          const isDeprecated = !!(m.power && m.power.deprecated);
           return `
-      <tr>
-        <td class="idx">#${esc(m.index)}</td>
-        <td class="name">${m.name ? esc(m.name) : '<span class="none">sin nombre</span>'}</td>
-        <td>${powerPill(m)}</td>
-        <td>${agentCell(m)}</td>
-        <td>${monitorCell(m)}</td>
-        <td>${rootCell(m)}</td>
-        <td>${windowPill(win)}</td>
-        <td class="ts">${esc(relTime(m.updatedAt))}</td>
-        <td class="actions-cell">
-          <button class="btn small" data-action="launch" data-index="${esc(m.index)}" title="encender">▶</button>
-          <button class="btn small" data-action="quit" data-index="${esc(m.index)}" title="apagar">⏻</button>
-          <button class="btn small" data-action="reboot" data-index="${esc(m.index)}" title="reiniciar">↻</button>
-          <button class="btn small warn-btn" data-action="hardreboot" data-index="${esc(m.index)}" title="reinicio forzado (adb reboot)">⚡↻</button>
-          <button class="btn small danger-btn" data-action="hardoff" data-index="${esc(m.index)}" title="apagado forzado (adb reboot -p)">⚡⏻</button>
-          <span class="win-sep"></span>
-          <button class="btn small" data-winbtn="minimize" data-hwnd="${hwnd}" ${hwnd ? '' : 'disabled'} title="minimizar ventana">–</button>
-          <button class="btn small" data-winbtn="maximize" data-hwnd="${hwnd}" ${hwnd ? '' : 'disabled'} title="maximizar ventana">▢</button>
-          <button class="btn small" data-winbtn="restore" data-hwnd="${hwnd}" ${hwnd ? '' : 'disabled'} title="restaurar ventana">❐</button>
-          <button class="btn small" data-winact="interact" data-index="${esc(m.index)}" ${hwnd ? '' : 'disabled'} title="traer al frente y maximizar">👁</button>
-        </td>
-        <td><button class="btn small" data-info="${esc(m.index)}">info</button></td>
-      </tr>
-    `;
+<tr>
+  <td class="idx">#${esc(m.index)}</td>
+  <td class="name">${m.name ? esc(m.name) : '<span class="none">sin nombre</span>'}</td>
+  <td>${powerPill(m)}</td>
+  <td>${agentCell(m)}</td>
+  <td>${monitorCell(m)}</td>
+  <td>${rootCell(m)}</td>
+  <td>${windowPill(win)}</td>
+  <td>
+    <label class="excl-toggle ${isExcluded ? 'excluded' : ''}">
+      <input type="checkbox" data-excl="${esc(m.index)}" ${isExcluded ? 'checked' : ''}/>
+      excluir
+    </label>
+  </td>
+  <td class="ts">${esc(relTime(m.updatedAt))}</td>
+  <td class="actions-cell">
+    <button class="btn small" data-action="launch" data-index="${esc(m.index)}" title="encender">▶</button>
+    <button class="btn small" data-action="quit" data-index="${esc(m.index)}" title="apagar">⏻</button>
+    <button class="btn small" data-action="reboot" data-index="${esc(m.index)}" title="reiniciar">↻</button>
+    <button class="btn small warn-btn" data-action="hardreboot" data-index="${esc(m.index)}" title="reinicio forzado (adb reboot)">⚡↻</button>
+    <button class="btn small danger-btn" data-action="hardoff" data-index="${esc(m.index)}" title="apagado forzado (adb reboot -p)">⚡⏻</button>
+    <span class="win-sep"></span>
+    <button class="btn small" data-winbtn="minimize" data-hwnd="${hwnd}" ${hwnd ? '' : 'disabled'} title="minimizar ventana">–</button>
+    <button class="btn small" data-winbtn="maximize" data-hwnd="${hwnd}" ${hwnd ? '' : 'disabled'} title="maximizar ventana">▢</button>
+    <button class="btn small" data-winbtn="restore" data-hwnd="${hwnd}" ${hwnd ? '' : 'disabled'} title="restaurar ventana">❐</button>
+    <button class="btn small" data-winact="interact" data-index="${esc(m.index)}" ${hwnd ? '' : 'disabled'} title="traer al frente y maximizar">👁</button>
+    <span class="win-sep"></span>
+    <button class="btn small danger-btn" data-action="delete" data-index="${esc(m.index)}" ${isDeprecated ? '' : 'disabled'} title="${isDeprecated ? 'eliminar instancia' : 'solo se puede eliminar si está deprecated'}">🗑</button>
+  </td>
+  <td><button class="btn small" data-info="${esc(m.index)}">info</button></td>
+</tr>
+`;
         }).join('');
 
         tbody.querySelectorAll('[data-info]').forEach((btn) => {
@@ -919,10 +1434,103 @@
         tbody.querySelectorAll('[data-winact="interact"]').forEach((btn) => {
           btn.addEventListener('click', () => runWindowInteract(btn.getAttribute('data-index'), btn));
         });
+        tbody.querySelectorAll('[data-excl]').forEach((cb) => {
+          cb.addEventListener('change', () => toggleExcluded(cb.getAttribute('data-excl'), cb.checked, cb));
+        });
+      }
+      async function toggleExcluded(index, excluded, cb) {
+        cb.disabled = true;
+        try {
+          const res = await fetch(`${baseUrl}/api/health-monitor/${excluded ? 'exclude' : 'include'}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ index: Number(index) }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          healthExcluded = (data.excluded || []).map(Number);
+          toast(`#${index}: ${excluded ? 'excluida del' : 'incluida en el'} monitor de salud`, 'ok');
+        } catch (err) {
+          toast(`no se pudo actualizar #${index}: ${err.message}`, 'bad');
+          cb.checked = !excluded;
+        } finally {
+          cb.disabled = false;
+        }
       }
 
+      async function loadHealthExcluded() {
+        try {
+          const res = await fetch(`${baseUrl}/api/health-monitor/excluded`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          healthExcluded = (data.excluded || []).map(Number);
+        } catch (_) {
+          healthExcluded = [];
+        }
+      }
+
+      $('#pruneBtn').addEventListener('click', async () => {
+        const btn = $('#pruneBtn');
+        btn.disabled = true;
+        try {
+          const res = await fetch(`${baseUrl}/api/instance-model/prune`, { method: 'POST' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          toast(`sincronizado: ${data.active.length} activa(s), ${data.deprecated.length} deprecated`, 'ok');
+          await loadModels();
+        } catch (err) {
+          toast(`no se pudo sincronizar: ${err.message}`, 'bad');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      $('#purgeBtn').addEventListener('click', async () => {
+        const deprecatedCount = models.filter((m) => m.power && m.power.deprecated).length;
+        if (!deprecatedCount) { toast('no hay instancias deprecated para purgar', 'warn'); return; }
+        const ok = await confirmModal({
+          title: 'Purgar instancias deprecated',
+          subtitle: `Se eliminarán ${deprecatedCount} instancia(s) marcadas deprecated de forma permanente.`,
+          warning: 'Esta acción no se puede deshacer.',
+          danger: true, confirmLabel: 'Purgar',
+        });
+        if (!ok) return;
+        try {
+          const res = await fetch(`${baseUrl}/api/instance-model/purge`, { method: 'POST' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          toast(`purgadas: ${(data.removed || []).join(', ') || 'ninguna'}`, 'ok');
+          await loadModels();
+        } catch (err) {
+          toast(`no se pudo purgar: ${err.message}`, 'bad');
+        }
+      });
       // -------------------- instance actions --------------------
       async function runInstanceAction(action, index, btn) {
+        if (action === 'delete') {
+          const ok = await confirmModal({
+            title: `Eliminar instancia #${index}`,
+            subtitle: 'Borra el registro de esta instancia del dashboard y de disco (instances/<index>.json). Solo aplica a instancias marcadas deprecated.',
+            warning: 'Esta acción no se puede deshacer.',
+            danger: true, confirmLabel: 'Eliminar',
+          });
+          if (!ok) return;
+          btn.disabled = true;
+          try {
+            const res = await fetch(`${baseUrl}/api/instance-model/${index}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.error || `HTTP ${res.status}`);
+            }
+            toast(`#${index}: eliminada`, 'ok');
+            await loadModels();
+          } catch (err) {
+            toast(`no se pudo eliminar #${index}: ${err.message}`, 'bad');
+            btn.disabled = false;
+          }
+          return;
+        }
+
         const confirmCfg = {
           quit: { title: `Apagar instancia #${index}`, subtitle: 'Se enviará un apagado normal (quit).', confirmLabel: 'Apagar' },
           hardreboot: {
@@ -1395,7 +2003,7 @@
       });
 
       async function loadAll() {
-        await Promise.all([loadModels(), loadBridge(), refreshHealthMonitor(), loadWindows(), refreshWorkMode()]);
+        await Promise.all([loadModels(), loadBridge(), refreshHealthMonitor(), loadWindows(), refreshWorkMode(), loadHealthExcluded()]);
         renderTable();
         lastPoll.textContent = `última actualización: ${new Date().toLocaleTimeString('es-AR')}`;
       }
