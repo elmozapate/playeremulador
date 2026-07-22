@@ -100,7 +100,7 @@ const PRESETS = {
       { type: 'run', values: { package_name: KNOWN_APPS.socks.package_name } },
       { type: 'wait', values: { seconds: 1 } },
       { type: 'tool', values: { tool_action: 'input_tap', x: 311, y: 80 } },
-      { type: 'wait', values: { seconds: 1 } },
+      { type: 'wait', values: { seconds: 4 } },
       { type: 'run', values: { package_name: KNOWN_APPS.earn.package_name } },
       { type: 'wait', values: { seconds: 1 } },
       {
@@ -130,8 +130,7 @@ const PRESETS = {
       { type: 'run', values: { package_name: KNOWN_APPS.socks.package_name } },
       { type: 'wait', values: { seconds: 1 } },
       { type: 'tool', values: { tool_action: 'input_tap', x: 311, y: 80 } },
-      { type: 'wait', values: { seconds: 1 } },
-      { type: 'wait', values: { seconds: 1 } },
+      { type: 'wait', values: { seconds: 4 } },
       { type: 'run', values: { package_name: KNOWN_APPS.earn.package_name } },
       { type: 'wait', values: { seconds: 1 } },
       {
@@ -164,7 +163,7 @@ hard_health_recovery:()=>({name:'Recuperación dura (root+debug + pipeline)',ste
   {type:'run',values:{package_name:KNOWN_APPS.socks.package_name}},
   {type:'wait',values:{seconds:1}},
   {type:'tool',values:{tool_action:'input_tap',x:311,y:80}},
-  {type:'wait',values:{seconds:1}},
+  {type:'wait',values:{seconds:4}},
   {type:'run',values:{package_name:KNOWN_APPS.earn.package_name}},
   {type:'wait',values:{seconds:1}},
   {type:'verify',values:{tool_action:'apps_current',expect_path:'package_name',expect_value:KNOWN_APPS.earn.package_name}},
