@@ -7,8 +7,13 @@ class InstanceModel {
     this.index = Number(index);
     this.name = null;
     this.power = {
-      status: 'unknown', source: null, updatedAt: null, expectedOff: false, lastLaunchAt: null, lastQuitAt: null, neverSeenOn: true,
-      deprecated: false, deprecatedAt: null, deprecatedReason: null,
+      status: 'unknown',
+      source: null,
+      updatedAt: null,
+      expectedOff: false,
+      lastLaunchAt: null,
+      lastQuitAt: null,
+      neverSeenOn: true,
     };
     this.agent = {
       deviceId: null,

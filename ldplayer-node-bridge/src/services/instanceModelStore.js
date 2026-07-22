@@ -100,7 +100,6 @@ class InstanceModelStore {
         this._applyPower(model, running ? 'on' : 'off', 'status-poller');
         if (inst.name) model.name = inst.name;
       }
-      this.prune(Object.keys(instances).map(Number));   // <-- nuevo
     });
     eventBus.on('python:bridge:instance-event', (payload) => {
       if (!payload || payload.index === undefined) return;
@@ -152,7 +151,7 @@ class InstanceModelStore {
       } else if (action === 'apps:uninstall' && result?.package_name) {
         const pkg = result.package_name;
         model.apps[pkg] = { ...(model.apps[pkg] || {}), installed: false, lastSeen: Date.now() };
-        instanceRecordStore.recordApp(index, pkg, { installed: false, last_seen: Date.now() / 1000, source: 'action' }).catch(() => { });
+        instanceRecordStore.recordApp(index, pkg, { installed: false, last_seen: Date.now() / 1000, source: 'action' }).catch(() => {});
         if (pkg === this._monitorPackageName()) {
           model.monitor.installed = false;
           model.monitor.running = false;
@@ -219,7 +218,7 @@ class InstanceModelStore {
     for (const pkg of model.agent.activeApks) {
       if (!pkg) continue;
       model.apps[pkg] = { ...(model.apps[pkg] || {}), installed: true, lastSeen: now };
-      instanceRecordStore.recordApp(index, pkg, { installed: true, last_seen: now / 1000, source: 'agent' }).catch(() => { });
+      instanceRecordStore.recordApp(index, pkg, { installed: true, last_seen: now / 1000, source: 'agent' }).catch(() => {});
     }
     const monitorPkg = this._monitorPackageName();
     if (monitorPkg) {
@@ -256,7 +255,7 @@ class InstanceModelStore {
       };
       model.pushEvent('window', `ventana vinculada hwnd=${payload.hwnd}`);
     }
-    instanceRecordStore.recordWindow(index, model.window).catch(() => { });
+    instanceRecordStore.recordWindow(index, model.window).catch(() => {});
     this._broadcast(model);
   }
   _applyWindowAction({ action, hwnd }) {
@@ -269,7 +268,7 @@ class InstanceModelStore {
     const stateMap = { minimize: 'minimized', maximize: 'maximized', restore: 'normal', hide: 'hidden', show: 'normal' };
     if (stateMap[action]) {
       model.window = { ...model.window, hwnd: Number(hwnd), state: stateMap[action], updatedAt: Date.now() };
-      instanceRecordStore.recordWindow(entry.index, model.window).catch(() => { });
+      instanceRecordStore.recordWindow(entry.index, model.window).catch(() => {});
       model.pushEvent('window', `acción de ventana: ${action}`);
       this._broadcast(model);
     }
@@ -289,7 +288,7 @@ class InstanceModelStore {
     if ((step === 'install' || String(step).startsWith('install:')) && pkg) {
       const installedOk = status === 'ok';
       model.apps[pkg] = { ...(model.apps[pkg] || {}), installed: installedOk, lastSeen: Date.now() };
-      instanceRecordStore.recordApp(index, pkg, { installed: installedOk, last_seen: Date.now() / 1000, source: 'pipeline-step' }).catch(() => { });
+      instanceRecordStore.recordApp(index, pkg, { installed: installedOk, last_seen: Date.now() / 1000, source: 'pipeline-step' }).catch(() => {});
       if (pkg === this._monitorPackageName()) model.monitor.installed = installedOk;
     }
     if (step === 'kill' && pkg && status === 'ok' && pkg === this._monitorPackageName()) {
@@ -303,42 +302,10 @@ class InstanceModelStore {
   decideHealthAction(index) {
     const model = this._get(index);
     if (!model) return { action: 'skip-unknown', model: null };
-    if (model.power.deprecated) return { action: 'skip-deprecated', model };
     if (model.power.status === 'on') return { action: 'open-monitor', model };
     if (model.power.neverSeenOn && !model.power.lastLaunchAt) return { action: 'skip-never-started', model };
     if (model.power.expectedOff) return { action: 'skip-expected-off', model };
     return { action: 'relaunch', model };
   }
-  _markDeprecated(model, reason = 'no aparece en ldconsole list2') {
-    if (model.power.deprecated) return;
-    model.power.deprecated = true;
-    model.power.deprecatedAt = Date.now();
-    model.power.deprecatedReason = reason;
-    model.pushEvent('power', `instancia marcada como deprecated (${reason})`, { level: 'warn' });
-    this._broadcast(model);
-  }
-  _clearDeprecated(model) {
-    if (!model.power.deprecated) return;
-    model.power.deprecated = false;
-    model.power.deprecatedAt = null;
-    model.power.deprecatedReason = null;
-    model.pushEvent('power', 'la instancia reapareció, se saca el flag deprecated');
-    this._broadcast(model);
-  }
-  prune(activeIndices) {
-    const activeSet = new Set(activeIndices.map(Number));
-    for (const [idx, model] of this.models.entries()) {
-      if (activeSet.has(idx)) this._clearDeprecated(model);
-      else this._markDeprecated(model);
-    }
-  }
-  purgeDeprecated() {
-    const removed = [];
-    for (const [idx, model] of this.models.entries()) {
-      if (model.power.deprecated) { this.models.delete(idx); removed.push(idx); }
-    }
-    return removed;
-  }
-  delete(index) { return this.models.delete(Number(index)); }
 }
 module.exports = new InstanceModelStore();

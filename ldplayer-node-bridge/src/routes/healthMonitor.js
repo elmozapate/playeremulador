@@ -27,22 +27,6 @@ function buildHealthMonitorRouter(healthScheduler) {
       res.status(500).json({ error: err.message });
     }
   });
-  router.get('/excluded', (req, res) => { res.json({ excluded: healthScheduler.getExcluded() }); });
-  router.post('/exclude', (req, res) => {
-    const { index } = req.body || {};
-    if (index === undefined) return res.status(400).json({ error: 'index requerido' });
-    res.json({ excluded: healthScheduler.excludeIndex(index) });
-  });
-  router.post('/include', (req, res) => {
-    const { index } = req.body || {};
-    if (index === undefined) return res.status(400).json({ error: 'index requerido' });
-    res.json({ excluded: healthScheduler.includeIndex(index) });
-  });
-  router.put('/excluded', (req, res) => {
-    const { indices } = req.body || {};
-    if (!Array.isArray(indices)) return res.status(400).json({ error: 'indices debe ser array' });
-    res.json({ excluded: healthScheduler.setExcluded(indices) });
-  });
   return router;
 }
 module.exports = buildHealthMonitorRouter;

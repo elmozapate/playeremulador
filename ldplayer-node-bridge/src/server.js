@@ -58,7 +58,7 @@ function createServer({ manager } = {}) {
   app.use('/events', buildEventsRouter());
   app.use('/api/pipeline', buildPipelineRouter(client));
   app.use('/api/tasks', buildTasksRouter(client));
-  app.use('/api/instance-model', buildInstanceModelRouter(client));
+  app.use('/api/instance-model', buildInstanceModelRouter());
   app.use('/api/windows', buildWindowsRouter(client)); // <-- NUEVO (Fase 0)
 
   if (manager) { app.use('/api/service', buildServiceRouter(manager, { client })); }
